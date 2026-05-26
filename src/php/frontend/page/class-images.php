@@ -2,20 +2,20 @@
 /**
  * Contains the Images class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend\Page;
+namespace Avpvh\Frontend\Page;
 
 use DateTime;
-use Sgdg\API_Facade;
-use Sgdg\Exceptions\Internal_Exception;
-use Sgdg\Exceptions\Plugin_Not_Authorized_Exception;
-use Sgdg\Exceptions\Unsupported_Value_Exception;
-use Sgdg\Frontend\API_Fields;
-use Sgdg\Frontend\Options_Proxy;
-use Sgdg\Frontend\Pagination_Helper;
-use Sgdg\Vendor\GuzzleHttp\Promise\PromiseInterface;
+use Avpvh\API_Facade;
+use Avpvh\Exceptions\Internal_Exception;
+use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
+use Avpvh\Exceptions\Unsupported_Value_Exception;
+use Avpvh\Frontend\API_Fields;
+use Avpvh\Frontend\Options_Proxy;
+use Avpvh\Frontend\Pagination_Helper;
+use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
 
 /**
  * Contains all the functions used to display images in a gallery.
@@ -29,7 +29,7 @@ final class Images {
 	 * @param Pagination_Helper $pagination_helper An initialized pagination helper.
 	 * @param Options_Proxy     $options The configuration of the gallery.
 	 *
-	 * @return PromiseInterface A promise resolving to a list of images in the format `['id' =>, 'id', 'description' => 'description', 'image' => 'image', 'thumbnail' => 'thumbnail']`.
+	 * @return PromiseInterface A promise resolving to a list of images in the format `['id' => 'id', 'description' => 'description', 'image' => 'image', 'thumbnail' => 'thumbnail', 'width' => width, 'height' => height]`.
 	 *
 	 * @throws Internal_Exception The method was called without an initialized batch.
 	 * @throws Plugin_Not_Authorized_Exception Not authorized.
@@ -43,28 +43,47 @@ final class Images {
 					'id',
 					'thumbnailLink',
 					'createdTime',
-					'imageMediaMetadata' => array( 'time' ),
+					'imageMediaMetadata' => array( 'time', 'width', 'height' ),
 					'description',
 				)
 			);
 		} else {
 			$order_by = $options->get( 'image_ordering' );
-			$fields   = new API_Fields( array( 'id', 'thumbnailLink', 'description' ) );
+			$fields   = new API_Fields(
+				array(
+					'id',
+					'thumbnailLink',
+					'imageMediaMetadata' => array( 'width', 'height' ),
+					'description',
+				)
+			);
 		}
 
 		return API_Facade::list_images( $parent_id, $fields, $pagination_helper, $order_by )->then(
 			static function ( $image_response ) use ( $options ) {
 				$images = array_map(
 					static function ( $image ) use ( $options ) {
+						$metadata = array_key_exists( 'imageMediaMetadata', $image ) && is_array( $image['imageMediaMetadata'] )
+							? $image['imageMediaMetadata']
+							: array();
+						$width    = array_key_exists( 'width', $metadata ) && is_numeric( $metadata['width'] )
+							? intval( $metadata['width'] )
+							: 0;
+						$height   = array_key_exists( 'height', $metadata ) && is_numeric( $metadata['height'] )
+							? intval( $metadata['height'] )
+							: 0;
+
 						return array(
 							'description' => array_key_exists( 'description', $image )
 								? esc_attr( $image['description'] )
 								: '',
+							'height'      => $height,
 							'id'          => $image['id'],
 							'image'       => substr( $image['thumbnailLink'], 0, -3 ) . $options->get( 'preview_size' ),
 							'thumbnail'   => substr( $image['thumbnailLink'], 0, -4 ) .
 								'h' .
 								floor( 1.25 * $options->get( 'grid_height' ) ),
+							'width'       => $width,
 						);
 					},
 					$image_response
@@ -108,11 +127,11 @@ final class Images {
 	/**
 	 * Orders images.
 	 *
-	 * @param array<array{id: string, description: string, image: string, thumbnail: string, timestamp?: int}> $images A list of images in the format `['id' =>, 'id', 'description' => 'description', 'image' => 'image', 'thumbnail' => 'thumbnail']`.
-	 * @param array<int>                                                                                       $image_timestamps The timestamps for each image.
-	 * @param Options_Proxy                                                                                    $options The configuration of the gallery.
+	 * @param array<array{id: string, description: string, image: string, thumbnail: string, width: int, height: int, timestamp?: int}> $images A list of images.
+	 * @param array<int>                                                                                                                $image_timestamps The timestamps for each image.
+	 * @param Options_Proxy                                                                                                             $options The configuration of the gallery.
 	 *
-	 * @return array<array{id: string, description: string, image: string, thumbnail: string}> An ordered list of images in the format `['id' =>, 'id', 'description' => 'description', 'image' => 'image', 'thumbnail' => 'thumbnail']`.
+	 * @return array<array{id: string, description: string, image: string, thumbnail: string, width: int, height: int}> An ordered list of images.
 	 */
 	private static function order( $images, $image_timestamps, $options ) {
 		if ( 'time' === $options->get_by( 'image_ordering' ) ) {

@@ -1,5 +1,5 @@
 {
-  "name": "skaut-google-drive-gallery",
+  "name": "avpvh-gallery",
   "version": "2.13.14",
   "description": "A WordPress gallery using Google Drive as file storage",
   "keywords": [
@@ -9,25 +9,25 @@
     "drive",
     "gallery"
   ],
-  "homepage": "https://wordpress.org/plugins/skaut-google-drive-gallery",
+  "homepage": "https://wordpress.org/plugins/avpvh-gallery",
   "bugs": {
-    "url": "https://github.com/skaut/skaut-google-drive-gallery/issues"
+    "url": "https://github.com/skaut/avpvh-gallery/issues"
   },
   "license": "MIT",
   "author": "Marek Dědič",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/skaut/skaut-google-drive-gallery.git"
+    "url": "git+https://github.com/skaut/avpvh-gallery.git"
   },
   "type": "module",
   "scripts": {
-    "clean": "rimraf dist/*",
+    "clean": "rimraf --glob dist/*",
     "prebuild": "npm run clean",
     "build:gulp": "gulp --color build",
-    "build:js:block": "FORCE_COLOR=1 vite build --config block.vite.config.ts",
-    "build:js:root_selection": "FORCE_COLOR=1 vite build --config root_selection.vite.config.ts",
-    "build:js:shortcode": "FORCE_COLOR=1 vite build --config shortcode.vite.config.ts",
-    "build:js:tinymce": "FORCE_COLOR=1 vite build --config tinymce.vite.config.ts",
+    "build:js:block": "vite build --config block.vite.config.ts",
+    "build:js:root_selection": "vite build --config root_selection.vite.config.ts",
+    "build:js:shortcode": "vite build --config shortcode.vite.config.ts",
+    "build:js:tinymce": "vite build --config tinymce.vite.config.ts",
     "build:js": "run-p -c --aggregate-output build:js:*",
     "build": "run-p -c --aggregate-output build:*",
     "lint:css:stylelint": "stylelint --color 'src/**/*.css'",
@@ -51,9 +51,9 @@
     "npm": "^8.0.0"
   },
   "dependencies": {
-    "imagelightbox": "^3.1.0",
     "imagesloaded": "^5.0.0",
-    "justified-layout": "github:skaut/justified-layout"
+    "justified-layout": "github:skaut/justified-layout",
+    "photoswipe": "^5.4.4"
   },
   "devDependencies": {
     "@eslint-community/eslint-plugin-eslint-comments": "^4.5.0",

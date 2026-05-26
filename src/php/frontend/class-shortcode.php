@@ -2,28 +2,28 @@
 /**
  * Contains the Shortcode class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
 use Exception as Base_Exception;
-use Sgdg\API_Client;
-use Sgdg\API_Facade;
-use Sgdg\Exceptions\API_Exception;
-use Sgdg\Exceptions\API_Rate_Limit_Exception;
-use Sgdg\Exceptions\Directory_Not_Found_Exception;
-use Sgdg\Exceptions\Exception as Sgdg_Exception;
-use Sgdg\Exceptions\Internal_Exception;
-use Sgdg\Exceptions\Not_Found_Exception;
-use Sgdg\Exceptions\Plugin_Not_Authorized_Exception;
-use Sgdg\Exceptions\Root_Not_Found_Exception;
-use Sgdg\Frontend\Options_Proxy;
-use Sgdg\Helpers;
-use Sgdg\Options;
-use Sgdg\Script_And_Style_Helpers;
-use Sgdg\Vendor\GuzzleHttp\Promise\PromiseInterface;
-use Sgdg\Vendor\GuzzleHttp\Promise\RejectedPromise;
+use Avpvh\API_Client;
+use Avpvh\API_Facade;
+use Avpvh\Exceptions\API_Exception;
+use Avpvh\Exceptions\API_Rate_Limit_Exception;
+use Avpvh\Exceptions\Directory_Not_Found_Exception;
+use Avpvh\Exceptions\Exception as Avpvh_Exception;
+use Avpvh\Exceptions\Internal_Exception;
+use Avpvh\Exceptions\Not_Found_Exception;
+use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
+use Avpvh\Exceptions\Root_Not_Found_Exception;
+use Avpvh\Frontend\Options_Proxy;
+use Avpvh\Helpers;
+use Avpvh\Options;
+use Avpvh\Script_And_Style_Helpers;
+use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
+use Avpvh\Vendor\GuzzleHttp\Promise\RejectedPromise;
 use const DAY_IN_SECONDS;
 
 /**
@@ -47,24 +47,20 @@ final class Shortcode {
 	 */
 	public static function init() {
 		Script_And_Style_Helpers::register_script(
-			'sgdg_gallery_init',
+			'avpvh_gallery_init',
 			'frontend/js/shortcode.min.js',
 			array( 'jquery' )
 		);
-		Script_And_Style_Helpers::register_style( 'sgdg_gallery_css', 'frontend/css/shortcode.min.css' );
+		Script_And_Style_Helpers::register_style( 'avpvh_gallery_css', 'frontend/css/shortcode.min.css' );
 
+		Script_And_Style_Helpers::register_style( 'avpvh_photoswipe_style', 'bundled/photoswipe.min.css' );
 		Script_And_Style_Helpers::register_script(
-			'sgdg_imagelightbox_script',
-			'bundled/imagelightbox.umd.js'
-		);
-		Script_And_Style_Helpers::register_style( 'sgdg_imagelightbox_style', 'bundled/imagelightbox.css' );
-		Script_And_Style_Helpers::register_script(
-			'sgdg_imagesloaded',
+			'avpvh_imagesloaded',
 			'bundled/imagesloaded.pkgd.min.js',
 			array( 'jquery' )
 		);
-		Script_And_Style_Helpers::register_script( 'sgdg_justified-layout', 'bundled/justified-layout.min.js' );
-		add_shortcode( 'sgdg', array( self::class, 'render' ) );
+		Script_And_Style_Helpers::register_script( 'avpvh_justified-layout', 'bundled/justified-layout.min.js' );
+		add_shortcode( 'avpvh', array( self::class, 'render' ) );
 	}
 
 	/**
@@ -73,7 +69,7 @@ final class Shortcode {
 	 * This function is a wrapper around the `html()` function which converts a slash-delimited path into an array
 	 *
 	 * @see html()
-	 * @see \Sgdg\Frontend\Options_Proxy
+	 * @see \Avpvh\Frontend\Options_Proxy
 	 *
 	 * @param array<string, mixed> $atts A list of option overrides, as documented in the Options_Proxy class plus the `path` attribute, which is a slash-delimited string.
 	 *
@@ -86,16 +82,16 @@ final class Shortcode {
 
 		try {
 			return self::html( $atts );
-		} catch ( Sgdg_Exception $e ) {
-			return '<div class="sgdg-gallery-container">' . $e->getMessage() . '</div>';
+		} catch ( Avpvh_Exception $e ) {
+			return '<div class="avpvh-gallery-container">' . $e->getMessage() . '</div>';
 			// @phpstan-ignore catch.neverThrown (Here for safety, even though it should never actually be thrownvariable.undefined)
 		} catch ( Base_Exception $e ) {
 			if ( Helpers::is_debug_display() ) {
-				return '<div class="sgdg-gallery-container">' . $e->getMessage() . '</div>';
+				return '<div class="avpvh-gallery-container">' . $e->getMessage() . '</div>';
 			}
 
-			return '<div class="sgdg-gallery-container">' .
-				esc_html__( 'Unknown error.', 'skaut-google-drive-gallery' ) .
+			return '<div class="avpvh-gallery-container">' .
+				esc_html__( 'Unknown error.', 'avpvh-gallery' ) .
 				'</div>';
 		}
 	}
@@ -103,7 +99,7 @@ final class Shortcode {
 	/**
 	 * Turns the shorcode into HTML.
 	 *
-	 * @see \Sgdg\Frontend\Options_Proxy
+	 * @see \Avpvh\Frontend\Options_Proxy
 	 *
 	 * @param array<string, mixed> $atts A list of option overrides, as documented in the Options_Proxy class plus the `path` attribute, which is an array of directory names.
 	 *
@@ -117,29 +113,28 @@ final class Shortcode {
 	 * @throws Root_Not_Found_Exception The root directory of the gallery couldn't be found.
 	 */
 	public static function html( $atts ) {
-		wp_enqueue_script( 'sgdg_imagelightbox_script' );
-		wp_enqueue_style( 'sgdg_imagelightbox_style' );
-		wp_enqueue_script( 'sgdg_imagesloaded' );
-		wp_enqueue_script( 'sgdg_justified-layout' );
+		wp_enqueue_style( 'avpvh_photoswipe_style' );
+		wp_enqueue_script( 'avpvh_imagesloaded' );
+		wp_enqueue_script( 'avpvh_justified-layout' );
 
 		$options = new Options_Proxy( $atts );
 
-		wp_enqueue_script( 'sgdg_gallery_init' );
+		wp_enqueue_script( 'avpvh_gallery_init' );
 		Script_And_Style_Helpers::add_script_configuration(
-			'sgdg_gallery_init',
-			'sgdgShortcodeLocalize',
+			'avpvh_gallery_init',
+			'avpvhShortcodeLocalize',
 			array(
 				'ajax_url'            => admin_url( 'admin-ajax.php' ),
-				'breadcrumbs_top'     => esc_html__( 'Gallery', 'skaut-google-drive-gallery' ),
-				'empty_gallery'       => esc_html__( 'The gallery is empty.', 'skaut-google-drive-gallery' ),
+				'breadcrumbs_top'     => esc_html__( 'Gallery', 'avpvh-gallery' ),
+				'empty_gallery'       => esc_html__( 'The gallery is empty.', 'avpvh-gallery' ),
 				'error_header'        => esc_html__(
-					'The Image and video gallery from Google Drive plugin has encountered an error. Error message:',
-					'skaut-google-drive-gallery'
+					'The AVPVH Gallery plugin has encountered an error. Error message:',
+					'avpvh-gallery'
 				),
-				'error_trace_header'  => esc_html__( 'Stack trace:', 'skaut-google-drive-gallery' ),
+				'error_trace_header'  => esc_html__( 'Stack trace:', 'avpvh-gallery' ),
 				'grid_height'         => $options->get( 'grid_height' ),
 				'grid_spacing'        => $options->get( 'grid_spacing' ),
-				'load_more'           => esc_html__( 'Load more', 'skaut-google-drive-gallery' ),
+				'load_more'           => esc_html__( 'Load more', 'avpvh-gallery' ),
 				'page_autoload'       => $options->get( 'page_autoload' ),
 				'preview_activity'    => $options->get( 'preview_activity_indicator' ),
 				'preview_arrows'      => $options->get( 'preview_arrows' ),
@@ -149,10 +144,10 @@ final class Shortcode {
 				'preview_speed'       => $options->get( 'preview_speed' ),
 			)
 		);
-		wp_enqueue_style( 'sgdg_gallery_css' );
+		wp_enqueue_style( 'avpvh_gallery_css' );
 		wp_add_inline_style(
-			'sgdg_gallery_css',
-			'.sgdg-dir-name {font-size: ' . $options->get( 'dir_title_size' ) . ';}'
+			'avpvh_gallery_css',
+			'.avpvh-dir-name {font-size: ' . $options->get( 'dir_title_size' ) . ';}'
 		);
 
 		$root_path = Options::$root_path->get();
@@ -165,7 +160,7 @@ final class Shortcode {
 
 		$hash = hash( 'sha256', $root );
 		set_transient(
-			'sgdg_hash_' . $hash,
+			'avpvh_hash_' . $hash,
 			array(
 				'overriden' => $options->export_overriden(),
 				'root'      => $root,
@@ -173,9 +168,9 @@ final class Shortcode {
 			DAY_IN_SECONDS
 		);
 
-		return '<div class="sgdg-gallery-container" data-sgdg-hash="' .
+		return '<div class="avpvh-gallery-container" data-avpvh-hash="' .
 			$hash .
-			'"><div class="sgdg-loading"><div></div></div></div>';
+			'"><div class="avpvh-loading"><div></div></div></div>';
 	}
 
 	/**
