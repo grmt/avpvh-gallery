@@ -1,12 +1,12 @@
 === AVPVH Gallery ===
-Contributors: skaut, marekdedic, kalich5
+Contributors: grmt
 Tags: google drive, gallery, google drive gallery, image gallery, video gallery
 Requires at least: 4.9.6
 Tested up to: 7.0
 Stable tag: 2.13.14
 Requires PHP: 5.6
 License: MIT
-License URI: https://github.com/skaut/avpvh-gallery/blob/master/LICENSE
+License URI: https://github.com/grmt/avpvh-gallery/blob/master/LICENSE
 
 A WordPress gallery using Google Drive as file storage
 
@@ -20,7 +20,7 @@ Having the photos in Google Drive also gives you a familiar and easy-to-navigate
 
 Using this plugin is very straightforward. Once the plugin is installed and configured, you can add a Google Drive gallery to any page or post. If you are using WordPress 5 or newer with the block editor (i. e. Gutenberg), there is a block that you can add that will allow you to choose a folder with a graphical user interface. It also makes it possible to configure each individual gallery very easily, should you want to do that. If you are using an older WordPress version or are still using the classic editor, there is a shortcode you can use instead of the block.
 
-If you want to see how to install, configure and use the plugin, visit our [documentation](https://napoveda.skaut.cz/dobryweb/en-avpvh-gallery). To see the plugin in action, head on to the [demo page](https://demo-avpvh-gallery.skauting.cz/).
+For installation and configuration instructions, see the [GitHub repository](https://github.com/grmt/avpvh-gallery).
 
 === Features ===
 * Display any Google Drive folder as a gallery
@@ -36,10 +36,10 @@ If you want to see how to install, configure and use the plugin, visit our [docu
 * PHP 5.6 or higher
 
 === GitHub ===
-All the sources for the plugin and the build process are detailed in our [GitHub repo](https://github.com/skaut/avpvh-gallery/).
+All the sources for the plugin and the build process are detailed in the [GitHub repo](https://github.com/grmt/avpvh-gallery/).
 
 == Installation ==
-1. Download and install the plugin from the WordPress plugin directory or from [GitHub](https://github.com/skaut/avpvh-gallery/releases)
+1. Download and install the plugin from the WordPress plugin directory or from [GitHub](https://github.com/grmt/avpvh-gallery/releases)
 2. Activate the plugin
 3. Create a Google app and configure the plugin
 4. Select a root directory for the plugin to use
@@ -48,13 +48,13 @@ All the sources for the plugin and the build process are detailed in our [GitHub
 == Frequently Asked Questions ==
 
 = How to configure this plugin? =
-See our [documentation](https://napoveda.skaut.cz/dobryweb/en-avpvh-gallery).
+See the [GitHub repository](https://github.com/grmt/avpvh-gallery).
 
 = How do I create a Google app? =
-We have a special page in our [documentation](https://napoveda.skaut.cz/dobryweb/en-avpvh-gallery/en-get-google-application) just about that.
+Follow the Google API Console instructions to create an OAuth 2.0 credential and configure it in the plugin settings.
 
 = What are the other options for this plugin? =
-For more info about all the options see the [documentation page](https://napoveda.skaut.cz/dobryweb/en-avpvh-gallery/en-advanced-options) about advanced options.
+All options are documented in the plugin settings pages in WordPress admin.
 
 = How do I create a shortcode? =
 To show a Google Drive gallery add the shortcode `[avpvh path="Folder name"]` to the page where "Folder name" is a folder in the root directory of the plugin.
@@ -277,7 +277,7 @@ Please enable [WordPress debugging](https://wordpress.org/documentation/article/
 * Fixed issue with other plugins overriding styles
 
 = 2.3.1 =
-* Fixed [issue 82](https://github.com/skaut/avpvh-gallery/issues/82)
+* Fixed issue 82
 
 = 2.3.0 =
 * Fixed potential collision with global composer
