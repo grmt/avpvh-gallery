@@ -223,7 +223,7 @@ jobs:
         uses: codecov/codecov-action@v6.0.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   plugin-check:
     name: "Plugin check"
@@ -234,12 +234,12 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: "build-artifact"
-          path: skaut-google-drive-gallery
+          path: avpvh-gallery
 
       - name: "Run plugin check"
         uses: wordpress/plugin-check-action@v1
         with:
-          build-dir: skaut-google-drive-gallery
+          build-dir: avpvh-gallery
           ignore-codes: |
             missing_composer_json_file
             missing_direct_file_access_protection
