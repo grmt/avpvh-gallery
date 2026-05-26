@@ -19,6 +19,9 @@
 	box-shadow: none !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	display: block;
 	height: 100% !important;
+	object-fit: cover; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	object-position: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	width: 100%;
 }
 
 .avpvh-dir-overlay {
