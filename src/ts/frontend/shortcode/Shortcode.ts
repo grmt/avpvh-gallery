@@ -613,6 +613,52 @@ export class Shortcode {
 		return html;
 	}
 
+	private static formatExposure(exposure: number): string {
+		if (exposure >= 1) {
+			return String(Math.round(exposure)) + 's';
+		}
+		return '1/' + String(Math.round(1 / exposure)) + 's';
+	}
+
+	private static formatExifDate(time: string): string {
+		// EXIF time format: "YYYY:MM:DD HH:MM:SS"
+		const match = /^(\d{4}):(\d{2}):(\d{2})/.exec(time);
+		if (match === null) {
+			return '';
+		}
+		return match[1] + '-' + match[2] + '-' + match[3];
+	}
+
+	private static renderExifOverlay(exif: ImageExif): string {
+		const parts: Array<string> = [];
+		if (exif.time !== undefined) {
+			const d = Shortcode.formatExifDate(exif.time);
+			if ('' !== d) {
+				parts.push(d);
+			}
+		}
+		const camera = [exif.make, exif.model].filter((x) => x !== undefined).join(' ');
+		if ('' !== camera) {
+			parts.push(camera);
+		}
+		if (exif.focal !== undefined) {
+			parts.push(String(exif.focal) + 'mm');
+		}
+		if (exif.aperture !== undefined) {
+			parts.push('f/' + String(exif.aperture));
+		}
+		if (exif.exposure !== undefined) {
+			parts.push(Shortcode.formatExposure(exif.exposure));
+		}
+		if (exif.iso !== undefined) {
+			parts.push('ISO ' + String(exif.iso));
+		}
+		if (0 === parts.length) {
+			return '';
+		}
+		return '<div class="avpvh-exif-overlay">' + parts.join(' · ') + '</div>';
+	}
+
 	private renderImage(page: number, image: Image): string {
 		const width = 0 < image.width ? image.width : 2000;
 		const height = 0 < image.height ? image.height : 1500;
@@ -639,6 +685,7 @@ export class Shortcode {
 			'<img class="avpvh-grid-img" src="' +
 			image.thumbnail +
 			'">' +
+			Shortcode.renderExifOverlay(image.exif) +
 			'</a>'
 		);
 	}

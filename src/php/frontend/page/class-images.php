@@ -43,7 +43,7 @@ final class Images {
 					'id',
 					'thumbnailLink',
 					'createdTime',
-					'imageMediaMetadata' => array( 'time', 'width', 'height', 'rotation' ),
+					'imageMediaMetadata' => array( 'time', 'width', 'height', 'rotation', 'cameraMake', 'cameraModel', 'aperture', 'exposureTime', 'isoSpeed', 'focalLength' ),
 					'description',
 				)
 			);
@@ -53,7 +53,7 @@ final class Images {
 				array(
 					'id',
 					'thumbnailLink',
-					'imageMediaMetadata' => array( 'width', 'height', 'rotation' ),
+					'imageMediaMetadata' => array( 'width', 'height', 'rotation', 'cameraMake', 'cameraModel', 'aperture', 'exposureTime', 'isoSpeed', 'focalLength' ),
 					'description',
 				)
 			);
@@ -77,10 +77,34 @@ final class Images {
 							[ $width, $height ] = [ $height, $width ];
 						}
 
+						$exif = array_filter(
+							array(
+								'aperture' => array_key_exists( 'aperture', $metadata ) && is_numeric( $metadata['aperture'] )
+									? round( floatval( $metadata['aperture'] ), 1 )
+									: null,
+								'exposure' => array_key_exists( 'exposureTime', $metadata ) && is_numeric( $metadata['exposureTime'] )
+									? floatval( $metadata['exposureTime'] )
+									: null,
+								'focal'    => array_key_exists( 'focalLength', $metadata ) && is_numeric( $metadata['focalLength'] )
+									? round( floatval( $metadata['focalLength'] ) )
+									: null,
+								'iso'      => array_key_exists( 'isoSpeed', $metadata ) && is_numeric( $metadata['isoSpeed'] )
+									? intval( $metadata['isoSpeed'] )
+									: null,
+								'make'     => array_key_exists( 'cameraMake', $metadata ) ? $metadata['cameraMake'] : null,
+								'model'    => array_key_exists( 'cameraModel', $metadata ) ? $metadata['cameraModel'] : null,
+								'time'     => array_key_exists( 'time', $metadata ) ? $metadata['time'] : null,
+							),
+							static function ( $v ) {
+								return null !== $v;
+							}
+						);
+
 						return array(
 							'description' => array_key_exists( 'description', $image )
 								? esc_attr( $image['description'] )
 								: '',
+							'exif'        => $exif,
 							'height'      => $height,
 							'id'          => $image['id'],
 							'image'       => substr( $image['thumbnailLink'], 0, -3 ) . $options->get( 'preview_size' ),
