@@ -431,6 +431,38 @@ export class Shortcode {
 		this.postLoad();
 	}
 
+	private fixPhotoSwipeDimensions(): void {
+		this.container.find('a.avpvh-grid-a[data-pswp-width]').each((_, el) => {
+			const img = el.querySelector('img');
+			if (img === null || img.naturalWidth === 0 || img.naturalHeight === 0) {
+				return;
+			}
+			// Extract the preview size from the href URL which ends with =s{size}
+			const sizeMatch = /=s(\d+)$/.exec((el as HTMLAnchorElement).href);
+			if (sizeMatch === null) {
+				return;
+			}
+			const size = parseInt(sizeMatch[1], 10);
+			// Use the thumbnail's natural dimensions to determine the true display aspect ratio.
+			// Google Drive serves =h{n} thumbnails in display orientation (EXIF rotation applied),
+			// so naturalWidth/naturalHeight reflects the correct portrait/landscape proportions.
+			const ratio = img.naturalWidth / img.naturalHeight;
+			let newW: number;
+			let newH: number;
+			if (ratio >= 1) {
+				// Landscape: width is the longest side
+				newW = size;
+				newH = Math.round(size / ratio);
+			} else {
+				// Portrait: height is the longest side
+				newH = size;
+				newW = Math.round(size * ratio);
+			}
+			el.setAttribute('data-pswp-width', String(newW));
+			el.setAttribute('data-pswp-height', String(newH));
+		});
+	}
+
 	private postLoad(): void {
 		this.container
 			.find('a[data-avpvh-path]')
@@ -456,6 +488,7 @@ export class Shortcode {
 			.find('.avpvh-gallery')
 			.imagesLoaded({ background: true }, () => {
 				this.loading = false;
+				this.fixPhotoSwipeDimensions();
 				ShortcodeRegistry.reflowAll();
 			});
 		this.reflowTimer();

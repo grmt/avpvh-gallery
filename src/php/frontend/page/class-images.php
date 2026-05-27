@@ -43,7 +43,7 @@ final class Images {
 					'id',
 					'thumbnailLink',
 					'createdTime',
-					'imageMediaMetadata' => array( 'time', 'width', 'height' ),
+					'imageMediaMetadata' => array( 'time', 'width', 'height', 'rotation' ),
 					'description',
 				)
 			);
@@ -53,7 +53,7 @@ final class Images {
 				array(
 					'id',
 					'thumbnailLink',
-					'imageMediaMetadata' => array( 'width', 'height' ),
+					'imageMediaMetadata' => array( 'width', 'height', 'rotation' ),
 					'description',
 				)
 			);
@@ -72,6 +72,10 @@ final class Images {
 						$height   = array_key_exists( 'height', $metadata ) && is_numeric( $metadata['height'] )
 							? intval( $metadata['height'] )
 							: 0;
+						$rotation = array_key_exists( 'rotation', $metadata ) ? intval( $metadata['rotation'] ) : 0;
+						if ( 90 === $rotation || 270 === $rotation ) {
+							[ $width, $height ] = [ $height, $width ];
+						}
 
 						return array(
 							'description' => array_key_exists( 'description', $image )
