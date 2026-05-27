@@ -318,7 +318,7 @@ final class API_Facade {
 				'size',
 				'createdTime',
 				'copyRequiresWriterPermission',
-				'imageMediaMetadata' => array( 'width', 'height', 'time' ),
+				'imageMediaMetadata' => array( 'width', 'height', 'time', 'rotation', 'cameraMake', 'cameraModel', 'aperture', 'exposureTime', 'isoSpeed', 'focalLength' ),
 				'videoMediaMetadata' => array( 'width', 'height' ),
 				'webContentLink',
 				'webViewLink',

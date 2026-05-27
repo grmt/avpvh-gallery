@@ -36,6 +36,14 @@
 	opacity: 1;
 }
 
+.avpvh-exif-filename {
+	font-weight: bold;
+}
+
+.avpvh-exif-data {
+	font-weight: normal;
+}
+
 .avpvh-grid-img {
 	box-shadow: none !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	display: block;

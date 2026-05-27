@@ -629,34 +629,42 @@ export class Shortcode {
 		return match[1] + '-' + match[2] + '-' + match[3];
 	}
 
-	private static renderExifOverlay(exif: ImageExif): string {
+	private static renderExifOverlay(name: string, exif: ImageExif | undefined): string {
 		const parts: Array<string> = [];
-		if (exif.time !== undefined) {
-			const d = Shortcode.formatExifDate(exif.time);
-			if ('' !== d) {
-				parts.push(d);
+		if (exif !== undefined) {
+			if (exif.time !== undefined) {
+				const d = Shortcode.formatExifDate(exif.time);
+				if ('' !== d) {
+					parts.push(d);
+				}
+			}
+			const camera = [exif.make, exif.model].filter((x) => x !== undefined).join(' ');
+			if ('' !== camera) {
+				parts.push(camera);
+			}
+			if (exif.focal !== undefined) {
+				parts.push(String(exif.focal) + 'mm');
+			}
+			if (exif.aperture !== undefined) {
+				parts.push('f/' + String(exif.aperture));
+			}
+			if (exif.exposure !== undefined) {
+				parts.push(Shortcode.formatExposure(exif.exposure));
+			}
+			if (exif.iso !== undefined) {
+				parts.push('ISO ' + String(exif.iso));
 			}
 		}
-		const camera = [exif.make, exif.model].filter((x) => x !== undefined).join(' ');
-		if ('' !== camera) {
-			parts.push(camera);
-		}
-		if (exif.focal !== undefined) {
-			parts.push(String(exif.focal) + 'mm');
-		}
-		if (exif.aperture !== undefined) {
-			parts.push('f/' + String(exif.aperture));
-		}
-		if (exif.exposure !== undefined) {
-			parts.push(Shortcode.formatExposure(exif.exposure));
-		}
-		if (exif.iso !== undefined) {
-			parts.push('ISO ' + String(exif.iso));
-		}
-		if (0 === parts.length) {
+		if ('' === name && 0 === parts.length) {
 			return '';
 		}
-		return '<div class="avpvh-exif-overlay">' + parts.join(' · ') + '</div>';
+		const nameHtml = '' !== name
+			? '<div class="avpvh-exif-filename">' + name + '</div>'
+			: '';
+		const exifHtml = 0 < parts.length
+			? '<div class="avpvh-exif-data">' + parts.join(' · ') + '</div>'
+			: '';
+		return '<div class="avpvh-exif-overlay">' + nameHtml + exifHtml + '</div>';
 	}
 
 	private renderImage(page: number, image: Image): string {
@@ -685,7 +693,7 @@ export class Shortcode {
 			'<img class="avpvh-grid-img" src="' +
 			image.thumbnail +
 			'">' +
-			(image.exif !== undefined ? Shortcode.renderExifOverlay(image.exif) : '') +
+			Shortcode.renderExifOverlay(image.name, image.exif) +
 			'</a>'
 		);
 	}

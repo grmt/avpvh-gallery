@@ -41,6 +41,7 @@ final class Images {
 			$fields   = new API_Fields(
 				array(
 					'id',
+					'name',
 					'thumbnailLink',
 					'createdTime',
 					'imageMediaMetadata' => array( 'time', 'width', 'height', 'rotation', 'cameraMake', 'cameraModel', 'aperture', 'exposureTime', 'isoSpeed', 'focalLength' ),
@@ -52,6 +53,7 @@ final class Images {
 			$fields   = new API_Fields(
 				array(
 					'id',
+					'name',
 					'thumbnailLink',
 					'imageMediaMetadata' => array( 'width', 'height', 'rotation', 'cameraMake', 'cameraModel', 'aperture', 'exposureTime', 'isoSpeed', 'focalLength' ),
 					'description',
@@ -107,6 +109,7 @@ final class Images {
 							'exif'        => $exif,
 							'height'      => $height,
 							'id'          => $image['id'],
+							'name'        => array_key_exists( 'name', $image ) ? $image['name'] : '',
 							'image'       => substr( $image['thumbnailLink'], 0, -3 ) . $options->get( 'preview_size' ),
 							'thumbnail'   => substr( $image['thumbnailLink'], 0, -4 ) .
 								'h' .

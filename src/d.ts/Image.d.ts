@@ -14,6 +14,7 @@ declare interface Image {
 	height: number;
 	id: string;
 	image: string;
+	name: string;
 	thumbnail: string;
 	width: number;
 }
