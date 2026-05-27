@@ -685,7 +685,7 @@ export class Shortcode {
 			'<img class="avpvh-grid-img" src="' +
 			image.thumbnail +
 			'">' +
-			Shortcode.renderExifOverlay(image.exif) +
+			(image.exif !== undefined ? Shortcode.renderExifOverlay(image.exif) : '') +
 			'</a>'
 		);
 	}

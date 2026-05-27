@@ -10,7 +10,7 @@ declare interface ImageExif {
 
 declare interface Image {
 	description: string;
-	exif: ImageExif;
+	exif?: ImageExif;
 	height: number;
 	id: string;
 	image: string;
