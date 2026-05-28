@@ -122,6 +122,40 @@ export class Shortcode {
 			});
 		}
 
+		// Always register the path/filename bar at the top of the lightbox
+		lightbox.on('uiRegister', () => {
+			const pswp = lightbox.pswp;
+			if (!pswp) {
+				return;
+			}
+			pswp.ui?.registerElement({
+				name: 'avpvh-path',
+				order: 5,
+				isButton: false,
+				appendTo: 'root',
+				onInit: (el, instance) => {
+					el.classList.add('avpvh-pswp-path');
+					el.title = 'Klik om pad te kopiëren';
+					const update = (): void => {
+						const slideEl = instance.currSlide?.data.element;
+						const fullPath = slideEl instanceof HTMLElement
+							? (slideEl.dataset['avpvhFullpath'] ?? '')
+							: '';
+						el.textContent = fullPath;
+					};
+					instance.on('change', update);
+					el.addEventListener('click', () => {
+						const text = el.textContent ?? '';
+						void navigator.clipboard.writeText(text).then(() => {
+							const original = el.textContent;
+							el.textContent = 'Gekopieerd!';
+							setTimeout(() => { el.textContent = original; }, 1200);
+						});
+					});
+				},
+			});
+		});
+
 		lightbox.on('change', () => {
 			const slide = lightbox.pswp?.currSlide;
 			const slideEl = slide?.data.element;

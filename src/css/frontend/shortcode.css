@@ -150,6 +150,22 @@
 	padding: 1px 12px;
 }
 
+.avpvh-pswp-path {
+	background-color: rgb(0, 0, 0, 50%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	color: #fff;
+	cursor: copy;
+	font-size: 13px;
+	left: 0;
+	padding: 8px 60px;
+	pointer-events: all; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	position: absolute;
+	right: 0;
+	text-align: center;
+	text-shadow: 0 1px 2px rgb(0, 0, 0, 60%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	top: 44px;
+	transition: opacity 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
 .avpvh-pswp-caption {
 	bottom: 0;
 	color: #fff;
