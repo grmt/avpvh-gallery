@@ -1,15 +1,24 @@
 <?php return array(
     'root' => array(
-        'name' => 'skaut/google-drive-gallery',
+        'name' => 'avpvh/gallery',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => '6d782e2946d585f6a08d651ffdecd0f593b61bdb',
+        'reference' => '968c8f1dbf2ccdc873e1d0bf42ce3fb9fef391ea',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
+        'avpvh/gallery' => array(
+            'pretty_version' => 'dev-master',
+            'version' => 'dev-master',
+            'reference' => '968c8f1dbf2ccdc873e1d0bf42ce3fb9fef391ea',
+            'type' => 'wordpress-plugin',
+            'install_path' => __DIR__ . '/../../',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
         'composer/pcre' => array(
             'pretty_version' => '3.3.1',
             'version' => '3.3.1.0',
@@ -640,15 +649,6 @@
             'install_path' => __DIR__ . '/../sebastian/version',
             'aliases' => array(),
             'dev_requirement' => true,
-        ),
-        'skaut/google-drive-gallery' => array(
-            'pretty_version' => 'dev-master',
-            'version' => 'dev-master',
-            'reference' => '6d782e2946d585f6a08d651ffdecd0f593b61bdb',
-            'type' => 'wordpress-plugin',
-            'install_path' => __DIR__ . '/../../',
-            'aliases' => array(),
-            'dev_requirement' => false,
         ),
         'skaut/wordpress-stubs' => array(
             'pretty_version' => '2.10.0',

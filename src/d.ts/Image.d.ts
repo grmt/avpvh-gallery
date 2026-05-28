@@ -5,6 +5,7 @@ declare interface ImageExif {
 	iso?: number;
 	make?: string;
 	model?: string;
+	orientation?: number;
 	time?: string;
 }
 

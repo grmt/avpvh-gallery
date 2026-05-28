@@ -144,14 +144,21 @@ final class Shortcode {
 				'preview_closebutton' => $options->get( 'preview_close_button' ),
 				'preview_quitOnEnd'   => 'true' === $options->get( 'preview_loop' ) ? 'false' : 'true',
 				'preview_speed'       => $options->get( 'preview_speed' ),
+				'favicon_url'         => ( static function () {
+					$id  = (int) get_option( 'site_icon' );
+					$src = $id ? wp_get_attachment_image_src( $id, 'full' ) : false;
+					return $src ? $src[0] : get_site_icon_url( 32 );
+				} )(),
 			)
 		);
 		wp_enqueue_style( 'avpvh_gallery_css' );
 		wp_enqueue_style( 'avpvh_photo_tagger_css' );
-		wp_add_inline_style(
-			'avpvh_gallery_css',
-			'.avpvh-dir-name {font-size: ' . $options->get( 'dir_title_size' ) . ';}'
-		);
+		$inline_css = '.avpvh-dir-name {font-size: ' . $options->get( 'dir_title_size' ) . ';}';
+		$favicon    = get_site_icon_url( 32 );
+		if ( '' !== $favicon ) {
+			$inline_css .= ':root{--avpvh-favicon-url:url("' . esc_url( $favicon ) . '");}';
+		}
+		wp_add_inline_style( 'avpvh_gallery_css', $inline_css );
 
 		$root_path = Options::$root_path->get();
 		$root      = end( $root_path );

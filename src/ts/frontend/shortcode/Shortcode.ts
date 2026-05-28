@@ -34,10 +34,18 @@ export class Shortcode {
 	private readonly SLIDESHOW_DELAY_MS = 5000;
 	private readonly IDLE_HIDE_MS = 3000;
 
+	// Resolved once at construction from the page's <link rel="icon"> so it
+	// works regardless of whether WordPress's site-icon setting is configured.
+	private readonly faviconUrl: string;
+
 	public constructor(container: HTMLElement, hash: string) {
 		this.container = $(container);
 		this.hash = hash;
 		this.shortHash = hash.substring(0, 8);
+		const faviconEl =
+			document.querySelector<HTMLLinkElement>('link[rel~="icon"]') ??
+			document.querySelector<HTMLLinkElement>('link[rel="shortcut icon"]');
+		this.faviconUrl = faviconEl !== null ? faviconEl.href : avpvhShortcodeLocalize.favicon_url;
 		this.pageQueryParameter = new QueryParameter(this.shortHash, 'page');
 		this.pathQueryParameter = new QueryParameter(this.shortHash, 'path');
 		this.path = this.pathQueryParameter.get();
@@ -222,6 +230,63 @@ export class Shortcode {
 		const el = pswp.element;
 		if (el === undefined) {
 			return;
+		}
+
+		// ── Replace arrow buttons with the actual favicon as a white silhouette ──
+		// Uses an SVG <image> element with a feColorMatrix filter that:
+		//   1. Converts white background → transparent (alpha based on darkness)
+		//   2. Replaces remaining pixels with pure white
+		// Result: exact silhouette of the favicon trowel as a white icon
+		// The trowel originally points upper-right; CSS rotate(45deg) makes it
+		// point right (next button); scaleX(-1) rotate(45deg) mirrors it to point left (prev).
+		if ('' !== this.faviconUrl) {
+			const faviconUrl = this.faviconUrl;
+			setTimeout(() => {
+				// transform tuple: [selector, transform, extraMargin]
+				// Prev button sits flush with the viewport's left edge, so nudge
+				// its trowel inward (to the right) for visual symmetry with next.
+				const arrowConfig: Array<[string, string, string]> = [
+					['.pswp__button--arrow--prev', 'scaleX(-1) rotate(45deg)', 'margin-left:12px;'],
+					['.pswp__button--arrow--next', 'rotate(45deg)', 'margin-right:12px;'],
+				];
+				// Unique filter ID to avoid collisions if multiple galleries share the page
+				const filterId = 'avpvh-whitemask-' + Math.random().toString(36).substring(2, 9);
+				const svgPrefix = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="44" height="44">' +
+					'<defs>' +
+					'<filter id="' + filterId + '" x="0" y="0" width="100%" height="100%">' +
+					// Step 1: Set alpha based on darkness. White (1,1,1) → alpha 0; black (0,0,0) → alpha 1.
+					'<feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  -1 -1 -1 0 2"/>' +
+					// Step 2: Set RGB to pure white, keep new alpha.
+					'<feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0"/>' +
+					'</filter>' +
+					'</defs>' +
+					'<image href="' + faviconUrl + '" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet" filter="url(#' + filterId + ')"/>' +
+					'</svg>';
+
+				arrowConfig.forEach(([selector, transform, extraMargin]) => {
+					const btn = el.querySelector(selector);
+					if (btn === null) {
+						return;
+					}
+					// Hide PhotoSwipe's default arrow SVGs
+					btn.querySelectorAll('svg').forEach((s) => {
+						(s as SVGElement).style.display = 'none';
+					});
+					btn.querySelectorAll('.avpvh-trowel').forEach((n) => { n.remove(); });
+
+					const wrapper = document.createElement('div');
+					wrapper.className = 'avpvh-trowel';
+					// Let PhotoSwipe's own button layout center the wrapper; we only
+					// size it and apply the orientation rotation.
+					wrapper.style.cssText =
+						'width:44px;height:44px;display:block;' +
+						'pointer-events:none;' +
+						extraMargin +
+						'transform:' + transform + ';';
+					wrapper.innerHTML = svgPrefix;
+					btn.appendChild(wrapper);
+				});
+			}, 0);
 		}
 
 		// ── Prevent scrollbar during slide transitions ────────────────
@@ -833,15 +898,19 @@ export class Shortcode {
 	}
 
 	private renderBreadcrumbs(path: Array<PartialDirectory>): string {
+		const faviconUrl = this.faviconUrl;
+		// Parent path = all but last segment, joined with /
+		const parentPath = path.slice(0, -1).map((c) => c.id).join('/');
+		const upIcon = '' !== faviconUrl
+			? '<img src="' + faviconUrl + '" alt="Up" style="height:1.2em;width:1.2em;vertical-align:middle;border-radius:2px;object-fit:contain;transform:rotate(-45deg)">'
+			: '&#8679;';
 		let html =
 			'<div>' +
-			'<a data-avpvh-path="" href="' +
-			this.pathQueryParameter.remove() +
-			'">' +
-			avpvhShortcodeLocalize.breadcrumbs_top +
+			'<a data-avpvh-path="' + parentPath + '" href="' + this.pathQueryParameter.add(parentPath) + '">' +
+			upIcon +
 			'</a>';
 		let field = '';
-		$.each(path, (_, crumb) => {
+		path.forEach((crumb) => {
 			field += crumb.id;
 			html +=
 				' > ' +
@@ -871,8 +940,7 @@ export class Shortcode {
 
 	private static readonly SVG_VIDEO =
 		'<svg class="avpvh-count-svg" viewBox="0 0 24 24" aria-hidden="true">' +
-		'<path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1' +
-		'h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>';
+		'<path d="M8 5v14l11-7z"/></svg>';
 
 	private renderDirectory(directory: Directory): string {
 		let newPath = this.pathQueryParameter.get();
@@ -892,36 +960,29 @@ export class Shortcode {
 				directory.thumbnail +
 				'\')">'; 
 		} else {
-			// Folder icon — lighter colour, slightly cropped viewBox for a bigger feel
-			html +=
-				'>' +
-				'<svg class="avpvh-dir-icon" focusable="false" viewBox="0 1 24 21" fill="#a8b8c4">' +
-				'<path d="M10 4H4c-1.1 0-2 .9-2 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2' +
-				'V8c0-1.1-.9-2-2-2h-8l-2-2z"/>' +
-				'</svg>';
+			html += '>';
 
 			// Subfolder previews listed inside the folder body
 			const subdirs = directory.subdirs ?? [];
 			if (0 < subdirs.length) {
-				const hasMore =
+				// If PHP returned 7 items and there are more than 7 total,
+				// show items 0–5 in full and truncate item 6 to signal overflow.
+				const hasTruncated =
+					subdirs.length === 7 &&
 					directory.dircount !== undefined &&
-					directory.dircount > subdirs.length;
+					directory.dircount > 7;
 				html += '<div class="avpvh-dir-sublist">';
-				for (const sub of subdirs) {
-					const label = sub.name.length > 5
+				for (let si = 0; si < subdirs.length; si++) {
+					const sub = subdirs[si];
+					const isTruncated = hasTruncated && si === 6;
+					const displayName = isTruncated
 						? sub.name.substring(0, 5) + '…'
 						: sub.name;
-					html += '<div class="avpvh-dir-sublist-item">';
-					if (sub.thumbnail !== false) {
-						html += '<img class="avpvh-dir-sublist-thumb" src="' + sub.thumbnail + '" alt="" loading="lazy">';
-					} else {
-						html += Shortcode.SVG_FOLDER;
-					}
-					html += '<span>' + label + '</span>';
-					html += '</div>';
-				}
-				if (hasMore) {
-					html += '<div class="avpvh-dir-sublist-item avpvh-dir-sublist-more">…</div>';
+					html += '<div class="avpvh-dir-sublist-item' +
+						(isTruncated ? ' avpvh-dir-sublist-more' : '') +
+						'">' +
+						displayName +
+						'</div>';
 				}
 				html += '</div>';
 			}
@@ -934,7 +995,7 @@ export class Shortcode {
 			directory.name +
 			'</div>';
 		const countParts: Array<string> = [];
-		if (directory.dircount !== undefined) {
+		if (directory.dircount !== undefined && directory.dircount > 0) {
 			countParts.push(
 				'<span>' +
 				Shortcode.SVG_FOLDER + ' ' +
@@ -943,7 +1004,7 @@ export class Shortcode {
 				'</span>'
 			);
 		}
-		if (directory.imagecount !== undefined) {
+		if (directory.imagecount !== undefined && directory.imagecount > 0) {
 			countParts.push(
 				'<span>' +
 				Shortcode.SVG_IMAGE + ' ' +
@@ -952,7 +1013,7 @@ export class Shortcode {
 				'</span>'
 			);
 		}
-		if (directory.videocount !== undefined) {
+		if (directory.videocount !== undefined && directory.videocount > 0) {
 			countParts.push(
 				'<span>' +
 				Shortcode.SVG_VIDEO + ' ' +
@@ -1025,6 +1086,7 @@ export class Shortcode {
 	private renderImage(page: number, image: Image): string {
 		const width = 0 < image.width ? image.width : 2000;
 		const height = 0 < image.height ? image.height : 1500;
+		const orientationAttr = image.exif?.orientation ? ' data-exif-orientation="' + image.exif.orientation + '"' : '';
 		return (
 			'<a class="avpvh-grid-a" ' +
 			'data-pswp-width="' +
@@ -1046,7 +1108,9 @@ export class Shortcode {
 			image.image +
 			'" data-avpvh-fullpath="' +
 			('' !== this.currentPathNames ? this.currentPathNames + ' / ' : '') + image.name +
-			'">' +
+			'"' +
+			orientationAttr +
+			'>' +
 			'<img class="avpvh-grid-img" src="' +
 			image.thumbnail +
 			'">' +

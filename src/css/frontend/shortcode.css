@@ -1,3 +1,10 @@
+/* Hide overflow while PhotoSwipe is open so slide transitions don't cause
+   a scrollbar to flash in — most visible in browser fullscreen mode. */
+html.pswp-is-open,
+html.pswp-is-open body {
+	overflow: hidden;
+}
+
 .avpvh-gallery-container {
 	margin-bottom: 1em;
 }
@@ -53,9 +60,26 @@
 	box-shadow: none !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	display: block;
 	height: 100% !important;
+	image-orientation: from-image; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	object-fit: cover !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	object-position: center !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	width: 100% !important;
+}
+
+/* Apply explicit orientation transforms when from-image isn't sufficient */
+a[data-exif-orientation="90"] .avpvh-grid-img {
+	transform: rotate(90deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+a[data-exif-orientation="180"] .avpvh-grid-img {
+	transform: rotate(180deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+a[data-exif-orientation="270"] .avpvh-grid-img {
+	transform: rotate(270deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
 .avpvh-dir-overlay {
@@ -69,21 +93,101 @@
 	right: 0;
 }
 
+.avpvh-dir-name {
+	font-weight: bold;
+	overflow: hidden;
+	text-overflow: ellipsis; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	white-space: nowrap;
+}
+
 .avpvh-dir-counts {
-	font-size: 0.8em;
+	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	font-size: 1em;
+	gap: 0.9em; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	margin-top: 4px;
 }
 
-.avpvh-count-icon {
-	vertical-align: sub;
+.avpvh-count-svg {
+	display: inline-block;
+	fill: currentColor;
+	height: 1.5em;
+	vertical-align: middle;
+	width: 1.5em;
 }
 
-.avpvh-count-icon-indent {
-	margin-left: 15px;
+/* Colour the folder / image / video count icons for visibility */
+.avpvh-dir-counts span:nth-child(1) .avpvh-count-svg {
+	fill: #ffd54f; /* gold — folder */
 }
 
-.avpvh-dir-icon {
-	background: #f0f0f0;
-	display: block;
+.avpvh-dir-counts span:nth-child(2) .avpvh-count-svg {
+	fill: #81d4fa; /* light blue — photo */
+}
+
+.avpvh-dir-counts span:nth-child(3) .avpvh-count-svg {
+	fill: #ffab91; /* light coral — video */
+}
+
+/* Folders without a thumbnail: name + counts at the bottom */
+.avpvh-grid-no-thumb .avpvh-dir-overlay {
+	background-color: rgb(0, 0, 0, 40%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	padding: 5px 8px;
+}
+
+.avpvh-grid-no-thumb .avpvh-dir-name {
+	font-size: 1.15em;
+}
+
+/* Subfolder name list inside the folder body */
+.avpvh-dir-sublist {
+	bottom: 30%;
+	left: 8%;
+	overflow: hidden; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	position: absolute;
+	right: 6%;
+	top: 24%;
+}
+
+.avpvh-dir-sublist-item {
+	align-items: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	color: #1a2c3a;
+	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	font-size: 13px;
+	gap: 6px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	line-height: 1.6;
+	overflow: hidden; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	white-space: nowrap;
+}
+
+.avpvh-dir-sublist-item span {
+	overflow: hidden; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	text-overflow: ellipsis; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-dir-sublist-thumb {
+	border-radius: 2px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	flex-shrink: 0; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	height: 24px;
+	object-fit: cover; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	width: 24px;
+}
+
+.avpvh-dir-sublist-thumb-svg {
+	fill: #a8b8c4;
+	flex-shrink: 0; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	height: 24px;
+	width: 24px;
+}
+
+.avpvh-dir-sublist-more {
+	color: #3a5060;
+	font-size: 13px;
+}
+
+/* Folders without thumbnail use a clip-path to create the tab shape */
+.avpvh-grid-no-thumb {
+	background-color: #a8b8c4;
+	clip-path: polygon(0 0, 42% 0, 48% 22%, 100% 22%, 100% 100%, 0 100%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
 .avpvh-loading,
@@ -163,7 +267,12 @@
 	text-align: center;
 	text-shadow: 0 1px 2px rgb(0, 0, 0, 60%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	top: 44px;
-	transition: opacity 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transition: opacity 0.4s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.pswp--ui-idle .avpvh-pswp-path {
+	opacity: 0;
+	pointer-events: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
 .avpvh-pswp-caption {
@@ -179,6 +288,16 @@
 	text-shadow: 0 1px 2px rgb(0, 0, 0, 60%);
 }
 
+.pswp__button--arrow {
+	background: none !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transition: opacity 0.4s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.pswp--ui-idle .pswp__button--arrow {
+	opacity: 0 !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	pointer-events: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
 .avpvh-pswp-video {
 	align-items: center;
 	display: flex;
@@ -190,4 +309,9 @@
 .avpvh-pswp-video video {
 	max-height: 100%;
 	max-width: 100%;
+}
+
+/* Ensure orientation is respected in PhotoSwipe lightbox images */
+.pswp__img {
+	image-orientation: from-image; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }

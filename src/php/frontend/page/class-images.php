@@ -81,21 +81,22 @@ final class Images {
 
 						$exif = array_filter(
 							array(
-								'aperture' => array_key_exists( 'aperture', $metadata ) && is_numeric( $metadata['aperture'] )
+								'aperture'   => array_key_exists( 'aperture', $metadata ) && is_numeric( $metadata['aperture'] )
 									? round( floatval( $metadata['aperture'] ), 1 )
 									: null,
-								'exposure' => array_key_exists( 'exposureTime', $metadata ) && is_numeric( $metadata['exposureTime'] )
+								'exposure'   => array_key_exists( 'exposureTime', $metadata ) && is_numeric( $metadata['exposureTime'] )
 									? floatval( $metadata['exposureTime'] )
 									: null,
-								'focal'    => array_key_exists( 'focalLength', $metadata ) && is_numeric( $metadata['focalLength'] )
+								'focal'      => array_key_exists( 'focalLength', $metadata ) && is_numeric( $metadata['focalLength'] )
 									? round( floatval( $metadata['focalLength'] ) )
 									: null,
-								'iso'      => array_key_exists( 'isoSpeed', $metadata ) && is_numeric( $metadata['isoSpeed'] )
+								'iso'        => array_key_exists( 'isoSpeed', $metadata ) && is_numeric( $metadata['isoSpeed'] )
 									? intval( $metadata['isoSpeed'] )
 									: null,
-								'make'     => array_key_exists( 'cameraMake', $metadata ) ? $metadata['cameraMake'] : null,
-								'model'    => array_key_exists( 'cameraModel', $metadata ) ? $metadata['cameraModel'] : null,
-								'time'     => array_key_exists( 'time', $metadata ) ? $metadata['time'] : null,
+								'make'       => array_key_exists( 'cameraMake', $metadata ) ? $metadata['cameraMake'] : null,
+								'model'      => array_key_exists( 'cameraModel', $metadata ) ? $metadata['cameraModel'] : null,
+								'time'       => array_key_exists( 'time', $metadata ) ? $metadata['time'] : null,
+								'orientation' => 0 !== $rotation ? $rotation : null,
 							),
 							static function ( $v ) {
 								return null !== $v;
