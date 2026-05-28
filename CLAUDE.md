@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-WordPress plugin (`skaut-google-drive-gallery`) that renders galleries on a WP site from images/videos stored in Google Drive. Distributed via the WordPress.org plugin directory. Supports PHP 5.6+ and WordPress 4.9.6+ — language features and APIs must respect those floors.
+WordPress plugin (`avpvh-gallery`) that renders galleries on a WP site from images/videos stored in Google Drive. Supports PHP 5.6+ and WordPress 4.9.6+ — language features and APIs must respect those floors.
 
 ## Build / lint / test
 
@@ -21,7 +21,7 @@ Common commands:
 
 ### PHP entry & wiring
 
-[src/php/skaut-google-drive-gallery.php](src/php/skaut-google-drive-gallery.php) is the WP plugin header and the only file with `require_once` chains — it loads everything explicitly (no Composer autoloading of plugin code) and instantiates [Main](src/php/class-main.php). `Main` wires the seven subsystems: `Shortcode`, `Block` (Gutenberg), `Page` (AJAX endpoint that paginates gallery contents), `Gallery` (AJAX endpoint for the initial gallery payload), `Video_Proxy`, `Settings_Pages`, `TinyMCE_Plugin`.
+[src/php/avpvh-gallery.php](src/php/avpvh-gallery.php) is the WP plugin header and the only file with `require_once` chains — it loads everything explicitly (no Composer autoloading of plugin code) and instantiates [Main](src/php/class-main.php). `Main` wires the seven subsystems: `Shortcode`, `Block` (Gutenberg), `Page` (AJAX endpoint that paginates gallery contents), `Gallery` (AJAX endpoint for the initial gallery payload), `Video_Proxy`, `Settings_Pages`, `TinyMCE_Plugin`.
 
 The Google API surface is wrapped by two layers: [API_Client](src/php/class-api-client.php) handles raw Google client setup, batching, and Guzzle promises; [API_Facade](src/php/class-api-facade.php) exposes the domain-specific calls (`get_directory_id`, list images/videos, etc.) returning `PromiseInterface`. Frontend code calls the facade, never the raw client.
 
