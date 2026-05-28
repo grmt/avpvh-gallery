@@ -86,6 +86,21 @@ export class Shortcode {
 					videoMime: el.dataset['avpvhVideoMime'] ?? '',
 				};
 			}
+			// Check if this image needs horizontal flip correction
+			// (happens when Google Drive serves preview with different EXIF handling than thumbnail)
+			if (el instanceof HTMLAnchorElement) {
+				const thumb = el.querySelector('img');
+				if (thumb !== null && thumb.naturalWidth > 0 && thumb.naturalHeight > 0) {
+					const thumbRatio = thumb.naturalWidth / thumb.naturalHeight;
+					const pswpWidth = parseInt(el.getAttribute('data-pswp-width') ?? '1', 10);
+					const pswpHeight = parseInt(el.getAttribute('data-pswp-height') ?? '1', 10);
+					const pswpRatio = pswpWidth / pswpHeight;
+					// If ratios differ significantly, the preview might be mirrored
+					if (Math.abs(thumbRatio - pswpRatio) > 0.1) {
+						itemData.needsHFlip = true;
+					}
+				}
+			}
 			return itemData;
 		});
 
@@ -112,6 +127,11 @@ export class Shortcode {
 				}
 				wrap.appendChild(videoEl);
 				e.content.element = wrap;
+			} else if ('image' === e.content.type && (e.content.data as Record<string, unknown>)?.['needsHFlip']) {
+				// Apply horizontal flip to images that were served mirrored by Google Drive
+				if (e.content.element instanceof HTMLImageElement) {
+					e.content.element.style.transform = 'scaleX(-1)';
+				}
 			}
 		});
 
