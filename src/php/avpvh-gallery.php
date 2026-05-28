@@ -54,6 +54,7 @@ require_once __DIR__ . '/vendor/scoper-autoload.php';
 require_once __DIR__ . '/class-options.php';
 require_once __DIR__ . '/class-api-client.php';
 require_once __DIR__ . '/class-api-facade.php';
+require_once __DIR__ . '/class-photo-tags-db.php';
 
 require_once __DIR__ . '/exceptions/class-exception.php';
 require_once __DIR__ . '/exceptions/class-api-exception.php';
@@ -90,6 +91,8 @@ require_once __DIR__ . '/frontend/class-page.php';
 require_once __DIR__ . '/frontend/class-shortcode.php';
 require_once __DIR__ . '/frontend/class-single-page-pagination-helper.php';
 require_once __DIR__ . '/frontend/class-video-proxy.php';
+require_once __DIR__ . '/frontend/class-photo-tags.php';
+require_once __DIR__ . '/frontend/class-members-api.php';
 
 require_once __DIR__ . '/admin/class-oauth-helpers.php';
 require_once __DIR__ . '/admin/class-settings-pages.php';

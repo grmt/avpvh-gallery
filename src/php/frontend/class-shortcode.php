@@ -52,6 +52,7 @@ final class Shortcode {
 			array( 'jquery' )
 		);
 		Script_And_Style_Helpers::register_style( 'avpvh_gallery_css', 'frontend/css/shortcode.min.css' );
+		Script_And_Style_Helpers::register_style( 'avpvh_photo_tagger_css', 'frontend/css/photo-tagger.min.css' );
 
 		Script_And_Style_Helpers::register_style( 'avpvh_photoswipe_style', 'bundled/photoswipe.min.css' );
 		Script_And_Style_Helpers::register_script(
@@ -125,6 +126,7 @@ final class Shortcode {
 			'avpvhShortcodeLocalize',
 			array(
 				'ajax_url'            => admin_url( 'admin-ajax.php' ),
+				'tag_nonce'           => wp_create_nonce( 'avpvh_tag_nonce' ),
 				'breadcrumbs_top'     => esc_html__( 'Gallery', 'avpvh-gallery' ),
 				'empty_gallery'       => esc_html__( 'The gallery is empty.', 'avpvh-gallery' ),
 				'error_header'        => esc_html__(
@@ -145,6 +147,7 @@ final class Shortcode {
 			)
 		);
 		wp_enqueue_style( 'avpvh_gallery_css' );
+		wp_enqueue_style( 'avpvh_photo_tagger_css' );
 		wp_add_inline_style(
 			'avpvh_gallery_css',
 			'.avpvh-dir-name {font-size: ' . $options->get( 'dir_title_size' ) . ';}'

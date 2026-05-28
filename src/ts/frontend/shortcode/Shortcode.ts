@@ -7,6 +7,7 @@ import { isError } from '../../isError';
 import { printError } from '../../printError';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
+import { PhotoTagger } from '../photo-tagger/PhotoTagger';
 
 export class Shortcode {
 	private readonly container: JQuery;
@@ -17,11 +18,21 @@ export class Shortcode {
 	private readonly pathQueryParameter: QueryParameter;
 
 	private readonly lightbox: PhotoSwipeLightbox;
+	private readonly photoTagger: PhotoTagger;
 	private hasMore = false;
 	private path = '';
 	private lastPage = 1;
 	private loading = false;
 	private currentPathNames = '';
+	private slideshowTimer: ReturnType<typeof setTimeout> | null = null;
+	private idleTimer: ReturnType<typeof setTimeout> | null = null;
+	private pendingLightboxOpen: 'first' | 'last' | null = null;
+	private pendingLightboxAdvance = false;
+	private folderNavigating = false;
+	private slideshowPaused = false;
+
+	private readonly SLIDESHOW_DELAY_MS = 5000;
+	private readonly IDLE_HIDE_MS = 3000;
 
 	public constructor(container: HTMLElement, hash: string) {
 		this.container = $(container);
@@ -32,6 +43,8 @@ export class Shortcode {
 		this.path = this.pathQueryParameter.get();
 		this.lightbox = this.createLightbox();
 		this.lightbox.init();
+		this.photoTagger = new PhotoTagger();
+		this.photoTagger.init(container);
 		this.get();
 		$(window).on('popstate', () => {
 			this.init();
@@ -157,7 +170,13 @@ export class Shortcode {
 		});
 
 		lightbox.on('change', () => {
-			const slide = lightbox.pswp?.currSlide;
+			const pswp = lightbox.pswp;
+			if (pswp !== undefined) {
+				// Disable looping whenever more pages can be loaded so we can
+				// intercept the boundary and advance into newly loaded items instead.
+				pswp.options.loop = !this.hasMore;
+			}
+			const slide = pswp?.currSlide;
 			const slideEl = slide?.data.element;
 			if (slideEl instanceof HTMLAnchorElement) {
 				const id = slideEl.dataset['avpvhId'];
@@ -170,6 +189,15 @@ export class Shortcode {
 
 		lightbox.on('close', () => {
 			this.onLightboxQuit();
+			if (this.slideshowTimer !== null) {
+				clearTimeout(this.slideshowTimer);
+				this.slideshowTimer = null;
+			}
+			if (this.idleTimer !== null) {
+				clearTimeout(this.idleTimer);
+				this.idleTimer = null;
+			}
+			this.slideshowPaused = false;
 			if ('' !== window.location.hash) {
 				history.replaceState(
 					history.state,
@@ -179,7 +207,212 @@ export class Shortcode {
 			}
 		});
 
+		lightbox.on('uiRegister', () => {
+			const pswp = lightbox.pswp;
+			if (!pswp) {
+				return;
+			}
+			this.setupLightboxBehavior(pswp);
+		});
+
 		return lightbox;
+	}
+
+	private setupLightboxBehavior(pswp: PhotoSwipe): void {
+		const el = pswp.element;
+		if (el === undefined) {
+			return;
+		}
+
+		// ── Prevent scrollbar during slide transitions ────────────────
+		// PhotoSwipe briefly moves slides outside the viewport while animating.
+		// In fullscreen mode this makes a horizontal scrollbar flash into view.
+		document.documentElement.classList.add('pswp-is-open');
+		pswp.on('close', () => {
+			document.documentElement.classList.remove('pswp-is-open');
+		});
+
+		// ── Idle arrow hiding ─────────────────────────────────────────
+		const resetIdle = (): void => {
+			el.classList.remove('pswp--ui-idle');
+			if (this.idleTimer !== null) {
+				clearTimeout(this.idleTimer);
+			}
+			this.idleTimer = setTimeout(() => {
+				el.classList.add('pswp--ui-idle');
+			}, this.IDLE_HIDE_MS);
+		};
+		el.addEventListener('mousemove', resetIdle);
+		el.addEventListener('touchstart', resetIdle);
+		resetIdle();
+
+		// ── Slideshow: pause while hovering, resume on mouse leave ───
+		// In windowed mode mouseleave fires normally. In fullscreen mode the
+		// mouse can never leave the viewport, so we also treat reaching the
+		// viewport border (within EDGE_PX pixels) as "leaving".
+		const EDGE_PX = 5;
+		this.slideshowPaused = false;
+		this.startSlideshow(pswp);
+		el.addEventListener('mouseenter', () => {
+			this.slideshowPaused = true;
+			if (this.slideshowTimer !== null) {
+				clearTimeout(this.slideshowTimer);
+				this.slideshowTimer = null;
+			}
+		});
+		el.addEventListener('mouseleave', () => {
+			this.slideshowPaused = false;
+			this.startSlideshow(pswp);
+		});
+		el.addEventListener('mousemove', (e: MouseEvent) => {
+			const atEdge =
+				e.clientX <= EDGE_PX ||
+				e.clientY <= EDGE_PX ||
+				e.clientX >= window.innerWidth - EDGE_PX ||
+				e.clientY >= window.innerHeight - EDGE_PX;
+			if (atEdge && this.slideshowPaused) {
+				this.slideshowPaused = false;
+				this.startSlideshow(pswp);
+			}
+		});
+
+		// ── Touch: reset the countdown after each interaction ─────────
+		// No hover concept on touch; just ensure the slide doesn't
+		// auto-advance while the user is actively swiping.
+		el.addEventListener('touchstart', () => {
+			this.startSlideshow(pswp);
+		});
+
+		// ── Boundary navigation ───────────────────────────────────────
+		// Capture click on arrow buttons before PhotoSwipe sees them
+		el.addEventListener('click', (e: MouseEvent) => {
+			const target = e.target;
+			if (!(target instanceof Element)) {
+				return;
+			}
+			if (
+				target.closest('.pswp__button--arrow--next') !== null &&
+				pswp.currIndex === pswp.getNumItems() - 1
+			) {
+				e.stopImmediatePropagation();
+				e.preventDefault();
+				this.nextBoundary(pswp);
+			} else if (
+				target.closest('.pswp__button--arrow--prev') !== null &&
+				pswp.currIndex === 0
+			) {
+				e.stopImmediatePropagation();
+				e.preventDefault();
+				this.prevBoundary(pswp);
+			}
+		}, true);
+
+		// Capture keyboard before PhotoSwipe's document-level handler
+		const handleKeydown = (e: KeyboardEvent): void => {
+			if (!pswp.isOpen) {
+				document.removeEventListener('keydown', handleKeydown, true);
+				return;
+			}
+			if (e.key === 'ArrowRight' && pswp.currIndex === pswp.getNumItems() - 1) {
+				e.stopImmediatePropagation();
+				this.nextBoundary(pswp);
+			} else if (e.key === 'ArrowLeft' && pswp.currIndex === 0) {
+				e.stopImmediatePropagation();
+				this.prevBoundary(pswp);
+			}
+		};
+		document.addEventListener('keydown', handleKeydown, true);
+		pswp.on('close', () => {
+			document.removeEventListener('keydown', handleKeydown, true);
+		});
+	}
+
+	private nextBoundary(pswp: PhotoSwipe): void {
+		if (this.hasMore) {
+			// A load is already in progress (triggered by onLightboxNavigation
+			// when the user neared the end). Mark that we want to advance once
+			// the new items land in the DOM.
+			this.pendingLightboxAdvance = true;
+			if (!this.loading) {
+				this.add();
+			}
+		} else if (!this.folderNavigating) {
+			this.folderNavigating = true;
+			this.navigateToAdjacentFolder('next', pswp);
+		}
+	}
+
+	private prevBoundary(pswp: PhotoSwipe): void {
+		if (!this.folderNavigating) {
+			this.folderNavigating = true;
+			this.navigateToAdjacentFolder('prev', pswp);
+		}
+	}
+
+	private startSlideshow(pswp: PhotoSwipe): void {
+		if (this.slideshowTimer !== null) {
+			clearTimeout(this.slideshowTimer);
+		}
+		if (this.slideshowPaused) {
+			this.slideshowTimer = null;
+			return;
+		}
+		this.slideshowTimer = setTimeout(() => {
+			this.slideshowTimer = null;
+			if (this.lightbox.pswp !== pswp || this.loading) {
+				return;
+			}
+			if (pswp.currIndex === pswp.getNumItems() - 1) {
+				// Reuse the same boundary traversal as the arrow / keyboard handlers
+				this.nextBoundary(pswp);
+			} else {
+				pswp.next();
+				this.startSlideshow(pswp);
+			}
+		}, this.SLIDESHOW_DELAY_MS);
+	}
+
+	private navigateToAdjacentFolder(direction: 'next' | 'prev', pswp: PhotoSwipe): void {
+		const currentPath = this.pathQueryParameter.get();
+		if ('' === currentPath) {
+			this.folderNavigating = false;
+			return;
+		}
+		const lastSlash = currentPath.lastIndexOf('/');
+		const parentPath = lastSlash >= 0 ? currentPath.substring(0, lastSlash) : '';
+		const currentFolderId = lastSlash >= 0 ? currentPath.substring(lastSlash + 1) : currentPath;
+
+		void $.get(
+			avpvhShortcodeLocalize.ajax_url,
+			{
+				action: 'gallery',
+				hash: this.hash,
+				path: parentPath,
+				page: 1,
+			},
+			(data: GalleryResponse) => {
+				this.folderNavigating = false;
+				if (isError(data)) {
+					return;
+				}
+				const siblings = (data as GallerySuccessResponse).directories ?? [];
+				const currentIndex = siblings.findIndex((d) => d.id === currentFolderId);
+				if (currentIndex < 0) {
+					return;
+				}
+				const targetIndex = 'next' === direction ? currentIndex + 1 : currentIndex - 1;
+				if (targetIndex < 0 || targetIndex >= siblings.length) {
+					return;
+				}
+				const targetDir = siblings[targetIndex];
+				const newPath = ('' !== parentPath ? parentPath + '/' : '') + targetDir.id;
+				pswp.close();
+				this.pendingLightboxOpen = 'next' === direction ? 'first' : 'last';
+				history.pushState({}, '', this.pathQueryParameter.add(newPath));
+				this.path = newPath;
+				this.get();
+			}
+		);
 	}
 
 	private static renderMoreButton(): string {
@@ -332,11 +565,8 @@ export class Shortcode {
 		let html = '';
 		let currentPage = 1;
 		let remaining = pageLength;
-		if (
-			(data.path !== undefined && 0 < data.path.length) ||
-			(data.directories !== undefined && 0 < data.directories.length)
-		) {
-			html += this.renderBreadcrumbs(data.path ?? []);
+		if (data.path !== undefined && 0 < data.path.length) {
+			html += this.renderBreadcrumbs(data.path);
 		}
 		if (
 			(data.directories !== undefined && 0 < data.directories.length) ||
@@ -399,7 +629,17 @@ export class Shortcode {
 		this.container.html(html);
 		this.hasMore = data.more ?? false;
 		this.postLoad();
-		this.openFromHash();
+		if (this.pendingLightboxOpen !== null) {
+			const action = this.pendingLightboxOpen;
+			this.pendingLightboxOpen = null;
+			const links = this.container.find('a.avpvh-grid-a[data-pswp-width]').get();
+			if (0 < links.length) {
+				const index = 'first' === action ? 0 : links.length - 1;
+				this.lightbox.loadAndOpen(index);
+			}
+		} else {
+			this.openFromHash();
+		}
 	}
 
 	private openFromHash(): void {
@@ -465,6 +705,25 @@ export class Shortcode {
 		}
 		this.container.find('.avpvh-loading').remove();
 		this.postLoad();
+
+		// Let PhotoSwipe re-query the DOM for newly added gallery items
+		const pswp = this.lightbox.pswp;
+		if (pswp !== undefined) {
+			const ds = pswp.options.dataSource as Record<string, unknown> | undefined;
+			if (ds !== undefined) {
+				delete ds['items'];
+			}
+			// Keep loop disabled while more items remain; re-enable when fully loaded
+			pswp.options.loop = !this.hasMore;
+
+			if (this.pendingLightboxAdvance) {
+				this.pendingLightboxAdvance = false;
+				setTimeout(() => {
+					pswp.next();
+					this.startSlideshow(pswp);
+				}, 50);
+			}
+		}
 	}
 
 	private fixPhotoSwipeDimensions(): void {
@@ -599,68 +858,111 @@ export class Shortcode {
 		return html;
 	}
 
+	// Inline SVG icons for the count row — dashicons are not loaded on the frontend
+	private static readonly SVG_FOLDER =
+		'<svg class="avpvh-count-svg" viewBox="0 0 24 24" aria-hidden="true">' +
+		'<path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8' +
+		'c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>';
+
+	private static readonly SVG_IMAGE =
+		'<svg class="avpvh-count-svg" viewBox="0 0 24 24" aria-hidden="true">' +
+		'<path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14' +
+		'c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>';
+
+	private static readonly SVG_VIDEO =
+		'<svg class="avpvh-count-svg" viewBox="0 0 24 24" aria-hidden="true">' +
+		'<path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1' +
+		'h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>';
+
 	private renderDirectory(directory: Directory): string {
 		let newPath = this.pathQueryParameter.get();
 		newPath = (newPath ? newPath + '/' : '') + directory.id;
+		const hasThumb = !!directory.thumbnail;
 		let html =
-			'<a class="avpvh-grid-a avpvh-grid-square" data-avpvh-path="' +
+			'<a class="avpvh-grid-a avpvh-grid-square' +
+			(hasThumb ? '' : ' avpvh-grid-no-thumb') +
+			'" data-avpvh-path="' +
 			newPath +
 			'" href="' +
 			this.pathQueryParameter.add(newPath) +
 			'"';
-		if (directory.thumbnail) {
+		if (hasThumb) {
 			html +=
 				' style="background-image: url(\'' +
 				directory.thumbnail +
-				'\');">';
+				'\')">'; 
 		} else {
+			// Folder icon — lighter colour, slightly cropped viewBox for a bigger feel
 			html +=
 				'>' +
-				'<svg class="avpvh-dir-icon" x="0px" y="0px" focusable="false" viewBox="0 0 24 24" fill="#8f8f8f">' +
-				'<path d="M10 4H4c-1.1 0-2 .9-2 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z">' +
-				'</path>' +
+				'<svg class="avpvh-dir-icon" focusable="false" viewBox="0 1 24 21" fill="#a8b8c4">' +
+				'<path d="M10 4H4c-1.1 0-2 .9-2 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2' +
+				'V8c0-1.1-.9-2-2-2h-8l-2-2z"/>' +
 				'</svg>';
+
+			// Subfolder previews listed inside the folder body
+			const subdirs = directory.subdirs ?? [];
+			if (0 < subdirs.length) {
+				const hasMore =
+					directory.dircount !== undefined &&
+					directory.dircount > subdirs.length;
+				html += '<div class="avpvh-dir-sublist">';
+				for (const sub of subdirs) {
+					const label = sub.name.length > 5
+						? sub.name.substring(0, 5) + '…'
+						: sub.name;
+					html += '<div class="avpvh-dir-sublist-item">';
+					if (sub.thumbnail !== false) {
+						html += '<img class="avpvh-dir-sublist-thumb" src="' + sub.thumbnail + '" alt="" loading="lazy">';
+					} else {
+						html += Shortcode.SVG_FOLDER;
+					}
+					html += '<span>' + label + '</span>';
+					html += '</div>';
+				}
+				if (hasMore) {
+					html += '<div class="avpvh-dir-sublist-item avpvh-dir-sublist-more">…</div>';
+				}
+				html += '</div>';
+			}
 		}
+
+		// Name + counts — always at the bottom of the card
 		html +=
 			'<div class="avpvh-dir-overlay">' +
 			'<div class="avpvh-dir-name">' +
 			directory.name +
 			'</div>';
+		const countParts: Array<string> = [];
 		if (directory.dircount !== undefined) {
-			html +=
-				'<span class="avpvh-count-icon dashicons dashicons-category">' +
-				'</span> ' +
+			countParts.push(
+				'<span>' +
+				Shortcode.SVG_FOLDER + ' ' +
 				directory.dircount.toString() +
-				(1000 === directory.dircount ? '+' : '');
+				(1000 === directory.dircount ? '+' : '') +
+				'</span>'
+			);
 		}
 		if (directory.imagecount !== undefined) {
-			let iconClass = '';
-			if (directory.dircount !== undefined) {
-				iconClass = ' avpvh-count-icon-indent';
-			}
-			html +=
-				'<span class="avpvh-count-icon dashicons dashicons-format-image' +
-				iconClass +
-				'">' +
-				'</span> ' +
+			countParts.push(
+				'<span>' +
+				Shortcode.SVG_IMAGE + ' ' +
 				directory.imagecount.toString() +
-				(1000 === directory.imagecount ? '+' : '');
+				(1000 === directory.imagecount ? '+' : '') +
+				'</span>'
+			);
 		}
 		if (directory.videocount !== undefined) {
-			let iconClass = '';
-			if (
-				directory.dircount !== undefined ||
-				directory.imagecount !== undefined
-			) {
-				iconClass = ' avpvh-count-icon-indent';
-			}
-			html +=
-				'<span class="avpvh-count-icon dashicons dashicons-video-alt3' +
-				iconClass +
-				'">' +
-				'</span> ' +
+			countParts.push(
+				'<span>' +
+				Shortcode.SVG_VIDEO + ' ' +
 				directory.videocount.toString() +
-				(1000 === directory.videocount ? '+' : '');
+				(1000 === directory.videocount ? '+' : '') +
+				'</span>'
+			);
+		}
+		if (0 < countParts.length) {
+			html += '<div class="avpvh-dir-counts">' + countParts.join('') + '</div>';
 		}
 		html += '</div></a>';
 		return html;
