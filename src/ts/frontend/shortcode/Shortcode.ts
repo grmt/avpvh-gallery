@@ -21,6 +21,7 @@ export class Shortcode {
 	private path = '';
 	private lastPage = 1;
 	private loading = false;
+	private currentPathNames = '';
 
 	public constructor(container: HTMLElement, hash: string) {
 		this.container = $(container);
@@ -288,6 +289,7 @@ export class Shortcode {
 	}
 
 	private getSuccess(data: GallerySuccessResponse): void {
+		this.currentPathNames = (data.path ?? []).map((c) => c.name).join(' / ');
 		const pageLength =
 			((data.directories ? data.directories.length : 0) +
 				(data.images ? data.images.length : 0) +
@@ -483,6 +485,23 @@ export class Shortcode {
 			return false;
 		});
 
+		// Click on EXIF overlay: copy full path to clipboard, don't open lightbox
+		this.container
+			.find('.avpvh-exif-overlay')
+			.off('click.avpvh-copy')
+			.on('click.avpvh-copy', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				const anchor = (e.currentTarget as HTMLElement).closest('a');
+				const fullPath = anchor?.dataset['avpvhFullpath'] ?? '';
+				void navigator.clipboard.writeText(fullPath).then(() => {
+					const el = e.currentTarget as HTMLElement;
+					const original = el.innerHTML;
+					el.innerHTML = '<div class="avpvh-exif-filename">Gekopieerd!</div>';
+					setTimeout(() => { el.innerHTML = original; }, 1200);
+				});
+			});
+
 		this.loading = true;
 		void this.container
 			.find('.avpvh-gallery')
@@ -629,7 +648,7 @@ export class Shortcode {
 		return match[1] + '-' + match[2] + '-' + match[3];
 	}
 
-	private static renderExifOverlay(name: string, exif: ImageExif | undefined): string {
+	private static renderExifOverlay(fullPath: string, exif: ImageExif | undefined): string {
 		const parts: Array<string> = [];
 		if (exif !== undefined) {
 			if (exif.time !== undefined) {
@@ -655,11 +674,11 @@ export class Shortcode {
 				parts.push('ISO ' + String(exif.iso));
 			}
 		}
-		if ('' === name && 0 === parts.length) {
+		if ('' === fullPath && 0 === parts.length) {
 			return '';
 		}
-		const nameHtml = '' !== name
-			? '<div class="avpvh-exif-filename">' + name + '</div>'
+		const nameHtml = '' !== fullPath
+			? '<div class="avpvh-exif-filename">' + fullPath + '</div>'
 			: '';
 		const exifHtml = 0 < parts.length
 			? '<div class="avpvh-exif-data">' + parts.join(' · ') + '</div>'
@@ -689,11 +708,16 @@ export class Shortcode {
 			'" ' +
 			'href="' +
 			image.image +
+			'" data-avpvh-fullpath="' +
+			('' !== this.currentPathNames ? this.currentPathNames + ' / ' : '') + image.name +
 			'">' +
 			'<img class="avpvh-grid-img" src="' +
 			image.thumbnail +
 			'">' +
-			Shortcode.renderExifOverlay(image.name, image.exif) +
+			Shortcode.renderExifOverlay(
+				('' !== this.currentPathNames ? this.currentPathNames + ' / ' : '') + image.name,
+				image.exif
+			) +
 			'</a>'
 		);
 	}

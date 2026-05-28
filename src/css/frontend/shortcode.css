@@ -42,6 +42,11 @@
 
 .avpvh-exif-data {
 	font-weight: normal;
+	margin-top: 2px;
+}
+
+.avpvh-grid-a:hover .avpvh-exif-overlay {
+	cursor: copy;
 }
 
 .avpvh-grid-img {
