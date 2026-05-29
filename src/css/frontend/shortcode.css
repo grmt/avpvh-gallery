@@ -53,30 +53,31 @@ html.pswp-is-open body {
 }
 
 .avpvh-info-btn {
-	background: rgba(0, 0, 0, 70%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	background: transparent;
 	border: none;
-	border-radius: 50%; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	color: #fff;
 	cursor: pointer;
-	font-size: 18px;
+	font-size: 22px;
 	font-weight: bold;
-	height: 32px;
+	height: auto;
 	line-height: 1;
-	padding: 0;
+	padding: 4px;
 	position: absolute;
 	right: 8px;
 	top: 8px;
-	transition: background-color 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	width: 32px;
+	text-shadow: 0 0 3px rgb(0, 0, 0, 60%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transition: opacity 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	width: auto;
 	z-index: 10;
+	opacity: 0.6;
 }
 
 .avpvh-info-btn:hover {
-	background: rgba(0, 0, 0, 85%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	opacity: 1;
 }
 
 .avpvh-grid-a:hover .avpvh-info-btn {
-	opacity: 0.8;
+	opacity: 0.9;
 }
 
 .avpvh-exif-filename {

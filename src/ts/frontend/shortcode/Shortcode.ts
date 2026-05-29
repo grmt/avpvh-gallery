@@ -198,6 +198,49 @@ export class Shortcode {
 					});
 				},
 			});
+
+			// Register EXIF info button for the lightbox
+			pswp.ui?.registerElement({
+				name: 'avpvh-lightbox-info',
+				order: 6,
+				isButton: true,
+				appendTo: 'root',
+				onInit: (el, instance) => {
+					el.classList.add('avpvh-lightbox-info-btn');
+					el.innerHTML = 'ℹ';
+					el.title = 'Image information';
+					el.setAttribute('aria-label', 'Toggle image information');
+					const exifOverlay = document.createElement('div');
+					exifOverlay.className = 'avpvh-lightbox-exif-overlay';
+					el.appendChild(exifOverlay);
+
+					const update = (): void => {
+						const slideEl = instance.currSlide?.data.element;
+						if (slideEl instanceof HTMLElement) {
+							const fullPath = slideEl.dataset['avpvhFullpath'] ?? '';
+							const exifStr = slideEl.dataset['avpvhExif'] ?? '';
+							let html = '';
+							if (fullPath) {
+								html += '<div class="avpvh-exif-filename">' + fullPath + '</div>';
+							}
+							if (exifStr) {
+								html += '<div class="avpvh-exif-data">' + exifStr + '</div>';
+							}
+							exifOverlay.innerHTML = html;
+							el.style.display = html ? 'block' : 'none';
+						}
+					};
+
+					el.addEventListener('click', (e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						exifOverlay.classList.toggle('avpvh-exif-visible');
+					});
+
+					instance.on('change', update);
+					update();
+				},
+			});
 		});
 
 		lightbox.on('change', () => {
@@ -887,25 +930,25 @@ export class Shortcode {
 		this.container
 			.find('.avpvh-info-btn')
 			.off('click.avpvh-info')
-			.on('click.avpvh-info', (e) => {
+			.on('click.avpvh-info', function(e) {
 				e.preventDefault();
 				e.stopPropagation();
-				const btn = e.currentTarget as HTMLElement;
+				const btn = this as HTMLElement;
 				const anchor = btn.closest('a') as HTMLElement;
 				const overlay = anchor?.querySelector('.avpvh-exif-overlay') as HTMLElement;
-				if (overlay === null) {
+				if (!overlay) {
 					return;
 				}
 				overlay.classList.toggle('avpvh-exif-visible');
 				// Close overlay on click elsewhere
 				if (overlay.classList.contains('avpvh-exif-visible')) {
 					const closeOnClickOutside = (ev: Event): void => {
-						if (!anchor?.contains(ev.target as HTMLElement)) {
+						if (ev.target !== btn && !anchor?.contains(ev.target as HTMLElement)) {
 							overlay.classList.remove('avpvh-exif-visible');
 							document.removeEventListener('click', closeOnClickOutside);
 						}
 					};
-					document.addEventListener('click', closeOnClickOutside);
+					setTimeout(() => { document.addEventListener('click', closeOnClickOutside); }, 0);
 				}
 			});
 
