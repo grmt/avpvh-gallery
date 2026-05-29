@@ -373,6 +373,10 @@ a[data-exif-orientation="270"] .avpvh-grid-img {
 	text-shadow: 0 0 3px rgb(0, 0, 0, 60%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	opacity: 0.6;
 	transition: opacity 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	position: absolute;
+	right: 12px;
+	top: 12px;
+	z-index: 11;
 }
 
 .avpvh-lightbox-info-btn:hover {
