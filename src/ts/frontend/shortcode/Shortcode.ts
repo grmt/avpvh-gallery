@@ -95,8 +95,9 @@ export class Shortcode {
 					const pswpWidth = parseInt(el.getAttribute('data-pswp-width') ?? '1', 10);
 					const pswpHeight = parseInt(el.getAttribute('data-pswp-height') ?? '1', 10);
 					const pswpRatio = pswpWidth / pswpHeight;
-					// If ratios differ significantly, the preview might be mirrored
-					if (Math.abs(thumbRatio - pswpRatio) > 0.1) {
+					const ratioDiff = Math.abs(thumbRatio - pswpRatio);
+					// If ratios differ, the preview might be mirrored (lower threshold for sensitivity)
+					if (ratioDiff > 0.01) {
 						itemData.needsHFlip = true;
 					}
 				}
@@ -127,10 +128,12 @@ export class Shortcode {
 				}
 				wrap.appendChild(videoEl);
 				e.content.element = wrap;
-			} else if ('image' === e.content.type && (e.content.data as Record<string, unknown>)?.['needsHFlip']) {
+			} else if ('image' === e.content.type) {
 				// Apply horizontal flip to images that were served mirrored by Google Drive
-				if (e.content.element instanceof HTMLImageElement) {
-					e.content.element.style.transform = 'scaleX(-1)';
+				if ((e.content.data as Record<string, unknown>)?.['needsHFlip']) {
+					if (e.content.element instanceof HTMLImageElement) {
+						e.content.element.style.transform = 'scaleX(-1)';
+					}
 				}
 			}
 		});
