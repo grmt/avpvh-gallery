@@ -28,15 +28,30 @@ final class Photo_Tags {
 	}
 
 	/**
-	 * Check if user can tag photos
+	 * Check if user can tag photos and verify nonce
 	 *
 	 * @return void
 	 */
 	private function check_can_tag() {
-		if ( ! is_user_logged_in() ) {
-			wp_die( esc_html__( 'Not authenticated', 'avpvh-gallery' ), 403 );
-		}
 		check_ajax_referer( 'avpvh_tag_nonce' );
+	}
+
+	/**
+	 * Insert data or send error response
+	 *
+	 * @param string $table Table name.
+	 * @param array  $data Data to insert.
+	 * @param array  $formats Format specifiers.
+	 * @param string $error_msg Error message on failure.
+	 * @return int Insert ID on success.
+	 */
+	private function insert_or_error( $table, array $data, array $formats, $error_msg ) {
+		global $wpdb;
+		$wpdb->insert( $table, $data, $formats );
+		if ( ! $wpdb->insert_id ) {
+			wp_send_json_error( array( 'message' => esc_html( $error_msg ) ), 500 );
+		}
+		return $wpdb->insert_id;
 	}
 
 	/**
@@ -72,22 +87,19 @@ final class Photo_Tags {
 
 		$member_name = $member->first_name . ' ' . $member->last_name;
 
-		$wpdb->insert(
+		$this->insert_or_error(
 			$table,
 			array(
 				'image_id' => $image_id,
 				'member_id' => $member_id,
 				'member_name' => $member_name,
-				'region_data' => $region_data ? wp_json_encode( json_decode( $region_data ) ) : null,
+				'region_data' => $region_data,
 				'created_by' => get_current_user_id(),
 				'created_at' => current_time( 'mysql' ),
 			),
-			array( '%s', '%d', '%s', '%s', '%d', '%s' )
+			array( '%s', '%d', '%s', '%s', '%d', '%s' ),
+			esc_html__( 'Failed to create tag', 'avpvh-gallery' )
 		);
-
-		if ( ! $wpdb->insert_id ) {
-			wp_send_json_error( array( 'message' => esc_html__( 'Failed to create tag', 'avpvh-gallery' ) ), 500 );
-		}
 
 		// Sync to Google Drive (non-blocking)
 		wp_remote_post(
@@ -232,25 +244,19 @@ final class Photo_Tags {
 			wp_send_json_error( array( 'message' => esc_html__( 'Invalid parameters', 'avpvh-gallery' ) ), 400 );
 		}
 
-		global $wpdb;
-		$table = $wpdb->prefix . 'agallery_tag_comments';
-
-		$wpdb->insert(
-			$table,
+		$comment_id = $this->insert_or_error(
+			$wpdb->prefix . 'agallery_tag_comments',
 			array(
 				'tag_id' => $tag_id,
 				'user_id' => get_current_user_id(),
 				'comment_text' => $comment_text,
 				'created_at' => current_time( 'mysql' ),
 			),
-			array( '%d', '%d', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s' ),
+			esc_html__( 'Failed to create comment', 'avpvh-gallery' )
 		);
 
-		if ( ! $wpdb->insert_id ) {
-			wp_send_json_error( array( 'message' => esc_html__( 'Failed to create comment', 'avpvh-gallery' ) ), 500 );
-		}
-
-		wp_send_json_success( array( 'comment_id' => $wpdb->insert_id ) );
+		wp_send_json_success( array( 'comment_id' => $comment_id ) );
 	}
 
 	/**
@@ -272,38 +278,24 @@ final class Photo_Tags {
 		$table = $wpdb->prefix . 'agallery_reactions';
 		$user_id = get_current_user_id();
 
-		// Check if user already reacted with this emoji
-		$existing = $wpdb->get_var(
+		// Toggle reaction: remove if exists, add if doesn't
+		if ( $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT id FROM {$table}
-				 WHERE tag_id = %d AND user_id = %d AND emoji = %s",
+				"SELECT id FROM {$table} WHERE tag_id = %d AND user_id = %d AND emoji = %s",
 				$tag_id,
 				$user_id,
 				$emoji
 			)
-		);
-
-		if ( $existing ) {
-			// Toggle: remove if already exists
+		) ) {
 			$wpdb->delete(
 				$table,
-				array(
-					'tag_id' => $tag_id,
-					'user_id' => $user_id,
-					'emoji' => $emoji,
-				),
+				array( 'tag_id' => $tag_id, 'user_id' => $user_id, 'emoji' => $emoji ),
 				array( '%d', '%d', '%s' )
 			);
 		} else {
-			// Add reaction
 			$wpdb->insert(
 				$table,
-				array(
-					'tag_id' => $tag_id,
-					'user_id' => $user_id,
-					'emoji' => $emoji,
-					'created_at' => current_time( 'mysql' ),
-				),
+				array( 'tag_id' => $tag_id, 'user_id' => $user_id, 'emoji' => $emoji, 'created_at' => current_time( 'mysql' ) ),
 				array( '%d', '%d', '%s', '%s' )
 			);
 		}
