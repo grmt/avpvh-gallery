@@ -880,6 +880,32 @@ export class Shortcode {
 				});
 			});
 
+		// Click on info button: toggle EXIF overlay visibility
+		this.container
+			.find('.avpvh-info-btn')
+			.off('click.avpvh-info')
+			.on('click.avpvh-info', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				const btn = e.currentTarget as HTMLElement;
+				const anchor = btn.closest('a') as HTMLElement;
+				const overlay = anchor?.querySelector('.avpvh-exif-overlay') as HTMLElement;
+				if (overlay === null) {
+					return;
+				}
+				overlay.classList.toggle('avpvh-exif-visible');
+				// Close overlay on click elsewhere
+				if (overlay.classList.contains('avpvh-exif-visible')) {
+					const closeOnClickOutside = (ev: Event): void => {
+						if (!anchor?.contains(ev.target as HTMLElement)) {
+							overlay.classList.remove('avpvh-exif-visible');
+							document.removeEventListener('click', closeOnClickOutside);
+						}
+					};
+					document.addEventListener('click', closeOnClickOutside);
+				}
+			});
+
 		this.loading = true;
 		void this.container
 			.find('.avpvh-gallery')
@@ -1107,6 +1133,10 @@ export class Shortcode {
 		const width = 0 < image.width ? image.width : 2000;
 		const height = 0 < image.height ? image.height : 1500;
 		const orientationAttr = image.exif?.orientation ? ' data-exif-orientation="' + image.exif.orientation + '"' : '';
+		const hasExif = image.exif !== undefined && Object.keys(image.exif).length > 0;
+		const infoBtn = hasExif
+			? '<button class="avpvh-info-btn" title="Image information" aria-label="Toggle image information">ℹ</button>'
+			: '';
 		return (
 			'<a class="avpvh-grid-a" ' +
 			'data-pswp-width="' +
@@ -1134,6 +1164,7 @@ export class Shortcode {
 			'<img class="avpvh-grid-img" src="' +
 			image.thumbnail +
 			'">' +
+			infoBtn +
 			Shortcode.renderExifOverlay(
 				('' !== this.currentPathNames ? this.currentPathNames + ' / ' : '') + image.name,
 				image.exif

@@ -37,10 +37,46 @@ html.pswp-is-open body {
 	text-overflow: ellipsis;
 	transition: opacity 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	white-space: nowrap;
+	pointer-events: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
 .avpvh-grid-a:hover .avpvh-exif-overlay {
 	opacity: 1;
+}
+
+.avpvh-exif-overlay.avpvh-exif-visible {
+	opacity: 1;
+	pointer-events: all; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	white-space: normal;
+	overflow: auto;
+	max-height: 100%;
+}
+
+.avpvh-info-btn {
+	background: rgba(0, 0, 0, 70%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border: none;
+	border-radius: 50%; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	color: #fff;
+	cursor: pointer;
+	font-size: 18px;
+	font-weight: bold;
+	height: 32px;
+	line-height: 1;
+	padding: 0;
+	position: absolute;
+	right: 8px;
+	top: 8px;
+	transition: background-color 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	width: 32px;
+	z-index: 10;
+}
+
+.avpvh-info-btn:hover {
+	background: rgba(0, 0, 0, 85%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-grid-a:hover .avpvh-info-btn {
+	opacity: 0.8;
 }
 
 .avpvh-exif-filename {
