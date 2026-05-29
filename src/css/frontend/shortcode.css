@@ -380,8 +380,15 @@ a[data-exif-orientation="270"] .avpvh-grid-img {
 	z-index: 11 !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
-.avpvh-lightbox-info-btn:hover {
+.avpvh-lightbox-info-btn:hover,
+.avpvh-lightbox-info-btn:focus {
 	opacity: 1;
+}
+
+.avpvh-lightbox-info-btn:active .avpvh-lightbox-exif-overlay,
+.avpvh-lightbox-info-btn:focus .avpvh-lightbox-exif-overlay {
+	opacity: 1 !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	pointer-events: all !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
 /* Lightbox EXIF overlay */
