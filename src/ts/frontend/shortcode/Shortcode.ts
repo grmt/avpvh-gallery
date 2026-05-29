@@ -1150,6 +1150,10 @@ export class Shortcode {
 			if (exif.iso !== undefined) {
 				parts.push('ISO ' + String(exif.iso));
 			}
+
+			if (exif.orientation !== undefined && 0 !== exif.orientation) {
+				parts.push('Rotation ' + String(exif.orientation) + '°');
+			}
 		}
 		if ('' === fullPath && 0 === parts.length) {
 			return '';
