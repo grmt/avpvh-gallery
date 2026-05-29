@@ -38,13 +38,15 @@ html.pswp-is-open body {
 	transition: opacity 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	white-space: nowrap;
 	pointer-events: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	z-index: 5;
 }
 
 .avpvh-grid-a:hover .avpvh-exif-overlay {
 	opacity: 1;
 }
 
-.avpvh-exif-overlay.avpvh-exif-visible {
+/* Show overlay when info btn is clicked (via avpvh-exif-visible class on anchor) */
+.avpvh-grid-a.avpvh-exif-visible .avpvh-exif-overlay {
 	opacity: 1;
 	pointer-events: all; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	white-space: normal;

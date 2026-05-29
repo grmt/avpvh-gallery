@@ -931,12 +931,11 @@ export class Shortcode {
 			e.preventDefault();
 			e.stopPropagation();
 			const btn = this as HTMLElement;
-			const anchor = btn.closest('a') as HTMLElement;
-			const overlay = anchor?.querySelector('.avpvh-exif-overlay') as HTMLElement | null;
-			if (!overlay) {
+			const anchor = btn.closest('a.avpvh-grid-a') as HTMLElement;
+			if (!anchor) {
 				return false;
 			}
-			overlay.classList.toggle('avpvh-exif-visible');
+			anchor.classList.toggle('avpvh-exif-visible');
 			return false;
 		});
 
