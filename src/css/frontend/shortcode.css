@@ -380,27 +380,20 @@ a[data-exif-orientation="270"] .avpvh-grid-img {
 	z-index: 11 !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
-.avpvh-lightbox-info-btn:hover,
-.avpvh-lightbox-info-btn:focus {
+.avpvh-lightbox-info-btn:hover {
 	opacity: 1;
 }
 
-.avpvh-lightbox-info-btn:active .avpvh-lightbox-exif-overlay,
-.avpvh-lightbox-info-btn:focus .avpvh-lightbox-exif-overlay {
-	opacity: 1 !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	pointer-events: all !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-}
-
-/* Lightbox EXIF overlay */
+/* Lightbox EXIF overlay - always visible */
 .avpvh-lightbox-exif-overlay {
 	background-color: #000;
 	background-color: rgb(0, 0, 0, 65%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	color: #fff;
 	font-size: 13px;
 	max-width: 300px;
-	opacity: 0 !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	opacity: 1; /* Always visible in lightbox */
 	padding: 8px;
-	pointer-events: none !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	pointer-events: auto;
 	position: absolute;
 	right: 50px;
 	top: 12px;
