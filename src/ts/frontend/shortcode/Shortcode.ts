@@ -926,31 +926,19 @@ export class Shortcode {
 				});
 			});
 
-		// Click on info button: toggle EXIF overlay visibility
-		this.container
-			.find('.avpvh-info-btn')
-			.off('click.avpvh-info')
-			.on('click.avpvh-info', function(e) {
-				e.preventDefault();
-				e.stopPropagation();
-				const btn = this as HTMLElement;
-				const anchor = btn.closest('a') as HTMLElement;
-				const overlay = anchor?.querySelector('.avpvh-exif-overlay') as HTMLElement;
-				if (!overlay) {
-					return;
-				}
-				overlay.classList.toggle('avpvh-exif-visible');
-				// Close overlay on click elsewhere
-				if (overlay.classList.contains('avpvh-exif-visible')) {
-					const closeOnClickOutside = (ev: Event): void => {
-						if (ev.target !== btn && !anchor?.contains(ev.target as HTMLElement)) {
-							overlay.classList.remove('avpvh-exif-visible');
-							document.removeEventListener('click', closeOnClickOutside);
-						}
-					};
-					setTimeout(() => { document.addEventListener('click', closeOnClickOutside); }, 0);
-				}
-			});
+		// Use event delegation for info button clicks
+		this.container.off('click.avpvh-info').on('click.avpvh-info', '.avpvh-info-btn', function(e) {
+			e.preventDefault();
+			e.stopPropagation();
+			const btn = this as HTMLElement;
+			const anchor = btn.closest('a') as HTMLElement;
+			const overlay = anchor?.querySelector('.avpvh-exif-overlay') as HTMLElement | null;
+			if (!overlay) {
+				return false;
+			}
+			overlay.classList.toggle('avpvh-exif-visible');
+			return false;
+		});
 
 		this.loading = true;
 		void this.container
@@ -1181,7 +1169,7 @@ export class Shortcode {
 		const orientationAttr = image.exif?.orientation ? ' data-exif-orientation="' + image.exif.orientation + '"' : '';
 		const hasExif = image.exif !== undefined && Object.keys(image.exif).length > 0;
 		const infoBtn = hasExif
-			? '<button class="avpvh-info-btn" title="Image information" aria-label="Toggle image information">ℹ</button>'
+			? '<button type="button" class="avpvh-info-btn" title="Image information" aria-label="Toggle image information">ℹ</button>'
 			: '';
 		return (
 			'<a class="avpvh-grid-a" ' +
