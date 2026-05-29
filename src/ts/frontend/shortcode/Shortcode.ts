@@ -926,17 +926,17 @@ export class Shortcode {
 				});
 			});
 
-		// Use event delegation for info button clicks
-		this.container.off('click.avpvh-info').on('click.avpvh-info', '.avpvh-info-btn', function(e) {
+		// Use event delegation for info button clicks - prevent opening lightbox
+		this.container.off('click.avpvh-info').on('click.avpvh-info', '.avpvh-info-btn', (e) => {
 			e.preventDefault();
 			e.stopPropagation();
-			const btn = this as HTMLElement;
+			e.stopImmediatePropagation();
+			const btn = e.currentTarget as HTMLElement;
 			const anchor = btn.closest('a.avpvh-grid-a') as HTMLElement;
 			if (!anchor) {
-				return false;
+				return;
 			}
 			anchor.classList.toggle('avpvh-exif-visible');
-			return false;
 		});
 
 		this.loading = true;
@@ -1174,6 +1174,38 @@ export class Shortcode {
 		const infoBtn = hasExif
 			? '<button type="button" class="avpvh-info-btn" title="Image information" aria-label="Toggle image information">ℹ</button>'
 			: '';
+
+		// Format EXIF data for data attribute (used by lightbox)
+		const exifParts: Array<string> = [];
+		if (image.exif !== undefined) {
+			if (image.exif.time !== undefined) {
+				const d = Shortcode.formatExifDate(image.exif.time);
+				if ('' !== d) {
+					exifParts.push(d);
+				}
+			}
+			const camera = [image.exif.make, image.exif.model].filter((x) => x !== undefined).join(' ');
+			if ('' !== camera) {
+				exifParts.push(camera);
+			}
+			if (image.exif.focal !== undefined) {
+				exifParts.push(String(image.exif.focal) + 'mm');
+			}
+			if (image.exif.aperture !== undefined) {
+				exifParts.push('f/' + String(image.exif.aperture));
+			}
+			if (image.exif.exposure !== undefined) {
+				exifParts.push(Shortcode.formatExposure(image.exif.exposure));
+			}
+			if (image.exif.iso !== undefined) {
+				exifParts.push('ISO ' + String(image.exif.iso));
+			}
+			if (image.exif.orientation !== undefined && 0 !== image.exif.orientation) {
+				exifParts.push('Rotation ' + String(image.exif.orientation) + '°');
+			}
+		}
+		const exifAttr = 0 < exifParts.length ? ' data-avpvh-exif="' + exifParts.join(' · ') + '"' : '';
+
 		return (
 			'<a class="avpvh-grid-a" ' +
 			'data-pswp-width="' +
@@ -1197,6 +1229,7 @@ export class Shortcode {
 			('' !== this.currentPathNames ? this.currentPathNames + ' / ' : '') + image.name +
 			'"' +
 			orientationAttr +
+			exifAttr +
 			'>' +
 			'<img class="avpvh-grid-img" src="' +
 			image.thumbnail +
