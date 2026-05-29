@@ -208,10 +208,13 @@ export class Shortcode {
 						}
 					};
 
-					el.addEventListener('click', (e) => {
-						e.preventDefault();
-						e.stopPropagation();
-						exifOverlay.classList.toggle('avpvh-exif-visible');
+					el.addEventListener('click', () => {
+						const isVisible = exifOverlay.classList.contains('avpvh-exif-visible');
+						if (isVisible) {
+							exifOverlay.classList.remove('avpvh-exif-visible');
+						} else {
+							exifOverlay.classList.add('avpvh-exif-visible');
+						}
 					});
 
 					instance.on('change', update);
