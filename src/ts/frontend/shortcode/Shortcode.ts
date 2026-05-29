@@ -86,22 +86,6 @@ export class Shortcode {
 					videoMime: el.dataset['avpvhVideoMime'] ?? '',
 				};
 			}
-			// Check if this image needs horizontal flip correction
-			// (happens when Google Drive serves preview with different EXIF handling than thumbnail)
-			if (el instanceof HTMLAnchorElement) {
-				const thumb = el.querySelector('img');
-				if (thumb !== null && thumb.naturalWidth > 0 && thumb.naturalHeight > 0) {
-					const thumbRatio = thumb.naturalWidth / thumb.naturalHeight;
-					const pswpWidth = parseInt(el.getAttribute('data-pswp-width') ?? '1', 10);
-					const pswpHeight = parseInt(el.getAttribute('data-pswp-height') ?? '1', 10);
-					const pswpRatio = pswpWidth / pswpHeight;
-					const ratioDiff = Math.abs(thumbRatio - pswpRatio);
-					// If ratios differ by even small amount, the preview might be mirrored
-					if (ratioDiff > 0.001) {
-						itemData.needsHFlip = true;
-					}
-				}
-			}
 			return itemData;
 		});
 
@@ -128,11 +112,22 @@ export class Shortcode {
 				}
 				wrap.appendChild(videoEl);
 				e.content.element = wrap;
-			} else if ('image' === e.content.type) {
-				// Apply horizontal flip to images that were served mirrored by Google Drive
-				if ((e.content.data as Record<string, unknown>)?.['needsHFlip']) {
-					if (e.content.element instanceof HTMLImageElement) {
-						e.content.element.style.transform = 'scaleX(-1)';
+			} else if ('image' === e.content.type && e.content.element instanceof HTMLImageElement) {
+				// Check if this image needs horizontal flip correction by comparing aspect ratios
+				// When Google Drive serves preview with different EXIF handling, aspect ratios mismatch
+				const slideEl = e.slide?.data.element;
+				if (slideEl instanceof HTMLAnchorElement) {
+					const thumb = slideEl.querySelector('img');
+					if (thumb !== null && thumb.naturalWidth > 0 && thumb.naturalHeight > 0) {
+						const thumbRatio = thumb.naturalWidth / thumb.naturalHeight;
+						const pswpWidth = parseInt(slideEl.getAttribute('data-pswp-width') ?? '1', 10);
+						const pswpHeight = parseInt(slideEl.getAttribute('data-pswp-height') ?? '1', 10);
+						const pswpRatio = pswpWidth / pswpHeight;
+						const ratioDiff = Math.abs(thumbRatio - pswpRatio);
+						// Apply horizontal flip if ratios differ
+						if (ratioDiff > 0.01) {
+							e.content.element.style.transform = 'scaleX(-1)';
+						}
 					}
 				}
 			}
