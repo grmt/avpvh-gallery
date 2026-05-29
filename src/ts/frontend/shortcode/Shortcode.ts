@@ -96,8 +96,8 @@ export class Shortcode {
 					const pswpHeight = parseInt(el.getAttribute('data-pswp-height') ?? '1', 10);
 					const pswpRatio = pswpWidth / pswpHeight;
 					const ratioDiff = Math.abs(thumbRatio - pswpRatio);
-					// If ratios differ, the preview might be mirrored (lower threshold for sensitivity)
-					if (ratioDiff > 0.01) {
+					// If ratios differ by even small amount, the preview might be mirrored
+					if (ratioDiff > 0.001) {
 						itemData.needsHFlip = true;
 					}
 				}
