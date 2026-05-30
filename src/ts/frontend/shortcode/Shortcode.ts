@@ -194,13 +194,15 @@ export class Shortcode {
 					'display:none;z-index:10;';
 				wrap.appendChild(progressBar);
 
+				let animationFrameId: number | null = null;
 				const updateProgress = (): void => {
-					if (videoEl.duration > 0) {
+					if (videoEl.duration > 0 && !videoEl.paused) {
 						const percent = (videoEl.currentTime / videoEl.duration) * 100;
 						const progressFill = progressBar.querySelector('.avpvh-video-progress-fill') as HTMLElement;
 						if (progressFill) {
 							progressFill.style.width = percent + '%';
 						}
+						animationFrameId = requestAnimationFrame(updateProgress);
 					}
 				};
 
@@ -211,17 +213,31 @@ export class Shortcode {
 						const progressFill = document.createElement('div');
 						progressFill.className = 'avpvh-video-progress-fill';
 						progressFill.style.cssText =
-							'height:100%;background:#4CAF50;width:0%;transition:width 0.1s linear;';
+							'height:100%;background:#4CAF50;width:0%;';
 						progressBar.innerHTML = '';
 						progressBar.appendChild(progressFill);
 						updateProgress();
 					}
 				};
 
+				const onPlay = (): void => {
+					if (animationFrameId === null) {
+						updateProgress();
+					}
+				};
+
+				const onPause = (): void => {
+					if (animationFrameId !== null) {
+						cancelAnimationFrame(animationFrameId);
+						animationFrameId = null;
+					}
+				};
+
 				videoEl.addEventListener('canplay', onCanPlay, { once: true });
-				videoEl.addEventListener('timeupdate', updateProgress);
+				videoEl.addEventListener('play', onPlay);
+				videoEl.addEventListener('pause', onPause);
 				videoEl.addEventListener('ended', () => {
-					videoEl.removeEventListener('timeupdate', updateProgress);
+					onPause();
 					progressBar.style.display = 'none';
 				});
 
