@@ -37,6 +37,9 @@ final class Settings_Pages {
 	 * Registers all the hooks all the pages, registers the plugin into the WordPress admin menu and register a handler for OAuth redirect.
 	 */
 	public function __construct() {
+		// Initialize REST routes globally (not just in admin)
+		new Exif_Inspector_REST();
+
 		if ( ! is_admin() ) {
 			return;
 		}
@@ -45,7 +48,6 @@ final class Settings_Pages {
 		$this->basic = new Basic_Settings();
 		new Advanced_Settings();
 		new Exif_Inspector();
-		new Exif_Inspector_REST();
 		add_action( 'admin_init', array( self::class, 'action_handler' ) );
 	}
 
