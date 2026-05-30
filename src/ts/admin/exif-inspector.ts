@@ -352,7 +352,7 @@ class ExifInspector {
 		const path = pathInput.value.trim();
 
 		if (!path) {
-			alert('Please enter a file path');
+			this.showError('Please enter a file path');
 			return;
 		}
 
@@ -360,12 +360,13 @@ class ExifInspector {
 		localStorage.setItem('avpvh_exif_inspector_last_path', path);
 
 		this.showLoading(true);
+		this.clearError();
 		try {
 			// Parse the path and navigate to the file
 			const parts = path.split('/').map((p) => p.trim()).filter((p) => p);
 
 			if (parts.length === 0) {
-				alert('Please enter a valid file path');
+				this.showError('Please enter a valid file path');
 				this.showLoading(false);
 				return;
 			}
@@ -383,7 +384,7 @@ class ExifInspector {
 			const fileIndex = this.allFiles.findIndex((f) => f.name === fileName);
 
 			if (fileIndex === -1) {
-				alert(`File not found: ${fileName}`);
+				this.showError(`File not found: ${fileName}`);
 				this.showLoading(false);
 				return;
 			}
@@ -391,7 +392,7 @@ class ExifInspector {
 			this.currentFileIndex = fileIndex;
 			this.displayCurrentFile();
 		} catch (error) {
-			alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			this.showError(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
 		} finally {
 			this.showLoading(false);
 		}
@@ -409,8 +410,14 @@ class ExifInspector {
 		});
 
 		if (!response.ok) {
-			const error = (await response.json()) as { message: string };
-			throw new Error(`Failed to load folders: ${error.message || response.statusText}`);
+			let errorMsg = response.statusText;
+			try {
+				const errorData = (await response.json()) as { message?: string; code?: string };
+				errorMsg = errorData.message || errorMsg;
+			} catch (e) {
+				// Could not parse JSON error response
+			}
+			throw new Error(`Folder not found: "${folderName}" (HTTP ${response.status}: ${errorMsg})`);
 		}
 
 		const data = (await response.json()) as { folder_id: string };
@@ -429,7 +436,14 @@ class ExifInspector {
 		});
 
 		if (!response.ok) {
-			throw new Error(`Failed to load files: ${response.statusText}`);
+			let errorMsg = response.statusText;
+			try {
+				const errorData = (await response.json()) as { message?: string; code?: string };
+				errorMsg = errorData.message || errorMsg;
+			} catch (e) {
+				// Could not parse JSON error response
+			}
+			throw new Error(`Failed to load files: HTTP ${response.status} - ${errorMsg}`);
 		}
 
 		const data = (await response.json()) as { files: FileData[] };
@@ -707,6 +721,36 @@ class ExifInspector {
 		const loading = document.getElementById('loading');
 		if (loading) {
 			loading.style.display = show ? 'block' : 'none';
+		}
+	}
+
+	private showError(message: string) {
+		const pathSection = document.querySelector('.path-input-section') as HTMLElement;
+		if (!pathSection) return;
+
+		// Remove any existing error message
+		this.clearError();
+
+		// Create and display error message
+		const errorDiv = document.createElement('div');
+		errorDiv.id = 'error-message';
+		errorDiv.style.cssText = `
+			margin-top: 10px;
+			padding: 10px;
+			background-color: #f8d7da;
+			border: 1px solid #f5c6cb;
+			border-radius: 4px;
+			color: #721c24;
+			font-size: 14px;
+		`;
+		errorDiv.textContent = message;
+		pathSection.appendChild(errorDiv);
+	}
+
+	private clearError() {
+		const errorDiv = document.getElementById('error-message');
+		if (errorDiv) {
+			errorDiv.remove();
 		}
 	}
 }
