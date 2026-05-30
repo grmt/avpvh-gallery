@@ -28,6 +28,7 @@
     "build:js:root_selection": "vite build --config root_selection.vite.config.ts",
     "build:js:shortcode": "vite build --config shortcode.vite.config.ts",
     "build:js:tinymce": "vite build --config tinymce.vite.config.ts",
+    "build:js:exif-inspector": "vite build --config exif-inspector.vite.config.ts",
     "build:js": "run-p -c --aggregate-output build:js:*",
     "build": "run-p -c --aggregate-output build:*",
     "lint:css:stylelint": "stylelint --color 'src/**/*.css'",

@@ -9,10 +9,13 @@ namespace Avpvh\Admin;
 
 use Avpvh\Admin\Settings_Pages\Advanced_Settings;
 use Avpvh\Admin\Settings_Pages\Basic_Settings;
+use Avpvh\Admin\Settings_Pages\Exif_Inspector;
 use Avpvh\GET_Helpers;
 
 require_once __DIR__ . '/settings-pages/class-advanced-settings.php';
 require_once __DIR__ . '/settings-pages/class-basic-settings.php';
+require_once __DIR__ . '/settings-pages/class-exif-inspector.php';
+require_once __DIR__ . '/class-exif-inspector-rest.php';
 
 /**
  * Registers and renders the plugin settings pages.
@@ -41,6 +44,8 @@ final class Settings_Pages {
 		add_action( 'admin_menu', array( $this, 'add' ) );
 		$this->basic = new Basic_Settings();
 		new Advanced_Settings();
+		new Exif_Inspector();
+		new Exif_Inspector_REST();
 		add_action( 'admin_init', array( self::class, 'action_handler' ) );
 	}
 

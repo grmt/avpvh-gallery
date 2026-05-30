@@ -379,4 +379,37 @@ final class API_Facade {
 			$pagination_helper
 		);
 	}
+
+	/**
+	 * Gets file data by ID.
+	 *
+	 * @param string     $file_id The ID of the file.
+	 * @param array|API_Fields $fields The fields to retrieve. Can be an array or API_Fields object.
+	 *
+	 * @return PromiseInterface A promise resolving to the file data.
+	 *
+	 * @throws Internal_Exception The method was called without an initialized batch.
+	 * @throws Plugin_Not_Authorized_Exception Not authorized.
+	 * @throws Unsupported_Value_Exception A field that is not supported was passed in `$fields`.
+	 */
+	public static function get_file( $file_id, $fields ) {
+		if ( is_array( $fields ) ) {
+			$fields = new API_Fields( $fields );
+		}
+
+		return API_Client::async_request(
+			static function () use ( $file_id, $fields ) {
+				return API_Client::get_drive_client()->files->get(
+					$file_id,
+					array(
+						'fields'            => $fields->format(),
+						'supportsAllDrives' => true,
+					)
+				);
+			},
+			static function ( $file ) use ( $fields ) {
+				return $fields->parse_response( $file );
+			}
+		);
+	}
 }
