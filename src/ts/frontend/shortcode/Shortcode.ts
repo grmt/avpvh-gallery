@@ -887,7 +887,7 @@ export class Shortcode {
 	}
 
 	private getSuccess(data: GallerySuccessResponse): void {
-		this.currentPathNames = (data.path ?? []).map((c) => c.name).join(' / ');
+		this.currentPathNames = (data.path ?? []).map((c) => c.name).join('/');
 		const pageLength =
 			((data.directories ? data.directories.length : 0) +
 				(data.images ? data.images.length : 0) +
@@ -1524,7 +1524,7 @@ export class Shortcode {
 			'href="' +
 			image.image +
 			'" data-avpvh-fullpath="' +
-			('' !== this.currentPathNames ? this.currentPathNames + ' / ' : '') + image.name +
+			('' !== this.currentPathNames ? this.currentPathNames + '/' : '') + image.name +
 			'"' +
 			orientationAttr +
 			exifAttr +
@@ -1533,7 +1533,7 @@ export class Shortcode {
 			image.thumbnail +
 			'">' +
 			Shortcode.renderExifOverlay(
-				('' !== this.currentPathNames ? this.currentPathNames + ' / ' : '') + image.name,
+				('' !== this.currentPathNames ? this.currentPathNames + '/' : '') + image.name,
 				image.exif
 			) +
 			'</a>'
@@ -1574,7 +1574,7 @@ export class Shortcode {
 			'href="' +
 			video.src +
 			'" data-avpvh-fullpath="' +
-			('' !== this.currentPathNames ? this.currentPathNames + ' / ' : '') + video.id +
+			('' !== this.currentPathNames ? this.currentPathNames + '/' : '') + video.id +
 			'"' +
 			exifAttr +
 			'>' +
@@ -1582,7 +1582,7 @@ export class Shortcode {
 			video.thumbnail +
 			'">' +
 			Shortcode.renderExifOverlay(
-				('' !== this.currentPathNames ? this.currentPathNames + ' / ' : '') + video.id,
+				('' !== this.currentPathNames ? this.currentPathNames + '/' : '') + video.id,
 				undefined
 			) +
 			'</a>'
