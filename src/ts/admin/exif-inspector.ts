@@ -35,6 +35,7 @@ interface FileData {
 interface TimingData {
 	networkTime: number;
 	renderTime: number;
+	fileSize?: number;
 }
 
 interface PreviewSize {
@@ -776,6 +777,10 @@ class ExifInspector {
 				<img class="preview-image loading" alt="Preview ${size}px" src="${previewUrl}" data-size="${size}" />
 				<div class="timing-info">
 					<div class="timing-row">
+						<span class="timing-label">File Size:</span>
+						<span class="timing-value">...</span>
+					</div>
+					<div class="timing-row">
 						<span class="timing-label">Network:</span>
 						<span class="timing-value">...</span>
 					</div>
@@ -789,6 +794,7 @@ class ExifInspector {
 			container.appendChild(item);
 
 			const img = item.querySelector('img') as HTMLImageElement;
+			this.fetchImageSize(previewUrl, size);
 			this.measureImageLoad(img, size);
 		}
 	}
@@ -799,15 +805,34 @@ class ExifInspector {
 		return thumbnailLink.replace(/=s\d+$/, `=s${size}`);
 	}
 
+	private fetchImageSize(url: string, size: number) {
+		fetch(url, { method: 'HEAD' })
+			.then(response => {
+				const contentLength = response.headers.get('content-length');
+				if (contentLength) {
+					const bytes = parseInt(contentLength, 10);
+					if (!this.previewTimings[size]) {
+						this.previewTimings[size] = { networkTime: 0, renderTime: 0 };
+					}
+					this.previewTimings[size].fileSize = bytes;
+					this.updateTimingDisplay(document.querySelector(`.preview-item img[data-size="${size}"]`)?.closest('.preview-item') as HTMLElement, size);
+				}
+			})
+			.catch(() => {
+				// Silently fail - we'll update timing when the image loads
+			});
+	}
+
 	private measureImageLoad(img: HTMLImageElement, size: number) {
 		const startTime = performance.now();
 
 		const onLoad = () => {
 			const totalTime = performance.now() - startTime;
-			this.previewTimings[size] = {
-				networkTime: totalTime,
-				renderTime: 0,
-			};
+			if (!this.previewTimings[size]) {
+				this.previewTimings[size] = { networkTime: 0, renderTime: 0 };
+			}
+			this.previewTimings[size].networkTime = totalTime;
+			this.previewTimings[size].renderTime = 0;
 
 			img.classList.remove('loading');
 			this.updateTimingDisplay(img.closest('.preview-item') as HTMLElement, size);
@@ -839,7 +864,20 @@ class ExifInspector {
 			return;
 		}
 
+		let fileSizeHtml = '';
+		if (timing.fileSize !== undefined) {
+			const sizeInKB = (timing.fileSize / 1024).toFixed(2);
+			const sizeInMB = timing.fileSize > 1024 * 1024 ? (timing.fileSize / (1024 * 1024)).toFixed(2) + ' MB' : sizeInKB + ' KB';
+			fileSizeHtml = `
+				<div class="timing-row">
+					<span class="timing-label">File Size:</span>
+					<span class="timing-value">${sizeInMB}</span>
+				</div>
+			`;
+		}
+
 		timingInfo.innerHTML = `
+			${fileSizeHtml}
 			<div class="timing-row">
 				<span class="timing-label">Network:</span>
 				<span class="timing-value">${timing.networkTime.toFixed(2)}ms</span>
