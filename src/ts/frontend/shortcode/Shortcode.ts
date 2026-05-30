@@ -30,6 +30,7 @@ export class Shortcode {
 	private pendingLightboxAdvance = false;
 	private folderNavigating = false;
 	private slideshowPaused = false;
+	private slideshowWasActive = false;
 	// Set when a full-size image fails to load (Google rate-limit or an expired
 	// URL). While set, the auto-slideshow stays paused so we don't keep firing
 	// doomed requests; it clears again as soon as a full-size image loads.
@@ -617,6 +618,7 @@ export class Shortcode {
 			}
 			if (e.key === 'ArrowRight' && pswp.currIndex === pswp.getNumItems() - 1) {
 				e.stopImmediatePropagation();
+    this.slideshowWasActive = true;
 				this.nextBoundary(pswp);
 			} else if (e.key === 'ArrowLeft' && pswp.currIndex === 0) {
 				e.stopImmediatePropagation();
@@ -1254,11 +1256,11 @@ export class Shortcode {
 		// Parent path = all but last segment, joined with /
 		const parentPath = path.slice(0, -1).map((c) => c.id).join('/');
 		const upIcon = '' !== faviconUrl
-			? '<img src="' + faviconUrl + '" alt="Up" style="height:1.2em;width:1.2em;vertical-align:middle;border-radius:2px;object-fit:contain;transform:rotate(-45deg)">'
+			? '<img src="' + faviconUrl + '" alt="Up" style="height:1.5em;width:1.5em;vertical-align:middle;border-radius:2px;object-fit:contain;transform:rotate(-45deg)">'
 			: '&#8679;';
 		let html =
-			'<div>' +
-			'<a data-avpvh-path="' + parentPath + '" href="' + this.pathQueryParameter.add(parentPath) + '">' +
+			'<div class="avpvh-breadcrumbs">' +
+			'<a class="avpvh-breadcrumb-up" data-avpvh-path="' + parentPath + '" href="' + this.pathQueryParameter.add(parentPath) + '">' +
 			upIcon +
 			'</a>';
 		let field = '';
@@ -1581,6 +1583,7 @@ export class Shortcode {
 			'<img class="avpvh-grid-img" src="' +
 			video.thumbnail +
 			'">' +
+			'<div class="avpvh-video-play-btn">' + Shortcode.SVG_VIDEO + '</div>' +
 			Shortcode.renderExifOverlay(
 				('' !== this.currentPathNames ? this.currentPathNames + '/' : '') + video.id,
 				undefined

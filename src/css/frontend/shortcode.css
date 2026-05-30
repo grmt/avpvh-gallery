@@ -9,6 +9,30 @@ html.pswp-is-open body {
 	margin-bottom: 1em;
 }
 
+.avpvh-breadcrumbs {
+	align-items: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	font-size: 14px;
+	gap: 0.5em; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	margin-bottom: 1em;
+	padding: 8px 0;
+}
+
+.avpvh-breadcrumb-up {
+	align-items: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	justify-content: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	padding: 4px;
+}
+
+.avpvh-breadcrumb-up img {
+	transition: transform 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-breadcrumb-up:hover img {
+	transform: rotate(-45deg) scale(1.1) !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
 .avpvh-gallery {
 	margin: 1em auto 0;
 }
@@ -56,6 +80,37 @@ html.pswp-is-open body {
 
 .avpvh-grid-a:hover .avpvh-exif-overlay {
 	cursor: copy;
+}
+
+.avpvh-video-play-btn {
+	align-items: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	background-color: #000;
+	background-color: rgb(0, 0, 0, 50%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border-radius: 50%; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	height: 60px;
+	justify-content: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	left: 50%;
+	position: absolute;
+	top: 50%;
+	transform: translate(-50%, -50%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transition: background-color 0.3s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	width: 60px;
+	z-index: 4;
+}
+
+a[data-pswp-type="video"] .avpvh-video-play-btn {
+	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+a[data-pswp-type="video"]:hover .avpvh-video-play-btn {
+	background-color: rgb(0, 0, 0, 70%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-video-play-btn svg {
+	fill: #ffab91;
+	height: 32px;
+	width: 32px;
 }
 
 .avpvh-grid-img {
@@ -133,6 +188,7 @@ a[data-exif-orientation="270"] .avpvh-grid-img {
 /* Folders without a thumbnail: name + counts at the bottom */
 .avpvh-grid-no-thumb .avpvh-dir-overlay {
 	background-color: rgb(0, 0, 0, 40%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border-radius: 0 0 8px 8px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	padding: 5px 8px;
 }
 
@@ -186,10 +242,10 @@ a[data-exif-orientation="270"] .avpvh-grid-img {
 	font-size: 13px;
 }
 
-/* Folders without thumbnail use a clip-path to create the tab shape */
+/* Folders without thumbnail: rounded corners instead of tab shape */
 .avpvh-grid-no-thumb {
 	background-color: #a8b8c4;
-	clip-path: polygon(0 0, 42% 0, 48% 22%, 100% 22%, 100% 100%, 0 100%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border-radius: 8px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
 .avpvh-loading,
