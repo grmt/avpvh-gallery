@@ -69,6 +69,16 @@ final class Exif_Inspector_REST {
 				'permission_callback' => array( $this, 'check_admin_permission' ),
 			)
 		);
+
+		register_rest_route(
+			'avpvh-gallery/v1',
+			'exif-inspector/full-exif',
+			array(
+				'callback'            => array( $this, 'get_full_exif' ),
+				'methods'             => 'POST',
+				'permission_callback' => array( $this, 'check_admin_permission' ),
+			)
+		);
 	}
 
 	/**
@@ -235,6 +245,103 @@ final class Exif_Inspector_REST {
 			return new WP_Error( 'not_found', 'File not found', array( 'status' => 404 ) );
 		} catch ( API_Exception $e ) {
 			return new WP_Error( 'api_error', 'API error: ' . $e->getMessage(), array( 'status' => 500 ) );
+		}
+	}
+
+	/**
+	 * Gets full EXIF data from a downloaded image file.
+	 *
+	 * @param WP_REST_Request $request The request object.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_full_exif( $request ) {
+		try {
+			$params           = $request->get_json_params();
+			$file_id          = isset( $params['file_id'] ) ? $params['file_id'] : '';
+			$download_link    = isset( $params['download_link'] ) ? $params['download_link'] : '';
+
+			if ( ! isset( $file_id ) || '' === $file_id ) {
+				return new WP_Error( 'invalid_file', 'File ID is required', array( 'status' => 400 ) );
+			}
+
+			if ( ! isset( $download_link ) || '' === $download_link ) {
+				return new WP_Error( 'no_download_link', 'Download link is required', array( 'status' => 400 ) );
+			}
+
+			// Validate the download link is from Google Drive
+			if ( false === strpos( $download_link, 'drive.google.com' ) && false === strpos( $download_link, 'googleusercontent.com' ) ) {
+				return new WP_Error( 'invalid_download_link', 'Invalid download link', array( 'status' => 400 ) );
+			}
+
+			// Download the file to a temporary location
+			$temp_file = wp_tempnam( 'exif-' . sanitize_file_name( $file_id ) . '-' );
+			if ( ! $temp_file ) {
+				return new WP_Error( 'temp_file_error', 'Unable to create temporary file', array( 'status' => 500 ) );
+			}
+
+			error_log( '[EXIF Inspector] Downloading file: ' . $download_link );
+
+			// Download the file
+			$response = wp_remote_get(
+				$download_link,
+				array(
+					'timeout'    => 30,
+					'sslverify'  => apply_filters( 'https_local_ssl_verify', false ),
+					'stream'     => true,
+					'filename'   => $temp_file,
+				)
+			);
+
+			if ( is_wp_error( $response ) ) {
+				@unlink( $temp_file );
+				return new WP_Error( 'download_error', 'Failed to download file: ' . $response->get_error_message(), array( 'status' => 500 ) );
+			}
+
+			// Extract EXIF data
+			if ( ! function_exists( 'exif_read_data' ) ) {
+				@unlink( $temp_file );
+				return new WP_Error( 'no_exif_support', 'EXIF support is not available in PHP', array( 'status' => 500 ) );
+			}
+
+			$exif_data = @exif_read_data( $temp_file, 0, true );
+			@unlink( $temp_file );
+
+			if ( ! $exif_data ) {
+				return new WP_REST_Response( array( 'exif' => array() ), 200 );
+			}
+
+			// Flatten and sanitize EXIF data
+			$flat_exif = array();
+			foreach ( $exif_data as $section => $data ) {
+				if ( is_array( $data ) ) {
+					foreach ( $data as $key => $value ) {
+						// Skip binary data
+						if ( is_string( $value ) && strlen( $value ) > 500 ) {
+							continue;
+						}
+						// Ensure value is string or number
+						if ( is_array( $value ) || is_object( $value ) ) {
+							continue;
+						}
+						$flat_exif[ $section . ':' . $key ] = $value;
+					}
+				}
+			}
+
+			return new WP_REST_Response( array( 'exif' => $flat_exif ), 200 );
+		} catch ( Plugin_Not_Authorized_Exception $e ) {
+			// phpcs:ignore SlevomatCodingStandard.Variables.UnusedVariable.UnusedVariable
+			return new WP_Error( 'not_authorized', 'Plugin not authorized', array( 'status' => 403 ) );
+		} catch ( Not_Found_Exception $e ) {
+			// phpcs:ignore SlevomatCodingStandard.Variables.UnusedVariable.UnusedVariable
+			return new WP_Error( 'not_found', 'File not found', array( 'status' => 404 ) );
+		} catch ( API_Exception $e ) {
+			error_log( '[EXIF Inspector] API exception in get_full_exif: ' . $e->getMessage() );
+			return new WP_Error( 'api_error', 'API error: ' . $e->getMessage(), array( 'status' => 500 ) );
+		} catch ( \Exception $e ) {
+			error_log( '[EXIF Inspector] Unexpected exception in get_full_exif: ' . $e->getMessage() );
+			return new WP_Error( 'unexpected_error', 'Unexpected error: ' . $e->getMessage(), array( 'status' => 500 ) );
 		}
 	}
 

@@ -58,6 +58,7 @@ class ExifInspector {
 	private allFiles: FileData[] = [];
 	private currentFileIndex: number = -1;
 	private previewTimings: Record<number, TimingData> = {};
+	private fullExifData: Record<string, string | number> = {};
 
 	constructor() {
 		this.rootId = avpvhExifInspector.root_id;
@@ -461,6 +462,7 @@ class ExifInspector {
 
 		this.currentFile = this.allFiles[this.currentFileIndex];
 		this.previewTimings = {};
+		this.fullExifData = {};
 
 		// Update file header
 		const fileName = document.getElementById('file-name');
@@ -479,6 +481,9 @@ class ExifInspector {
 		if (prevBtn) prevBtn.disabled = this.currentFileIndex === 0;
 		if (nextBtn) nextBtn.disabled = this.currentFileIndex === this.allFiles.length - 1;
 
+		// Fetch full EXIF data
+		this.fetchFullExifData();
+
 		// Display EXIF data
 		this.displayExifData();
 
@@ -487,6 +492,50 @@ class ExifInspector {
 
 		// Display previews
 		this.displayPreviews();
+	}
+
+	private fetchFullExifData() {
+		if (!this.currentFile) {
+			return;
+		}
+
+		if (!this.currentFile.webContentLink) {
+			console.log('No download link available for file:', this.currentFile.id);
+			return;
+		}
+
+		console.log('Fetching full EXIF data for file:', this.currentFile.id);
+
+		fetch(this.restUrl + 'full-exif', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-WP-Nonce': this.nonce,
+			},
+			body: JSON.stringify({
+				file_id: this.currentFile.id,
+				download_link: this.currentFile.webContentLink,
+			}),
+		})
+			.then(response => {
+				if (!response.ok) {
+					console.log('Full EXIF fetch returned', response.status, '- will use API metadata only');
+					return null;
+				}
+				return response.json();
+			})
+			.then(data => {
+				if (data && data.exif) {
+					console.log('Received full EXIF data:', data.exif);
+					this.fullExifData = data.exif;
+					// Update the EXIF display with new data
+					this.displayExifData();
+				}
+			})
+			.catch(error => {
+				console.log('Error fetching full EXIF data:', error);
+				// Continue with API metadata only
+			});
 	}
 
 	private displayExifData() {
@@ -507,7 +556,14 @@ class ExifInspector {
 			this.addTableRow(tbody, 'MIME Type', this.currentFile.mimeType);
 		}
 
-		// Add dimensions from metadata
+		// If we have full EXIF data, display it all
+		if (Object.keys(this.fullExifData).length > 0) {
+			console.log('Displaying full EXIF data');
+			this.displayFullExifFields(tbody);
+			return;
+		}
+
+		// Otherwise, fall back to API metadata
 		const metadata = this.currentFile.imageMediaMetadata;
 		if (!metadata) {
 			tbody.innerHTML += '<tr><td colspan="2"><em>No EXIF data available</em></td></tr>';
@@ -538,6 +594,109 @@ class ExifInspector {
 		if (metadata.rotation !== undefined && metadata.rotation !== 0) {
 			this.addTableRow(tbody, 'Orientation', `${metadata.rotation} - ${this.orientationDescription(metadata.rotation)}`);
 		}
+	}
+
+	private displayFullExifFields(tbody: HTMLTableSectionElement) {
+		// Map of EXIF section:field names to user-friendly display names
+		const fieldLabels: Record<string, string> = {
+			// IFD0 (Image)
+			'IFD0:ImageDescription': 'Image Description',
+			'IFD0:Make': 'Camera Make',
+			'IFD0:Model': 'Camera Model',
+			'IFD0:XResolution': 'X Resolution',
+			'IFD0:YResolution': 'Y Resolution',
+			'IFD0:ResolutionUnit': 'Resolution Unit',
+			'IFD0:Software': 'Software',
+			'IFD0:DateTime': 'Date/Time',
+			'IFD0:Orientation': 'Orientation',
+
+			// EXIF
+			'EXIF:ExposureTime': 'Exposure Time',
+			'EXIF:FNumber': 'F-Number',
+			'EXIF:ISOSpeedRatings': 'ISO Speed',
+			'EXIF:ISO': 'ISO Speed',
+			'EXIF:ExifVersion': 'EXIF Version',
+			'EXIF:DateTimeOriginal': 'Date/Time Original',
+			'EXIF:DateTimeDigitized': 'Date/Time Digitized',
+			'EXIF:FocalLength': 'Focal Length',
+			'EXIF:FocalLengthIn35mmFilm': 'Focal Length (35mm)',
+			'EXIF:Flash': 'Flash',
+			'EXIF:WhiteBalance': 'White Balance',
+			'EXIF:MeteringMode': 'Metering Mode',
+			'EXIF:ExposureMode': 'Exposure Mode',
+			'EXIF:Contrast': 'Contrast',
+			'EXIF:Saturation': 'Saturation',
+			'EXIF:Sharpness': 'Sharpness',
+			'EXIF:LensModel': 'Lens Model',
+			'EXIF:LensMake': 'Lens Make',
+			'EXIF:ColorSpace': 'Color Space',
+			'EXIF:ExposureProgram': 'Exposure Program',
+
+			// GPS
+			'GPS:GPSLatitude': 'GPS Latitude',
+			'GPS:GPSLongitude': 'GPS Longitude',
+			'GPS:GPSAltitude': 'GPS Altitude',
+		};
+
+		// Sort EXIF data by section and field name
+		const sortedEntries = Object.entries(this.fullExifData).sort(([a], [b]) => {
+			const aSection = a.split(':')[0];
+			const bSection = b.split(':')[0];
+			if (aSection !== bSection) {
+				return aSection.localeCompare(bSection);
+			}
+			return a.localeCompare(b);
+		});
+
+		// Display each EXIF field
+		for (const [key, value] of sortedEntries) {
+			if (typeof value === 'object') {
+				continue; // Skip complex objects
+			}
+
+			const label = fieldLabels[key] || key;
+			const displayValue = this.formatExifValue(key, value);
+			this.addTableRow(tbody, label, displayValue);
+		}
+
+		if (sortedEntries.length === 0) {
+			tbody.innerHTML += '<tr><td colspan="2"><em>No EXIF data available</em></td></tr>';
+		}
+	}
+
+	private formatExifValue(key: string, value: string | number): string {
+		if (typeof value === 'number') {
+			value = String(value);
+		}
+
+		// Format specific fields
+		if (key.includes('ExposureTime')) {
+			const num = parseFloat(value);
+			if (num < 1) {
+				return `1/${Math.round(1 / num)}s`;
+			}
+			return `${num}s`;
+		}
+
+		if (key.includes('FocalLength') || key.includes('Focal')) {
+			return `${value}mm`;
+		}
+
+		if (key.includes('Resolution')) {
+			return `${value}dpi`;
+		}
+
+		if (key === 'IFD0:Orientation') {
+			const orientation = parseInt(value, 10);
+			return `${value} - ${this.orientationDescription(orientation)}`;
+		}
+
+		// Truncate very long strings
+		if (value.length > 100) {
+			return value.substring(0, 100) + '...';
+		}
+
+		return value;
 	}
 
 	private addTableRow(tbody: HTMLTableSectionElement, label: string, value: string) {
