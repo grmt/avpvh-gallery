@@ -876,6 +876,16 @@ export class Shortcode {
 		);
 	}
 
+	private getSubfolderItems(directory: Directory, parentPath: string): JQuery.jqXHR<GalleryResponse> {
+		const subfolderPath = (parentPath ? parentPath + '/' : '') + directory.id;
+		return $.get(avpvhShortcodeLocalize.ajax_url, {
+			action: 'gallery',
+			hash: this.hash,
+			path: subfolderPath,
+			page: 1,
+		});
+	}
+
 	private getSuccess(data: GallerySuccessResponse): void {
 		this.currentPathNames = (data.path ?? []).map((c) => c.name).join(' / ');
 		const pageLength =
@@ -949,6 +959,10 @@ export class Shortcode {
 		}
 		this.container.html(html);
 		this.hasMore = data.more ?? false;
+
+		// Load items from subfolders for breadth-first slideshow navigation
+		this.loadSubfolderItemsForSlideshow(data);
+
 		this.postLoad();
 		if (this.pendingLightboxOpen !== null) {
 			const action = this.pendingLightboxOpen;
@@ -961,6 +975,80 @@ export class Shortcode {
 		} else {
 			this.openFromHash();
 		}
+	}
+
+	private loadSubfolderItemsForSlideshow(data: GallerySuccessResponse): void {
+		// Don't load subfolder items if there are no directories
+		if (!data.directories || data.directories.length === 0) {
+			return;
+		}
+
+		// Fetch items from all subfolders for breadth-first slideshow navigation
+		const subfolderRequests = (data.directories ?? []).map((dir) =>
+			this.getSubfolderItems(dir, this.path)
+		);
+
+		if (subfolderRequests.length === 0) {
+			return;
+		}
+
+		// Wait for all subfolder requests, then add items to slideshow
+		void $.when(...subfolderRequests).done((...responses: unknown[]) => {
+			const pswp = this.lightbox.pswp;
+			if (!pswp) {
+				return;
+			}
+
+			// Get current PhotoSwipe items
+			let items = (pswp.options.dataSource as Record<string, unknown>)?.['items'];
+			if (!Array.isArray(items)) {
+				items = [];
+			}
+
+			// Add items from each subfolder
+			(responses as GalleryResponse[]).forEach((subResponse) => {
+				if (isError(subResponse)) {
+					return;
+				}
+				const subData = subResponse as GallerySuccessResponse;
+				const images = subData.images ?? [];
+				const videos = subData.videos ?? [];
+
+				// Add images from subfolder
+				images.forEach((image) => {
+					const el = document.createElement('a');
+					el.className = 'avpvh-grid-a';
+					el.dataset['pswpWidth'] = String(image.width > 0 ? image.width : 2000);
+					el.dataset['pswpHeight'] = String(image.height > 0 ? image.height : 1500);
+					el.dataset['avpvhId'] = image.id;
+					el.dataset['avpvhCaption'] = image.description;
+					el.href = image.image;
+					(items as Record<string, unknown>[]).push({ element: el });
+				});
+
+				// Add videos from subfolder
+				videos.forEach((video) => {
+					if ('' !== document.createElement('video').canPlayType(video.mimeType)) {
+						const el = document.createElement('a');
+						el.className = 'avpvh-grid-a';
+						el.dataset['pswpWidth'] = String(video.width > 0 ? video.width : 1920);
+						el.dataset['pswpHeight'] = String(video.height > 0 ? video.height : 1080);
+						el.dataset['pswpType'] = 'video';
+						el.dataset['avpvhId'] = video.id;
+						el.dataset['avpvhVideoSrc'] = video.src;
+						el.dataset['avpvhVideoMime'] = video.mimeType;
+						el.href = video.src;
+						(items as Record<string, unknown>[]).push({ element: el });
+					}
+				});
+			});
+
+			// Update PhotoSwipe datasource with combined items
+			const ds = pswp.options.dataSource as Record<string, unknown>;
+			if (ds) {
+				ds['items'] = items;
+			}
+		});
 	}
 
 	private openFromHash(): void {
