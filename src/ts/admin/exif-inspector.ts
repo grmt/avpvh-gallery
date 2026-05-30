@@ -22,19 +22,10 @@ interface FileData {
 		rotation: number;
 		cameraMake?: string;
 		cameraModel?: string;
-		lens?: string;
-		aperture?: number;
+	aperture?: number;
 		exposureTime?: number;
-		exposureBias?: number;
 		isoSpeed?: number;
 		focalLength?: number;
-		focalLengthIn35mmFilm?: number;
-		flashFired?: boolean;
-		whiteBalance?: string;
-		meteringMode?: string;
-		maxApertureValue?: number;
-		sensor?: string;
-		dateTimeOriginal?: string;
 		time?: string;
 	};
 	description?: string;
@@ -522,8 +513,6 @@ class ExifInspector {
 		// Camera info
 		if (metadata.cameraMake) this.addTableRow(tbody, 'Camera Make', metadata.cameraMake);
 		if (metadata.cameraModel) this.addTableRow(tbody, 'Camera Model', metadata.cameraModel);
-		if (metadata.lens) this.addTableRow(tbody, 'Lens', metadata.lens);
-		if (metadata.sensor) this.addTableRow(tbody, 'Sensor', metadata.sensor);
 
 		// Exposure info
 		if (metadata.aperture) this.addTableRow(tbody, 'Aperture', `f/${metadata.aperture}`);
@@ -531,21 +520,13 @@ class ExifInspector {
 			const expTime = metadata.exposureTime < 1 ? `1/${Math.round(1 / metadata.exposureTime)}` : metadata.exposureTime;
 			this.addTableRow(tbody, 'Exposure Time', `${expTime}s`);
 		}
-		if (metadata.exposureBias !== undefined) this.addTableRow(tbody, 'Exposure Bias', `${metadata.exposureBias} EV`);
 		if (metadata.isoSpeed) this.addTableRow(tbody, 'ISO Speed', String(metadata.isoSpeed));
 
 		// Focus info
 		if (metadata.focalLength) this.addTableRow(tbody, 'Focal Length', `${metadata.focalLength} mm`);
-		if (metadata.focalLengthIn35mmFilm) this.addTableRow(tbody, 'Focal Length (35mm)', `${metadata.focalLengthIn35mmFilm} mm`);
-		if (metadata.maxApertureValue) this.addTableRow(tbody, 'Max Aperture', `f/${metadata.maxApertureValue}`);
-
-		// Lighting info
-		if (metadata.flashFired !== undefined) this.addTableRow(tbody, 'Flash', metadata.flashFired ? 'Yes' : 'No');
-		if (metadata.whiteBalance) this.addTableRow(tbody, 'White Balance', metadata.whiteBalance);
-		if (metadata.meteringMode) this.addTableRow(tbody, 'Metering Mode', metadata.meteringMode);
 
 		// Date info
-		if (metadata.dateTimeOriginal) this.addTableRow(tbody, 'Date/Time Original', metadata.dateTimeOriginal);
+		if (metadata.time) this.addTableRow(tbody, 'Date/Time', metadata.time);
 		if (metadata.rotation !== undefined && metadata.rotation !== 0) {
 			this.addTableRow(tbody, 'Orientation', `${metadata.rotation} - ${this.orientationDescription(metadata.rotation)}`);
 		}
