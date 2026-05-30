@@ -339,8 +339,10 @@ class ExifInspector {
 	}
 
 	private async loadFile() {
+		console.log('loadFile called');
 		const pathInput = document.getElementById('path-input') as HTMLInputElement;
 		const path = pathInput.value.trim();
+		console.log('Path:', path);
 
 		if (!path) {
 			this.showError('Please enter a file path');
@@ -366,13 +368,19 @@ class ExifInspector {
 
 			// Navigate to the folder
 			let currentId = this.rootId;
+			console.log('Starting folder navigation with', parts.length, 'parts:', parts);
 			for (const folderName of parts) {
+				console.log('Navigating to:', folderName);
 				currentId = await this.navigateToFolder(currentId, folderName);
+				console.log('Found folder:', currentId);
 			}
 
 			// List files in the folder and find the matching file
+			console.log('Listing files in folder:', currentId);
 			await this.listFilesInFolder(currentId);
+			console.log('Found', this.allFiles.length, 'files');
 			const fileIndex = this.allFiles.findIndex((f) => f.name === fileName);
+			console.log('File index:', fileIndex, 'looking for:', fileName);
 
 			if (fileIndex === -1) {
 				this.showError(`File not found: ${fileName}`);

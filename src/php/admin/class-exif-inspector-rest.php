@@ -135,6 +135,8 @@ final class Exif_Inspector_REST {
 			$params    = $request->get_json_params();
 			$parent_id = isset( $params['parent_id'] ) ? $params['parent_id'] : '';
 
+			error_log( '[EXIF Inspector] list_files called: parent_id=' . $parent_id );
+
 			if ( ! isset( $parent_id ) || '' === $parent_id ) {
 				return new WP_Error( 'invalid_parent', 'Parent ID is required', array( 'status' => 400 ) );
 			}
@@ -149,20 +151,11 @@ final class Exif_Inspector_REST {
 						'aperture',
 						'cameraMake',
 						'cameraModel',
-						'dateTimeOriginal',
 						'exposureTime',
-						'exposureBias',
 						'focalLength',
-						'focalLengthIn35mmFilm',
-						'flashFired',
 						'height',
 						'isoSpeed',
-						'lens',
-						'maxApertureValue',
-						'meteringMode',
 						'rotation',
-						'sensor',
-						'whiteBalance',
 						'width',
 					),
 					'mimeType',
