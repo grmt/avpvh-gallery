@@ -802,6 +802,7 @@ class ExifInspector {
 	private measureImageLoad(img: HTMLImageElement, size: number) {
 		const startTime = performance.now();
 		const imageUrl = img.src;
+		const previewItem = img.closest('.preview-item') as HTMLElement;
 
 		const onLoad = () => {
 			const totalTime = performance.now() - startTime;
@@ -812,13 +813,14 @@ class ExifInspector {
 			this.previewTimings[size].renderTime = 0;
 
 			img.classList.remove('loading');
-			this.updateTimingDisplay(img.closest('.preview-item') as HTMLElement, size);
+			if (previewItem) {
+				this.updateTimingDisplay(previewItem, size);
+			}
 		};
 
 		const onError = () => {
 			img.classList.remove('loading');
-			const parent = img.closest('.preview-item') as HTMLElement;
-			const timingInfo = parent.querySelector('.timing-info') as HTMLElement;
+			const timingInfo = previewItem?.querySelector('.timing-info') as HTMLElement;
 			if (timingInfo) {
 				timingInfo.innerHTML =
 					'<div class="error-message">Failed to load image</div>';
