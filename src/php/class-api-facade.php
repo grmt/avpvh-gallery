@@ -344,6 +344,7 @@ final class API_Facade {
 				'webViewLink',
 				'thumbnailLink',
 				'description',
+				'shortcutDetails'   => array( 'targetId', 'targetMimeType' ),
 				'permissions'        => array( 'type', 'role' ),
 			)
 		) ) {
