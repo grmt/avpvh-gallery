@@ -186,37 +186,24 @@ export class Shortcode {
 				wrap.appendChild(videoEl);
 				e.content.element = wrap;
 
-				// Pause slideshow while video plays; resume when it finishes
+				// Pause slideshow while video plays; resume when it finishes.
+				// Slideshow timer stops so video plays uninterrupted.
 				if (this.slideshowTimer !== null) {
 					clearTimeout(this.slideshowTimer);
 					this.slideshowTimer = null;
 				}
-				let videoTimeout: ReturnType<typeof setTimeout> | null = null;
-				const resumeAfterVideo = (): void => {
-					videoEl.removeEventListener('ended', resumeAfterVideo);
-					videoEl.removeEventListener('loadedmetadata', setTimeoutFromDuration);
-					if (videoTimeout !== null) {
-						clearTimeout(videoTimeout);
-						videoTimeout = null;
-					}
-					const pswp = this.lightbox.pswp;
-					if (pswp !== undefined) {
-						this.startSlideshow(pswp);
-					}
+				// When video ends, show the final frame briefly while preloading the next item,
+				// then resume the slideshow.
+				const onVideoEnded = (): void => {
+					videoEl.removeEventListener('ended', onVideoEnded);
+					setTimeout(() => {
+						const pswp = this.lightbox.pswp;
+						if (pswp !== undefined) {
+							this.startSlideshow(pswp);
+						}
+					}, 800); // Brief pause to show final frame + time to preload next item
 				};
-				const setTimeoutFromDuration = (): void => {
-					// Once video metadata is loaded, set timeout based on duration.
-					// Wait for the longer of: video duration or slideshow delay.
-					const delayMs = Math.max(this.SLIDESHOW_DELAY_MS, videoEl.duration * 1000);
-					videoTimeout = setTimeout(resumeAfterVideo, delayMs);
-				};
-				// If metadata is already loaded, use it immediately; otherwise wait for it
-				if (videoEl.duration > 0) {
-					setTimeoutFromDuration();
-				} else {
-					videoEl.addEventListener('loadedmetadata', setTimeoutFromDuration, { once: true });
-				}
-				videoEl.addEventListener('ended', resumeAfterVideo);
+				videoEl.addEventListener('ended', onVideoEnded);
 			} else if ('image' === e.content.type) {
 				// Apply horizontal flip to images that were served mirrored by Google Drive
 				if ((e.content.data as Record<string, unknown>)?.['needsHFlip']) {
