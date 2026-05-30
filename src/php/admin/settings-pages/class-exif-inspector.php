@@ -61,7 +61,7 @@ final class Exif_Inspector {
 			'avpvhExifInspector',
 			array(
 				'rest_url' => rest_url( 'avpvh-gallery/v1/exif-inspector/' ),
-				'root_id'  => Options::$root_path->get()[0],
+				'root_id'  => end( Options::$root_path->get() ),
 				'nonce'    => wp_create_nonce( 'wp_rest' ),
 			)
 		);

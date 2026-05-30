@@ -84,29 +84,41 @@ final class Exif_Inspector_REST {
 			$parent_id   = isset( $params['parent_id'] ) ? $params['parent_id'] : '';
 			$folder_name = isset( $params['folder_name'] ) ? $params['folder_name'] : '';
 
+			error_log( '[EXIF Inspector] list_folders called: parent_id=' . $parent_id . ', folder_name=' . $folder_name );
+
 			if ( ! isset( $parent_id ) || '' === $parent_id ) {
-				$parent_id = Options::$root_path->get()[0];
+				$parent_id = end( Options::$root_path->get() );
+				error_log( '[EXIF Inspector] Using root path: ' . $parent_id );
 			}
 
 			if ( ! isset( $folder_name ) || '' === $folder_name ) {
+				error_log( '[EXIF Inspector] Folder name is required' );
 				return new WP_Error( 'invalid_folder_name', 'Folder name is required', array( 'status' => 400 ) );
 			}
+
+			error_log( '[EXIF Inspector] Searching for folder "' . $folder_name . '" in parent "' . $parent_id . '"' );
 
 			$folder_id = API_Client::execute(
 				API_Facade::get_directory_id( $parent_id, $folder_name )
 			);
 
+			error_log( '[EXIF Inspector] Found folder ID: ' . $folder_id );
+
 			return new WP_REST_Response( array( 'folder_id' => $folder_id ), 200 );
 		} catch ( Directory_Not_Found_Exception $e ) {
+			error_log( '[EXIF Inspector] Directory not found exception: ' . $e->getMessage() );
 			// phpcs:ignore SlevomatCodingStandard.Variables.UnusedVariable.UnusedVariable
-			return new WP_Error( 'folder_not_found', 'Folder not found', array( 'status' => 404 ) );
+			return new WP_Error( 'folder_not_found', 'Folder not found: ' . $e->getMessage(), array( 'status' => 404 ) );
 		} catch ( Not_Found_Exception $e ) {
+			error_log( '[EXIF Inspector] Not found exception: ' . $e->getMessage() );
 			// phpcs:ignore SlevomatCodingStandard.Variables.UnusedVariable.UnusedVariable
-			return new WP_Error( 'folder_not_found', 'Folder not found', array( 'status' => 404 ) );
+			return new WP_Error( 'folder_not_found', 'Folder not found: ' . $e->getMessage(), array( 'status' => 404 ) );
 		} catch ( Plugin_Not_Authorized_Exception $e ) {
+			error_log( '[EXIF Inspector] Not authorized' );
 			// phpcs:ignore SlevomatCodingStandard.Variables.UnusedVariable.UnusedVariable
 			return new WP_Error( 'not_authorized', 'Plugin not authorized', array( 'status' => 403 ) );
 		} catch ( API_Exception $e ) {
+			error_log( '[EXIF Inspector] API exception: ' . $e->getMessage() );
 			return new WP_Error( 'api_error', 'API error: ' . $e->getMessage(), array( 'status' => 500 ) );
 		}
 	}
