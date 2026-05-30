@@ -327,6 +327,7 @@ class ExifInspector {
 				'X-WP-Nonce': this.nonce,
 			},
 			body: JSON.stringify({ parent_id: parentId }),
+			credentials: 'include',
 		});
 
 		if (!response.ok) {
