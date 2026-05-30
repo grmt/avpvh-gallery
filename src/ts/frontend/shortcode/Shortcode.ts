@@ -186,11 +186,11 @@ export class Shortcode {
 				wrap.appendChild(videoEl);
 				e.content.element = wrap;
 
-				// Add progress bar to show video duration/progress
+				// Add progress bar to show video duration/progress + buffering
 				const progressBar = document.createElement('div');
 				progressBar.className = 'avpvh-video-progress';
 				progressBar.style.cssText =
-					'position:absolute;bottom:0;left:0;width:100%;height:3px;background:#333;opacity:0.5;' +
+					'position:absolute;bottom:0;left:0;width:100%;height:3px;background:#555;opacity:0.6;' +
 					'display:none;z-index:10;';
 				wrap.appendChild(progressBar);
 
@@ -206,17 +206,26 @@ export class Shortcode {
 					}
 				};
 
+				const updateBuffered = (): void => {
+					if (videoEl.duration > 0 && videoEl.buffered.length > 0) {
+						const bufferedEnd = videoEl.buffered.end(videoEl.buffered.length - 1);
+						const bufferedPercent = (bufferedEnd / videoEl.duration) * 100;
+						const bufferedBar = progressBar.querySelector('.avpvh-video-buffered') as HTMLElement;
+						if (bufferedBar) {
+							bufferedBar.style.width = bufferedPercent + '%';
+						}
+					}
+				};
+
 				const onCanPlay = (): void => {
 					// Show progress bar once video is ready
 					if (videoEl.duration > 0) {
 						progressBar.style.display = 'block';
-						const progressFill = document.createElement('div');
-						progressFill.className = 'avpvh-video-progress-fill';
-						progressFill.style.cssText =
-							'height:100%;background:#4CAF50;width:0%;';
-						progressBar.innerHTML = '';
-						progressBar.appendChild(progressFill);
+						progressBar.innerHTML =
+							'<div class="avpvh-video-buffered" style="position:absolute;left:0;top:0;height:100%;background:#888;width:0%;"></div>' +
+							'<div class="avpvh-video-progress-fill" style="position:absolute;left:0;top:0;height:100%;background:#4CAF50;width:0%;"></div>';
 						updateProgress();
+						updateBuffered();
 					}
 				};
 
@@ -236,6 +245,7 @@ export class Shortcode {
 				videoEl.addEventListener('canplay', onCanPlay, { once: true });
 				videoEl.addEventListener('play', onPlay);
 				videoEl.addEventListener('pause', onPause);
+				videoEl.addEventListener('progress', updateBuffered); // Update buffered amount as video downloads
 				videoEl.addEventListener('ended', () => {
 					onPause();
 					progressBar.style.display = 'none';
