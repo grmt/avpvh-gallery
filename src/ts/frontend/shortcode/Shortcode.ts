@@ -251,19 +251,30 @@ export class Shortcode {
 				// then resume the slideshow or advance to boundary if at the end.
 				const onVideoEnded = (): void => {
 					videoEl.removeEventListener('ended', onVideoEnded);
-					setTimeout(() => {
-						const pswp = this.lightbox.pswp;
-						if (pswp !== undefined) {
-							// If this was the last item, handle boundary navigation (next folder or more items)
-							if (pswp.currIndex === pswp.getNumItems() - 1) {
-								this.nextBoundary(pswp);
-							} else {
-								// Otherwise, continue to next item normally
-								pswp.next();
-								this.startSlideshow(pswp);
-							}
+					// Wait until currentTime actually reaches duration (sometimes there's a gap)
+					// Then add brief pause to show final frame + preload next item
+					const waitForComplete = (): void => {
+						if (videoEl.currentTime >= videoEl.duration - 0.1) {
+							// Video is truly complete, proceed after brief pause
+							setTimeout(() => {
+								const pswp = this.lightbox.pswp;
+								if (pswp !== undefined) {
+									// If this was the last item, handle boundary navigation
+									if (pswp.currIndex === pswp.getNumItems() - 1) {
+										this.nextBoundary(pswp);
+									} else {
+										// Otherwise, continue to next item normally
+										pswp.next();
+										this.startSlideshow(pswp);
+									}
+								}
+							}, 500); // Brief pause to show final frame
+						} else {
+							// Not quite there yet, check again next frame
+							requestAnimationFrame(waitForComplete);
 						}
-					}, 800); // Brief pause to show final frame + time to preload next item
+					};
+					waitForComplete();
 				};
 				videoEl.addEventListener('ended', onVideoEnded);
 			} else if ('image' === e.content.type) {
