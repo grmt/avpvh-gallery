@@ -46,9 +46,6 @@ final class Exif_Inspector {
 	 * @return void
 	 */
 	public function enqueue_scripts() {
-		// Temporarily debug: load on all pages to see if script works
-		$screen = get_current_screen();
-
 		wp_enqueue_script(
 			'avpvh-exif-inspector',
 			plugin_dir_url( __FILE__ ) . '../../admin/js/exif-inspector.min.js',
