@@ -261,15 +261,7 @@ export class Shortcode {
 						const fullPath = slideEl instanceof HTMLElement
 							? (slideEl.dataset['avpvhFullpath'] ?? '')
 							: '';
-						const exifInfo = slideEl instanceof HTMLElement
-							? (slideEl.dataset['avpvhExif'] ?? '')
-							: '';
-
-						let displayText = fullPath;
-						if (exifInfo) {
-							displayText += ' · ' + exifInfo;
-						}
-						el.textContent = displayText;
+						el.textContent = fullPath;
 					};
 					instance.on('change', update);
 					el.addEventListener('click', () => {
@@ -283,6 +275,40 @@ export class Shortcode {
 				},
 			});
 
+			// Register EXIF info button for the lightbox (photos and videos)
+			pswp.ui?.registerElement({
+				name: 'avpvh-lightbox-info',
+				order: 6,
+				isButton: true,
+				appendTo: 'root',
+				onInit: (el, instance) => {
+					el.classList.add('avpvh-lightbox-info-btn');
+					el.innerHTML = 'ℹ';
+					el.title = 'Informatie';
+					el.setAttribute('aria-label', 'Toggle informatie');
+					const exifOverlay = document.createElement('div');
+					exifOverlay.className = 'avpvh-lightbox-exif-overlay';
+					el.appendChild(exifOverlay);
+
+					const update = (): void => {
+						const slideEl = instance.currSlide?.data.element;
+						if (slideEl instanceof HTMLElement) {
+							const exifStr = slideEl.dataset['avpvhExif'] ?? '';
+							exifOverlay.innerHTML = exifStr;
+							el.style.display = exifStr ? 'block' : 'none';
+						}
+					};
+
+					el.addEventListener('click', (e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						exifOverlay.classList.toggle('avpvh-exif-visible');
+					});
+
+					instance.on('change', update);
+					update();
+				},
+			});
 		});
 
 		lightbox.on('change', () => {
@@ -1164,6 +1190,30 @@ export class Shortcode {
 		return '1/' + String(Math.round(1 / exposure)) + 's';
 	}
 
+	private static formatVideoDuration(seconds: number): string {
+		if (seconds < 60) {
+			return Math.round(seconds) + 's';
+		}
+		const minutes = Math.floor(seconds / 60);
+		const secs = Math.round(seconds % 60);
+		return minutes + 'min ' + (secs > 0 ? secs + 's' : '');
+	}
+
+	private static formatFilesize(bytes: number): string {
+		const units = ['B', 'KB', 'MB', 'GB'];
+		let size = bytes;
+		let unitIndex = 0;
+		while (size >= 1024 && unitIndex < units.length - 1) {
+			size /= 1024;
+			unitIndex++;
+		}
+		return Math.round(size * 10) / 10 + ' ' + units[unitIndex];
+	}
+
+	private static formatResolution(width: number, height: number): string {
+		return width + 'x' + height;
+	}
+
 	private static formatExifDate(time: string): string {
 		// EXIF time format: "YYYY:MM:DD HH:MM:SS"
 		const match = /^(\d{4}):(\d{2}):(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(time);
@@ -1295,6 +1345,13 @@ export class Shortcode {
 	private renderVideo(page: number, video: Video): string {
 		const width = 'number' === typeof video.width ? video.width : 1920;
 		const height = 'number' === typeof video.height ? video.height : 1080;
+
+		// Format video metadata for overlay
+		const metadataParts: Array<string> = [];
+		metadataParts.push(Shortcode.formatResolution(width, height));
+		// Note: duration and filesize would be added here if available from API
+		const exifAttr = metadataParts.length > 0 ? ' data-avpvh-exif="' + metadataParts.join(' · ') + '"' : '';
+
 		return (
 			'<a class="avpvh-grid-a" ' +
 			'data-pswp-width="' +
@@ -1318,10 +1375,18 @@ export class Shortcode {
 			'" ' +
 			'href="' +
 			video.src +
-			'">' +
+			'" data-avpvh-fullpath="' +
+			('' !== this.currentPathNames ? this.currentPathNames + ' / ' : '') + video.id +
+			'"' +
+			exifAttr +
+			'>' +
 			'<img class="avpvh-grid-img" src="' +
 			video.thumbnail +
 			'">' +
+			Shortcode.renderExifOverlay(
+				('' !== this.currentPathNames ? this.currentPathNames + ' / ' : '') + video.id,
+				undefined
+			) +
 			'</a>'
 		);
 	}
