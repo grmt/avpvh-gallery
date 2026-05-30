@@ -10,6 +10,7 @@ namespace Avpvh\Admin;
 use Avpvh\API_Client;
 use Avpvh\API_Facade;
 use Avpvh\Exceptions\API_Exception;
+use Avpvh\Exceptions\Directory_Not_Found_Exception;
 use Avpvh\Exceptions\Not_Found_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Frontend\API_Fields;
@@ -96,6 +97,9 @@ final class Exif_Inspector_REST {
 			);
 
 			return new WP_REST_Response( array( 'folder_id' => $folder_id ), 200 );
+		} catch ( Directory_Not_Found_Exception $e ) {
+			// phpcs:ignore SlevomatCodingStandard.Variables.UnusedVariable.UnusedVariable
+			return new WP_Error( 'folder_not_found', 'Folder not found', array( 'status' => 404 ) );
 		} catch ( Not_Found_Exception $e ) {
 			// phpcs:ignore SlevomatCodingStandard.Variables.UnusedVariable.UnusedVariable
 			return new WP_Error( 'folder_not_found', 'Folder not found', array( 'status' => 404 ) );
