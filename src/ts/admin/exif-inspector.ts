@@ -13,16 +13,28 @@ interface FileData {
 	id: string;
 	name: string;
 	thumbnailLink: string;
+	webContentLink?: string;
+	mimeType?: string;
+	size?: string;
 	imageMediaMetadata?: {
 		width: number;
 		height: number;
 		rotation: number;
 		cameraMake?: string;
 		cameraModel?: string;
+		lens?: string;
 		aperture?: number;
 		exposureTime?: number;
+		exposureBias?: number;
 		isoSpeed?: number;
 		focalLength?: number;
+		focalLengthIn35mmFilm?: number;
+		flashFired?: boolean;
+		whiteBalance?: string;
+		meteringMode?: string;
+		maxApertureValue?: number;
+		sensor?: string;
+		dateTimeOriginal?: string;
 		time?: string;
 	};
 	description?: string;
@@ -91,10 +103,21 @@ class ExifInspector {
 					</div>
 
 					<div class="exif-section">
-						<h3>EXIF Data</h3>
+						<h3>EXIF Data & File Info</h3>
 						<table id="exif-table" class="exif-table">
 							<tbody></tbody>
 						</table>
+					</div>
+
+					<div class="original-section">
+						<h3>Original Image</h3>
+						<div id="original-container" class="original-container">
+							<img id="original-image" alt="Original" class="original-image" />
+							<div id="original-info" class="original-info">
+								<a id="original-download-link" target="_blank" class="download-link">Download Original</a>
+								<p id="original-size"></p>
+							</div>
+						</div>
 					</div>
 
 					<div class="previews-section">
@@ -179,11 +202,59 @@ class ExifInspector {
 					}
 
 					.exif-section h3,
+					.original-section h3,
 					.previews-section h3 {
 						margin-top: 0;
 						margin-bottom: 15px;
 						font-size: 16px;
 						color: #333;
+					}
+
+					.original-section {
+						margin-bottom: 30px;
+					}
+
+					.original-container {
+						border: 1px solid #ddd;
+						border-radius: 4px;
+						padding: 15px;
+						background-color: #fafafa;
+						display: flex;
+						gap: 20px;
+						align-items: flex-start;
+					}
+
+					.original-image {
+						max-width: 400px;
+						max-height: 400px;
+						border-radius: 4px;
+						background-color: #fff;
+					}
+
+					.original-info {
+						flex: 1;
+					}
+
+					.download-link {
+						display: inline-block;
+						padding: 10px 20px;
+						background-color: #0073aa;
+						color: white;
+						text-decoration: none;
+						border-radius: 4px;
+						font-weight: 500;
+						margin-bottom: 15px;
+						cursor: pointer;
+					}
+
+					.download-link:hover {
+						background-color: #005a87;
+					}
+
+					#original-size {
+						margin: 10px 0 0 0;
+						font-size: 12px;
+						color: #666;
 					}
 
 					.previews-container {
@@ -398,6 +469,9 @@ class ExifInspector {
 		// Display EXIF data
 		this.displayExifData();
 
+		// Display original image
+		this.displayOriginalImage();
+
 		// Display previews
 		this.displayPreviews();
 	}
@@ -410,44 +484,65 @@ class ExifInspector {
 
 		tbody.innerHTML = '';
 
+		// Add file info
+		if (this.currentFile.size) {
+			const sizeInMB = (parseInt(this.currentFile.size, 10) / (1024 * 1024)).toFixed(2);
+			this.addTableRow(tbody, 'File Size', `${sizeInMB} MB`);
+		}
+
+		if (this.currentFile.mimeType) {
+			this.addTableRow(tbody, 'MIME Type', this.currentFile.mimeType);
+		}
+
+		// Add dimensions from metadata
 		const metadata = this.currentFile.imageMediaMetadata;
 		if (!metadata) {
-			tbody.innerHTML = '<tr><td colspan="2">No EXIF data available</td></tr>';
+			tbody.innerHTML += '<tr><td colspan="2"><em>No EXIF data available</em></td></tr>';
 			return;
 		}
 
-		const exifMap: Record<string, string | number | undefined> = {
-			'Camera Make': metadata.cameraMake,
-			'Camera Model': metadata.cameraModel,
-			'Aperture': metadata.aperture,
-			'Exposure Time': metadata.exposureTime,
-			'ISO Speed': metadata.isoSpeed,
-			'Focal Length': metadata.focalLength,
-			'Date/Time': metadata.time,
-			'Orientation': metadata.rotation,
-			'Width': metadata.width,
-			'Height': metadata.height,
-		};
-
-		for (const [label, value] of Object.entries(exifMap)) {
-			if (value === undefined || value === null || value === '') continue;
-
-			const row = tbody.insertRow();
-			const cellLabel = row.insertCell(0);
-			const cellValue = row.insertCell(1);
-
-			cellLabel.textContent = label;
-
-			if (label === 'Orientation') {
-				cellValue.textContent = `${value}° (${this.orientationDescription(value as number)})`;
-			} else if (label === 'Aperture') {
-				cellValue.textContent = `f/${value}`;
-			} else if (label === 'Exposure Time') {
-				cellValue.textContent = `1/${Math.round(1 / (value as number))}s`;
-			} else {
-				cellValue.textContent = String(value);
-			}
+		if (metadata.width && metadata.height) {
+			this.addTableRow(tbody, 'Dimensions', `${metadata.width} × ${metadata.height} px`);
 		}
+
+		// Camera info
+		if (metadata.cameraMake) this.addTableRow(tbody, 'Camera Make', metadata.cameraMake);
+		if (metadata.cameraModel) this.addTableRow(tbody, 'Camera Model', metadata.cameraModel);
+		if (metadata.lens) this.addTableRow(tbody, 'Lens', metadata.lens);
+		if (metadata.sensor) this.addTableRow(tbody, 'Sensor', metadata.sensor);
+
+		// Exposure info
+		if (metadata.aperture) this.addTableRow(tbody, 'Aperture', `f/${metadata.aperture}`);
+		if (metadata.exposureTime) {
+			const expTime = metadata.exposureTime < 1 ? `1/${Math.round(1 / metadata.exposureTime)}` : metadata.exposureTime;
+			this.addTableRow(tbody, 'Exposure Time', `${expTime}s`);
+		}
+		if (metadata.exposureBias !== undefined) this.addTableRow(tbody, 'Exposure Bias', `${metadata.exposureBias} EV`);
+		if (metadata.isoSpeed) this.addTableRow(tbody, 'ISO Speed', String(metadata.isoSpeed));
+
+		// Focus info
+		if (metadata.focalLength) this.addTableRow(tbody, 'Focal Length', `${metadata.focalLength} mm`);
+		if (metadata.focalLengthIn35mmFilm) this.addTableRow(tbody, 'Focal Length (35mm)', `${metadata.focalLengthIn35mmFilm} mm`);
+		if (metadata.maxApertureValue) this.addTableRow(tbody, 'Max Aperture', `f/${metadata.maxApertureValue}`);
+
+		// Lighting info
+		if (metadata.flashFired !== undefined) this.addTableRow(tbody, 'Flash', metadata.flashFired ? 'Yes' : 'No');
+		if (metadata.whiteBalance) this.addTableRow(tbody, 'White Balance', metadata.whiteBalance);
+		if (metadata.meteringMode) this.addTableRow(tbody, 'Metering Mode', metadata.meteringMode);
+
+		// Date info
+		if (metadata.dateTimeOriginal) this.addTableRow(tbody, 'Date/Time Original', metadata.dateTimeOriginal);
+		if (metadata.rotation !== undefined && metadata.rotation !== 0) {
+			this.addTableRow(tbody, 'Orientation', `${metadata.rotation}° (${this.orientationDescription(metadata.rotation)})`);
+		}
+	}
+
+	private addTableRow(tbody: HTMLTableSectionElement, label: string, value: string) {
+		const row = tbody.insertRow();
+		const cellLabel = row.insertCell(0);
+		const cellValue = row.insertCell(1);
+		cellLabel.textContent = label;
+		cellValue.textContent = value;
 	}
 
 	private orientationDescription(rotation: number): string {
@@ -458,6 +553,35 @@ class ExifInspector {
 			270: 'Rotated 270°',
 		};
 		return descriptions[rotation] || 'Unknown';
+	}
+
+	private displayOriginalImage() {
+		if (!this.currentFile) {
+			return;
+		}
+
+		const img = document.getElementById('original-image') as HTMLImageElement;
+		const downloadLink = document.getElementById('original-download-link') as HTMLAnchorElement;
+		const sizeInfo = document.getElementById('original-size') as HTMLElement;
+
+		if (img && this.currentFile.thumbnailLink) {
+			// Show a large preview from the thumbnail
+			img.src = this.buildPreviewUrl(this.currentFile.thumbnailLink, 1920);
+			img.alt = this.currentFile.name;
+		}
+
+		if (downloadLink && this.currentFile.webContentLink) {
+			downloadLink.href = this.currentFile.webContentLink;
+			downloadLink.textContent = `Download Original (${this.currentFile.mimeType || 'Image'})`;
+			downloadLink.style.display = 'inline-block';
+		} else if (downloadLink) {
+			downloadLink.style.display = 'none';
+		}
+
+		if (sizeInfo && this.currentFile.size) {
+			const sizeInMB = (parseInt(this.currentFile.size, 10) / (1024 * 1024)).toFixed(2);
+			sizeInfo.textContent = `File size: ${sizeInMB} MB`;
+		}
 	}
 
 	private displayPreviews() {
