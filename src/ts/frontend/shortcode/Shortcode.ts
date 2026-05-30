@@ -186,6 +186,45 @@ export class Shortcode {
 				wrap.appendChild(videoEl);
 				e.content.element = wrap;
 
+				// Add progress bar to show video duration/progress
+				const progressBar = document.createElement('div');
+				progressBar.className = 'avpvh-video-progress';
+				progressBar.style.cssText =
+					'position:absolute;bottom:0;left:0;width:100%;height:3px;background:#333;opacity:0.5;' +
+					'display:none;z-index:10;';
+				wrap.appendChild(progressBar);
+
+				const updateProgress = (): void => {
+					if (videoEl.duration > 0) {
+						const percent = (videoEl.currentTime / videoEl.duration) * 100;
+						const progressFill = progressBar.querySelector('.avpvh-video-progress-fill') as HTMLElement;
+						if (progressFill) {
+							progressFill.style.width = percent + '%';
+						}
+					}
+				};
+
+				const onCanPlay = (): void => {
+					// Show progress bar once video is ready
+					if (videoEl.duration > 0) {
+						progressBar.style.display = 'block';
+						const progressFill = document.createElement('div');
+						progressFill.className = 'avpvh-video-progress-fill';
+						progressFill.style.cssText =
+							'height:100%;background:#4CAF50;width:0%;transition:width 0.1s linear;';
+						progressBar.innerHTML = '';
+						progressBar.appendChild(progressFill);
+						updateProgress();
+					}
+				};
+
+				videoEl.addEventListener('canplay', onCanPlay, { once: true });
+				videoEl.addEventListener('timeupdate', updateProgress);
+				videoEl.addEventListener('ended', () => {
+					videoEl.removeEventListener('timeupdate', updateProgress);
+					progressBar.style.display = 'none';
+				});
+
 				// Pause slideshow while video plays; resume when it finishes.
 				// Slideshow timer stops so video plays uninterrupted.
 				if (this.slideshowTimer !== null) {
