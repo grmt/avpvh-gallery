@@ -291,7 +291,14 @@ class ExifInspector {
 		this.showLoading(true);
 		try {
 			// Parse the path and navigate to the file
-			const parts = path.split('/').map((p) => p.trim());
+			const parts = path.split('/').map((p) => p.trim()).filter((p) => p);
+
+			if (parts.length === 0) {
+				alert('Please enter a valid file path');
+				this.showLoading(false);
+				return;
+			}
+
 			const fileName = parts.pop()!;
 
 			// Navigate to the folder
