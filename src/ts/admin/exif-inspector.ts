@@ -504,11 +504,12 @@ class ExifInspector {
 
 	private measureImageLoad(img: HTMLImageElement, size: number) {
 		const startTime = performance.now();
+
 		const onLoad = () => {
-			const renderTime = performance.now() - startTime;
+			const totalTime = performance.now() - startTime;
 			this.previewTimings[size] = {
-				networkTime: 0,
-				renderTime: renderTime,
+				networkTime: totalTime,
+				renderTime: 0,
 			};
 
 			img.classList.remove('loading');
@@ -527,20 +528,7 @@ class ExifInspector {
 
 		img.addEventListener('load', onLoad, { once: true });
 		img.addEventListener('error', onError, { once: true });
-
-		// Start timing the fetch
-		const fetchStart = performance.now();
 		img.src = img.dataset['src'] || img.src;
-		if (performance.getEntriesByName) {
-			setTimeout(() => {
-				const entry = performance
-					.getEntriesByType('resource')
-					.find((e) => e.name.includes(`=s${size}`));
-				if (entry) {
-					this.previewTimings[size].networkTime = entry.duration;
-				}
-			}, 0);
-		}
 	}
 
 	private updateTimingDisplay(previewItem: HTMLElement, size: number) {
