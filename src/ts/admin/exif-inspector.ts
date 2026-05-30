@@ -43,11 +43,13 @@ interface PreviewSize {
 declare const avpvhExifInspector: {
 	rest_url: string;
 	root_id: string;
+	nonce: string;
 };
 
 class ExifInspector {
 	private rootId: string;
 	private restUrl: string;
+	private nonce: string;
 	private currentPath: string[] = [];
 	private currentFile: FileData | null = null;
 	private allFiles: FileData[] = [];
@@ -57,6 +59,7 @@ class ExifInspector {
 	constructor() {
 		this.rootId = avpvhExifInspector.root_id;
 		this.restUrl = avpvhExifInspector.rest_url;
+		this.nonce = avpvhExifInspector.nonce;
 		this.init();
 	}
 
@@ -321,7 +324,7 @@ class ExifInspector {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				'X-WP-Nonce': (document.querySelector('[name="_wpnonce"]') as HTMLInputElement)?.value || '',
+				'X-WP-Nonce': this.nonce,
 			},
 			body: JSON.stringify({ parent_id: parentId }),
 		});
