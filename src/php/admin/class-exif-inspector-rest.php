@@ -99,8 +99,8 @@ final class Exif_Inspector_REST {
 			error_log( '[EXIF Inspector] Searching for folder "' . $folder_name . '" in parent "' . $parent_id . '"' );
 
 			$folder_id = API_Client::execute(
-				API_Facade::get_directory_id( $parent_id, $folder_name )
-			);
+				array( API_Facade::get_directory_id( $parent_id, $folder_name ) )
+			)[0];
 
 			error_log( '[EXIF Inspector] Found folder ID: ' . $folder_id );
 

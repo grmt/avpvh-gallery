@@ -351,9 +351,10 @@ class ExifInspector {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				'X-WP-Nonce': (document.querySelector('[name="_wpnonce"]') as HTMLInputElement)?.value || '',
+				'X-WP-Nonce': this.nonce,
 			},
 			body: JSON.stringify({ parent_id: folderId }),
+			credentials: 'include',
 		});
 
 		if (!response.ok) {
