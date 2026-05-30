@@ -46,18 +46,15 @@ final class Exif_Inspector {
 	 * @return void
 	 */
 	public function enqueue_scripts() {
+		// Temporarily debug: load on all pages to see if script works
 		$screen = get_current_screen();
-
-		if ( null === $screen || 'gallery_page_avpvh_exif_inspector' !== $screen->id ) {
-			return;
-		}
 
 		wp_enqueue_script(
 			'avpvh-exif-inspector',
-			plugins_url( '/avpvh-gallery/dist/admin/js/exif-inspector.min.js' ),
+			plugin_dir_url( __FILE__ ) . '../../admin/js/exif-inspector.min.js',
 			array(),
 			(int) filemtime(
-				plugin_dir_path( __FILE__ ) . '../../../../dist/admin/js/exif-inspector.min.js'
+				plugin_dir_path( __FILE__ ) . '../../admin/js/exif-inspector.min.js'
 			),
 			true
 		);
