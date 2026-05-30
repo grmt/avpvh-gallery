@@ -533,7 +533,7 @@ class ExifInspector {
 		// Date info
 		if (metadata.dateTimeOriginal) this.addTableRow(tbody, 'Date/Time Original', metadata.dateTimeOriginal);
 		if (metadata.rotation !== undefined && metadata.rotation !== 0) {
-			this.addTableRow(tbody, 'Orientation', `${metadata.rotation}° (${this.orientationDescription(metadata.rotation)})`);
+			this.addTableRow(tbody, 'Orientation', `${metadata.rotation} - ${this.orientationDescription(metadata.rotation)}`);
 		}
 	}
 
@@ -546,13 +546,24 @@ class ExifInspector {
 	}
 
 	private orientationDescription(rotation: number): string {
+		// EXIF orientation tags (1-8) vs rotation degrees (0, 90, 180, 270)
 		const descriptions: Record<number, string> = {
+			// EXIF Orientation Tags
+			1: 'Normal',
+			2: 'Flipped (Horizontal)',
+			3: 'Rotated 180°',
+			4: 'Flipped (Vertical)',
+			5: 'Rotated 90° CCW + Flipped',
+			6: 'Rotated 90° CW',
+			7: 'Rotated 90° CW + Flipped',
+			8: 'Rotated 90° CCW',
+			// Rotation Degrees (fallback)
 			0: 'Normal',
-			90: 'Rotated 90°',
+			90: 'Rotated 90° CW',
 			180: 'Rotated 180°',
-			270: 'Rotated 270°',
+			270: 'Rotated 90° CCW',
 		};
-		return descriptions[rotation] || 'Unknown';
+		return descriptions[rotation] || `Unknown (${rotation})`;
 	}
 
 	private displayOriginalImage() {
