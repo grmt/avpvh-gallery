@@ -680,6 +680,11 @@ export class Shortcode {
 			this.folderNavigating = false;
 			return;
 		}
+		// Recursively search for next/prev folder, going up directory tree if needed
+		this.findAdjacentFolder(currentPath, direction, pswp);
+	}
+
+	private findAdjacentFolder(currentPath: string, direction: 'next' | 'prev', pswp: PhotoSwipe): void {
 		const lastSlash = currentPath.lastIndexOf('/');
 		const parentPath = lastSlash >= 0 ? currentPath.substring(0, lastSlash) : '';
 		const currentFolderId = lastSlash >= 0 ? currentPath.substring(lastSlash + 1) : currentPath;
@@ -693,26 +698,40 @@ export class Shortcode {
 				page: 1,
 			},
 			(data: GalleryResponse) => {
-				this.folderNavigating = false;
 				if (isError(data)) {
+					this.folderNavigating = false;
 					return;
 				}
 				const siblings = (data as GallerySuccessResponse).directories ?? [];
 				const currentIndex = siblings.findIndex((d) => d.id === currentFolderId);
 				if (currentIndex < 0) {
+					this.folderNavigating = false;
 					return;
 				}
 				const targetIndex = 'next' === direction ? currentIndex + 1 : currentIndex - 1;
-				if (targetIndex < 0 || targetIndex >= siblings.length) {
+
+				// Found adjacent folder at this level
+				if (targetIndex >= 0 && targetIndex < siblings.length) {
+					const targetDir = siblings[targetIndex];
+					const newPath = ('' !== parentPath ? parentPath + '/' : '') + targetDir.id;
+					pswp.close();
+					this.pendingLightboxOpen = 'next' === direction ? 'first' : 'last';
+					history.pushState({}, '', this.pathQueryParameter.add(newPath));
+					this.path = newPath;
+					this.folderNavigating = false;
+					this.get();
 					return;
 				}
-				const targetDir = siblings[targetIndex];
-				const newPath = ('' !== parentPath ? parentPath + '/' : '') + targetDir.id;
-				pswp.close();
-				this.pendingLightboxOpen = 'next' === direction ? 'first' : 'last';
-				history.pushState({}, '', this.pathQueryParameter.add(newPath));
-				this.path = newPath;
-				this.get();
+
+				// No adjacent folder at this level; recurse up if parent exists
+				if ('' === parentPath) {
+					// At root level, nowhere to go
+					this.folderNavigating = false;
+					return;
+				}
+
+				// Go up one level and search there
+				this.findAdjacentFolder(parentPath, direction, pswp);
 			}
 		);
 	}

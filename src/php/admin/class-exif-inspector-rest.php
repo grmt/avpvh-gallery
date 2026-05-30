@@ -71,7 +71,7 @@ final class Exif_Inspector_REST {
 	}
 
 	/**
-	 * Lists folders in a directory.
+	 * Gets a folder ID by parent and folder name.
 	 *
 	 * @param WP_REST_Request $request The request object.
 	 *
@@ -79,26 +79,26 @@ final class Exif_Inspector_REST {
 	 */
 	public function list_folders( $request ) {
 		try {
-			$params    = $request->get_json_params();
-			$parent_id = isset( $params['parent_id'] ) ? $params['parent_id'] : '';
+			$params      = $request->get_json_params();
+			$parent_id   = isset( $params['parent_id'] ) ? $params['parent_id'] : '';
+			$folder_name = isset( $params['folder_name'] ) ? $params['folder_name'] : '';
 
 			if ( ! isset( $parent_id ) || '' === $parent_id ) {
 				$parent_id = Options::$root_path->get()[0];
 			}
 
-			$pagination_helper = new Single_Page_Pagination_Helper();
-			$fields            = new API_Fields(
-				array(
-					'id',
-					'name',
-				)
+			if ( ! isset( $folder_name ) || '' === $folder_name ) {
+				return new WP_Error( 'invalid_folder_name', 'Folder name is required', array( 'status' => 400 ) );
+			}
+
+			$folder_id = API_Client::execute(
+				API_Facade::get_directory_id( $parent_id, $folder_name )
 			);
 
-			$folders = API_Client::execute(
-				API_Facade::list_directories( $parent_id, $fields, $pagination_helper, 'name' )
-			);
-
-			return new WP_REST_Response( array( 'folders' => $folders ), 200 );
+			return new WP_REST_Response( array( 'folder_id' => $folder_id ), 200 );
+		} catch ( Not_Found_Exception $e ) {
+			// phpcs:ignore SlevomatCodingStandard.Variables.UnusedVariable.UnusedVariable
+			return new WP_Error( 'folder_not_found', 'Folder not found', array( 'status' => 404 ) );
 		} catch ( Plugin_Not_Authorized_Exception $e ) {
 			// phpcs:ignore SlevomatCodingStandard.Variables.UnusedVariable.UnusedVariable
 			return new WP_Error( 'not_authorized', 'Plugin not authorized', array( 'status' => 403 ) );

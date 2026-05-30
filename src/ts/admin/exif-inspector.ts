@@ -326,22 +326,17 @@ class ExifInspector {
 				'Content-Type': 'application/json',
 				'X-WP-Nonce': this.nonce,
 			},
-			body: JSON.stringify({ parent_id: parentId }),
+			body: JSON.stringify({ parent_id: parentId, folder_name: folderName }),
 			credentials: 'include',
 		});
 
 		if (!response.ok) {
-			throw new Error(`Failed to load folders: ${response.statusText}`);
+			const error = (await response.json()) as { message: string };
+			throw new Error(`Failed to load folders: ${error.message || response.statusText}`);
 		}
 
-		const data = (await response.json()) as { folders: Array<{ id: string; name: string }> };
-		const folder = data.folders.find((f) => f.name === folderName);
-
-		if (!folder) {
-			throw new Error(`Folder not found: ${folderName}`);
-		}
-
-		return folder.id;
+		const data = (await response.json()) as { folder_id: string };
+		return data.folder_id;
 	}
 
 	private async listFilesInFolder(folderId: string) {
