@@ -193,13 +193,20 @@ export class Shortcode {
 					this.slideshowTimer = null;
 				}
 				// When video ends, show the final frame briefly while preloading the next item,
-				// then resume the slideshow.
+				// then resume the slideshow or advance to boundary if at the end.
 				const onVideoEnded = (): void => {
 					videoEl.removeEventListener('ended', onVideoEnded);
 					setTimeout(() => {
 						const pswp = this.lightbox.pswp;
 						if (pswp !== undefined) {
-							this.startSlideshow(pswp);
+							// If this was the last item, handle boundary navigation (next folder or more items)
+							if (pswp.currIndex === pswp.getNumItems() - 1) {
+								this.nextBoundary(pswp);
+							} else {
+								// Otherwise, continue to next item normally
+								pswp.next();
+								this.startSlideshow(pswp);
+							}
 						}
 					}, 800); // Brief pause to show final frame + time to preload next item
 				};
