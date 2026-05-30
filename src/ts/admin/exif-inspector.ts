@@ -777,6 +777,10 @@ class ExifInspector {
 				<img class="preview-image loading" alt="Preview ${size}px" src="${previewUrl}" data-size="${size}" />
 				<div class="timing-info">
 					<div class="timing-row">
+						<span class="timing-label">File Size:</span>
+						<span class="timing-value">...</span>
+					</div>
+					<div class="timing-row">
 						<span class="timing-label">Network:</span>
 						<span class="timing-value">...</span>
 					</div>
@@ -811,6 +815,19 @@ class ExifInspector {
 			this.previewTimings[size].networkTime = totalTime;
 			this.previewTimings[size].renderTime = 0;
 
+			// Try to get file size from Resource Timing API
+			const resourceTimings = performance.getEntriesByType('resource');
+			const imageUrl = img.src;
+			for (const entry of resourceTimings) {
+				if (entry.name === imageUrl || entry.name.includes(imageUrl.split('=').pop() || '')) {
+					const perfEntry = entry as PerformanceResourceTiming;
+					if (perfEntry.transferSize !== undefined) {
+						this.previewTimings[size].fileSize = perfEntry.transferSize;
+					}
+					break;
+				}
+			}
+
 			img.classList.remove('loading');
 			this.updateTimingDisplay(img.closest('.preview-item') as HTMLElement, size);
 		};
@@ -841,7 +858,20 @@ class ExifInspector {
 			return;
 		}
 
+		let fileSizeHtml = '';
+		if (timing.fileSize !== undefined && timing.fileSize > 0) {
+			const sizeInKB = (timing.fileSize / 1024).toFixed(2);
+			const sizeInMB = timing.fileSize > 1024 * 1024 ? (timing.fileSize / (1024 * 1024)).toFixed(2) + ' MB' : sizeInKB + ' KB';
+			fileSizeHtml = `
+				<div class="timing-row">
+					<span class="timing-label">File Size:</span>
+					<span class="timing-value">${sizeInMB}</span>
+				</div>
+			`;
+		}
+
 		timingInfo.innerHTML = `
+			${fileSizeHtml}
 			<div class="timing-row">
 				<span class="timing-label">Network:</span>
 				<span class="timing-value">${timing.networkTime.toFixed(2)}ms</span>
