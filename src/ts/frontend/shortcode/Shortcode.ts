@@ -30,6 +30,10 @@ export class Shortcode {
 	private pendingLightboxAdvance = false;
 	private folderNavigating = false;
 	private slideshowPaused = false;
+	// Set when a full-size image fails to load (Google rate-limit or an expired
+	// URL). While set, the auto-slideshow stays paused so we don't keep firing
+	// doomed requests; it clears again as soon as a full-size image loads.
+	private rateLimited = false;
 
 	private readonly SLIDESHOW_DELAY_MS = 5000;
 	private readonly IDLE_HIDE_MS = 3000;
@@ -73,8 +77,61 @@ export class Shortcode {
 				avpvhShortcodeLocalize.preview_speed,
 				10
 			),
+			// Preload only one neighbour each way (default is [1, 2]). The images
+			// come from Google Drive, which throttles bursts of full-size requests;
+			// fewer simultaneous requests means fewer throttled/blocked responses
+			// (in Firefox these surface as ORB "could not load" errors).
+			preload: [1, 1],
+			// Suppress PhotoSwipe's built-in "image cannot be loaded" text; we show
+			// our own friendlier rate-limit notice instead (see loadError below).
+			errorMsg: '',
 			close: 'true' === avpvhShortcodeLocalize.preview_closebutton,
 		});
+
+		// A full-size image can fail because Google Drive is rate-limiting us
+		// (HTTP 403 after a few hundred fetches) or because its per-load URL token
+		// has expired. Retrying the same URL can't fix either, so instead:
+		//  • Fall back to the grid thumbnail, which was already downloaded for the
+		//    folder view and is therefore served from the browser cache — no new
+		//    Google request, no expiry/rate-limit. The viewer sees the photo at
+		//    lower resolution instead of a broken frame (see contentErrorElement).
+		//  • Pause the auto-slideshow so we stop firing doomed full-size requests;
+		//    it resumes once a full-size image loads again.
+		lightbox.on('loadError', (e) => {
+			const content = e.content as unknown as { type?: string };
+			if ('image' !== content.type) {
+				return;
+			}
+			this.rateLimited = true;
+			if (this.slideshowTimer !== null) {
+				clearTimeout(this.slideshowTimer);
+				this.slideshowTimer = null;
+			}
+		});
+		lightbox.on('loadComplete', (e) => {
+			// A real full-size image loaded — Google is serving us again.
+			if (true !== e.isError) {
+				this.rateLimited = false;
+			}
+		});
+		// Replace PhotoSwipe's error placeholder with the cached grid thumbnail.
+		lightbox.addFilter('contentErrorElement', (errorMsgEl, content) => {
+			const data = (content as unknown as { data?: { element?: HTMLElement } }).data;
+			const anchor = data?.element;
+			const thumb = anchor instanceof HTMLElement ? anchor.querySelector('img') : null;
+			const src = thumb instanceof HTMLImageElement ? (thumb.currentSrc || thumb.src) : '';
+			if ('' === src) {
+				return errorMsgEl;
+			}
+			const img = document.createElement('img');
+			img.className = 'avpvh-pswp-fallback';
+			img.src = src;
+			// If even the thumbnail can't be shown, fail quietly (blank) rather
+			// than a broken-image icon.
+			img.addEventListener('error', () => { img.style.display = 'none'; });
+			return img;
+		});
+
 
 		lightbox.addFilter('itemData', (itemData) => {
 			const el = itemData.element;
@@ -128,6 +185,38 @@ export class Shortcode {
 				}
 				wrap.appendChild(videoEl);
 				e.content.element = wrap;
+
+				// Pause slideshow while video plays; resume when it finishes
+				if (this.slideshowTimer !== null) {
+					clearTimeout(this.slideshowTimer);
+					this.slideshowTimer = null;
+				}
+				let videoTimeout: ReturnType<typeof setTimeout> | null = null;
+				const resumeAfterVideo = (): void => {
+					videoEl.removeEventListener('ended', resumeAfterVideo);
+					videoEl.removeEventListener('loadedmetadata', setTimeoutFromDuration);
+					if (videoTimeout !== null) {
+						clearTimeout(videoTimeout);
+						videoTimeout = null;
+					}
+					const pswp = this.lightbox.pswp;
+					if (pswp !== undefined) {
+						this.startSlideshow(pswp);
+					}
+				};
+				const setTimeoutFromDuration = (): void => {
+					// Once video metadata is loaded, set timeout based on duration.
+					// Wait for the longer of: video duration or slideshow delay.
+					const delayMs = Math.max(this.SLIDESHOW_DELAY_MS, videoEl.duration * 1000);
+					videoTimeout = setTimeout(resumeAfterVideo, delayMs);
+				};
+				// If metadata is already loaded, use it immediately; otherwise wait for it
+				if (videoEl.duration > 0) {
+					setTimeoutFromDuration();
+				} else {
+					videoEl.addEventListener('loadedmetadata', setTimeoutFromDuration, { once: true });
+				}
+				videoEl.addEventListener('ended', resumeAfterVideo);
 			} else if ('image' === e.content.type) {
 				// Apply horizontal flip to images that were served mirrored by Google Drive
 				if ((e.content.data as Record<string, unknown>)?.['needsHFlip']) {
@@ -185,7 +274,15 @@ export class Shortcode {
 						const fullPath = slideEl instanceof HTMLElement
 							? (slideEl.dataset['avpvhFullpath'] ?? '')
 							: '';
-						el.textContent = fullPath;
+						const exifInfo = slideEl instanceof HTMLElement
+							? (slideEl.dataset['avpvhExif'] ?? '')
+							: '';
+
+						let displayText = fullPath;
+						if (exifInfo) {
+							displayText += ' · ' + exifInfo;
+						}
+						el.textContent = displayText;
 					};
 					instance.on('change', update);
 					el.addEventListener('click', () => {
@@ -199,48 +296,6 @@ export class Shortcode {
 				},
 			});
 
-			// Register EXIF info button for the lightbox
-			pswp.ui?.registerElement({
-				name: 'avpvh-lightbox-info',
-				order: 6,
-				isButton: true,
-				appendTo: 'root',
-				onInit: (el, instance) => {
-					el.classList.add('avpvh-lightbox-info-btn');
-					el.innerHTML = 'ℹ';
-					el.title = 'Image information';
-					el.setAttribute('aria-label', 'Toggle image information');
-					const exifOverlay = document.createElement('div');
-					exifOverlay.className = 'avpvh-lightbox-exif-overlay';
-					el.appendChild(exifOverlay);
-
-					const update = (): void => {
-						const slideEl = instance.currSlide?.data.element;
-						if (slideEl instanceof HTMLElement) {
-							const fullPath = slideEl.dataset['avpvhFullpath'] ?? '';
-							const exifStr = slideEl.dataset['avpvhExif'] ?? '';
-							let html = '';
-							if (fullPath) {
-								html += '<div class="avpvh-exif-filename">' + fullPath + '</div>';
-							}
-							if (exifStr) {
-								html += '<div class="avpvh-exif-data">' + exifStr + '</div>';
-							}
-							exifOverlay.innerHTML = html;
-							el.style.display = html ? 'block' : 'none';
-						}
-					};
-
-					el.addEventListener('click', (e) => {
-						e.preventDefault();
-						e.stopPropagation();
-						exifOverlay.classList.toggle('avpvh-exif-visible');
-					});
-
-					instance.on('change', update);
-					update();
-				},
-			});
 		});
 
 		lightbox.on('change', () => {
@@ -271,6 +326,7 @@ export class Shortcode {
 				clearTimeout(this.idleTimer);
 				this.idleTimer = null;
 			}
+			this.rateLimited = false;
 			this.slideshowPaused = false;
 			if ('' !== window.location.hash) {
 				history.replaceState(
@@ -363,56 +419,70 @@ export class Shortcode {
 			document.documentElement.classList.remove('pswp-is-open');
 		});
 
-		// ── Idle arrow hiding ─────────────────────────────────────────
-		const resetIdle = (): void => {
-			el.classList.remove('pswp--ui-idle');
-			if (this.idleTimer !== null) {
-				clearTimeout(this.idleTimer);
-			}
-			this.idleTimer = setTimeout(() => {
-				el.classList.add('pswp--ui-idle');
-			}, this.IDLE_HIDE_MS);
-		};
-		el.addEventListener('mousemove', resetIdle);
-		el.addEventListener('touchstart', resetIdle);
-		resetIdle();
-
-		// ── Slideshow: pause while hovering, resume on mouse leave ───
-		// In windowed mode mouseleave fires normally. In fullscreen mode the
-		// mouse can never leave the viewport, so we also treat reaching the
-		// viewport border (within EDGE_PX pixels) as "leaving".
-		const EDGE_PX = 5;
-		this.slideshowPaused = false;
-		this.startSlideshow(pswp);
-		el.addEventListener('mouseenter', () => {
+		// ── Idle UI + slideshow coupling ──────────────────────────────
+		// Rules:
+		//  • Any interaction (move/click/tap/key) pauses the slideshow and shows
+		//    the trowels, then arms a short idle countdown. Because every
+		//    interaction re-arms it, rapid clicking can never collide with an
+		//    auto-advance (the old "skipped photo" bug).
+		//  • When the countdown elapses (user has stopped interacting) the
+		//    trowels hide and the slideshow resumes — EXCEPT in windowed mode
+		//    while the cursor is still resting on the photo, so hovering a photo
+		//    keeps the show stopped.
+		//  • In fullscreen the photo fills the screen, so there is no "off the
+		//    photo" area; the only way to restart the show is to stop moving the
+		//    mouse, hence we ignore the hover rule there.
+		let lastOverPhoto = false;
+		const isFullscreen = (): boolean => document.fullscreenElement !== null;
+		const pauseShow = (): void => {
 			this.slideshowPaused = true;
 			if (this.slideshowTimer !== null) {
 				clearTimeout(this.slideshowTimer);
 				this.slideshowTimer = null;
 			}
-		});
-		el.addEventListener('mouseleave', () => {
+		};
+		const resumeShow = (): void => {
 			this.slideshowPaused = false;
 			this.startSlideshow(pswp);
-		});
-		el.addEventListener('mousemove', (e: MouseEvent) => {
-			const atEdge =
-				e.clientX <= EDGE_PX ||
-				e.clientY <= EDGE_PX ||
-				e.clientX >= window.innerWidth - EDGE_PX ||
-				e.clientY >= window.innerHeight - EDGE_PX;
-			if (atEdge && this.slideshowPaused) {
-				this.slideshowPaused = false;
-				this.startSlideshow(pswp);
+		};
+		const goIdle = (): void => {
+			el.classList.add('pswp--ui-idle');
+			if (isFullscreen() || !lastOverPhoto) {
+				resumeShow();
+			}
+		};
+		const onActivity = (overPhoto: boolean): void => {
+			lastOverPhoto = overPhoto;
+			el.classList.remove('pswp--ui-idle');
+			pauseShow();
+			if (this.idleTimer !== null) {
+				clearTimeout(this.idleTimer);
+			}
+			this.idleTimer = setTimeout(goIdle, this.IDLE_HIDE_MS);
+		};
+		const overPhotoTarget = (t: EventTarget | null): boolean =>
+			t instanceof Element && null !== t.closest('.pswp__img');
+		// Down events use the capture phase: PhotoSwipe's gesture handler calls
+		// stopPropagation() on them for its drag logic, so a bubble-phase listener
+		// would never see arrow/image clicks.
+		el.addEventListener('mousemove', (e: MouseEvent) => { onActivity(overPhotoTarget(e.target)); });
+		el.addEventListener('mousedown', (e: MouseEvent) => { onActivity(overPhotoTarget(e.target)); }, true);
+		el.addEventListener('pointerdown', (e: Event) => { onActivity(overPhotoTarget(e.target)); }, true);
+		el.addEventListener('touchstart', (e: Event) => { onActivity(overPhotoTarget(e.target)); });
+		// Leaving the lightbox entirely (windowed only) resumes immediately.
+		el.addEventListener('mouseleave', () => {
+			lastOverPhoto = false;
+			el.classList.add('pswp--ui-idle');
+			if (!isFullscreen()) {
+				resumeShow();
 			}
 		});
-
-		// ── Touch: reset the countdown after each interaction ─────────
-		// No hover concept on touch; just ensure the slide doesn't
-		// auto-advance while the user is actively swiping.
-		el.addEventListener('touchstart', () => {
-			this.startSlideshow(pswp);
-		});
+		// Start: trowels visible, slideshow running, idle countdown armed.
+		resumeShow();
+		this.idleTimer = setTimeout(goIdle, this.IDLE_HIDE_MS);
+		// NOTE: the slideshow's own advance fires PhotoSwipe's 'change' event,
+		// which is deliberately NOT treated as user activity — otherwise the
+		// slideshow would pause itself after a single frame.
 
 		// ── Boundary navigation ───────────────────────────────────────
 		// Capture click on arrow buttons before PhotoSwipe sees them
@@ -443,6 +513,11 @@ export class Shortcode {
 			if (!pswp.isOpen) {
 				document.removeEventListener('keydown', handleKeydown, true);
 				return;
+			}
+			if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+				// Keyboard navigation counts as interaction (not "over photo"),
+				// so it pauses the slideshow and keeps the trowels visible.
+				onActivity(false);
 			}
 			if (e.key === 'ArrowRight' && pswp.currIndex === pswp.getNumItems() - 1) {
 				e.stopImmediatePropagation();
@@ -484,7 +559,7 @@ export class Shortcode {
 		if (this.slideshowTimer !== null) {
 			clearTimeout(this.slideshowTimer);
 		}
-		if (this.slideshowPaused) {
+		if (this.slideshowPaused || this.rateLimited) {
 			this.slideshowTimer = null;
 			return;
 		}
@@ -926,19 +1001,6 @@ export class Shortcode {
 				});
 			});
 
-		// Use event delegation for info button clicks - prevent opening lightbox
-		this.container.off('click.avpvh-info').on('click.avpvh-info', '.avpvh-info-btn', (e) => {
-			e.preventDefault();
-			e.stopPropagation();
-			e.stopImmediatePropagation();
-			const btn = e.currentTarget as HTMLElement;
-			const anchor = btn.closest('a.avpvh-grid-a') as HTMLElement;
-			if (!anchor) {
-				return;
-			}
-			anchor.classList.toggle('avpvh-exif-visible');
-		});
-
 		this.loading = true;
 		void this.container
 			.find('.avpvh-gallery')
@@ -1117,11 +1179,16 @@ export class Shortcode {
 
 	private static formatExifDate(time: string): string {
 		// EXIF time format: "YYYY:MM:DD HH:MM:SS"
-		const match = /^(\d{4}):(\d{2}):(\d{2})/.exec(time);
+		const match = /^(\d{4}):(\d{2}):(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(time);
 		if (match === null) {
 			return '';
 		}
-		return match[1] + '-' + match[2] + '-' + match[3];
+		const date = match[1] + '-' + match[2] + '-' + match[3];
+		if (match[4] === undefined || match[5] === undefined) {
+			return date;
+		}
+		const seconds = match[6] !== undefined ? ':' + match[6] : '';
+		return date + ' ' + match[4] + ':' + match[5] + seconds;
 	}
 
 	private static renderExifOverlay(fullPath: string, exif: ImageExif | undefined): string {
@@ -1133,7 +1200,7 @@ export class Shortcode {
 					parts.push(d);
 				}
 			}
-			const camera = [exif.make, exif.model].filter((x) => x !== undefined).join(' ');
+			const camera = [exif.make, exif.model].filter((x) => x !== undefined).join(' ').replace(/\s+/g, ' ').trim();
 			if ('' !== camera) {
 				parts.push(camera);
 			}
@@ -1170,10 +1237,6 @@ export class Shortcode {
 		const width = 0 < image.width ? image.width : 2000;
 		const height = 0 < image.height ? image.height : 1500;
 		const orientationAttr = image.exif?.orientation ? ' data-exif-orientation="' + image.exif.orientation + '"' : '';
-		const hasExif = image.exif !== undefined && Object.keys(image.exif).length > 0;
-		const infoBtn = hasExif
-			? '<button type="button" class="avpvh-info-btn" title="Image information" aria-label="Toggle image information">ℹ</button>'
-			: '';
 
 		// Format EXIF data for data attribute (used by lightbox)
 		const exifParts: Array<string> = [];
@@ -1184,7 +1247,7 @@ export class Shortcode {
 					exifParts.push(d);
 				}
 			}
-			const camera = [image.exif.make, image.exif.model].filter((x) => x !== undefined).join(' ');
+			const camera = [image.exif.make, image.exif.model].filter((x) => x !== undefined).join(' ').replace(/\s+/g, ' ').trim();
 			if ('' !== camera) {
 				exifParts.push(camera);
 			}
@@ -1234,7 +1297,6 @@ export class Shortcode {
 			'<img class="avpvh-grid-img" src="' +
 			image.thumbnail +
 			'">' +
-			infoBtn +
 			Shortcode.renderExifOverlay(
 				('' !== this.currentPathNames ? this.currentPathNames + ' / ' : '') + image.name,
 				image.exif
