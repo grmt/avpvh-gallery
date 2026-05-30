@@ -162,8 +162,10 @@ final class Exif_Inspector_REST {
 			);
 
 			$files = API_Client::execute(
-				API_Facade::list_images( $parent_id, $fields, $pagination_helper, 'name' )
-			);
+				array( API_Facade::list_images( $parent_id, $fields, $pagination_helper, 'name' ) )
+			)[0];
+
+			error_log( '[EXIF Inspector] Found ' . count( $files ) . ' files in folder ' . $parent_id );
 
 			return new WP_REST_Response( array( 'files' => $files ), 200 );
 		} catch ( Plugin_Not_Authorized_Exception $e ) {
@@ -212,8 +214,8 @@ final class Exif_Inspector_REST {
 			);
 
 			$file = API_Client::execute(
-				API_Facade::get_file( $file_id, $fields )
-			);
+				array( API_Facade::get_file( $file_id, $fields ) )
+			)[0];
 
 			return new WP_REST_Response( array( 'file' => $file ), 200 );
 		} catch ( Plugin_Not_Authorized_Exception $e ) {
