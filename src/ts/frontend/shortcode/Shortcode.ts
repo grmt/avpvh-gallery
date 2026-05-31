@@ -254,6 +254,7 @@ export class Shortcode {
 
 				// Pause slideshow while video plays; resume when it finishes.
 				// Slideshow timer stops so video plays uninterrupted.
+				this.slideshowPaused = true;
 				if (this.slideshowTimer !== null) {
 					clearTimeout(this.slideshowTimer);
 					this.slideshowTimer = null;
@@ -262,6 +263,8 @@ export class Shortcode {
 				// then resume the slideshow or advance to boundary if at the end.
 				const onVideoEnded = (): void => {
 					videoEl.removeEventListener('ended', onVideoEnded);
+					// Resume slideshow (it was paused when video loaded)
+					this.slideshowPaused = false;
 					// Wait until currentTime actually reaches duration (sometimes there's a gap)
 					// Then add brief pause to show final frame + preload next item
 					const waitForComplete = (): void => {

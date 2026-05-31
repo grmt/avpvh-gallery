@@ -95,6 +95,95 @@ final class Exif_Inspector_REST {
 				),
 			)
 		);
+
+		register_rest_route(
+			'avpvh-gallery/v1',
+			'exif-inspector/download-original',
+			array(
+				'callback'            => array( $this, 'download_original' ),
+				'methods'             => 'GET',
+				'permission_callback' => array( $this, 'check_admin_permission' ),
+				'args'                => array(
+					'file_id' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Streams the original file from Google Drive via the authorized API client.
+	 * The public download URL requires Google sign-in; this uses the plugin's
+	 * OAuth token to fetch the file content server-side.
+	 *
+	 * @param WP_REST_Request $request The request object.
+	 *
+	 * @return WP_Error|void
+	 *
+	 * @SuppressWarnings("PHPMD.ExitExpression")
+	 */
+	public function download_original( $request ) {
+		$file_id = $request->get_param( 'file_id' );
+
+		if ( empty( $file_id ) ) {
+			return new WP_Error( 'invalid_file_id', 'File ID is required', array( 'status' => 400 ) );
+		}
+
+		try {
+			$http = API_Client::get_authorized_raw_client()->authorize();
+
+			// Get file metadata for filename, mime type, and size
+			$meta_response = $http->request(
+				'GET',
+				'drive/v3/files/' . $file_id,
+				array(
+					'query' => array(
+						'fields'            => 'name,mimeType,size',
+						'supportsAllDrives' => 'true',
+					),
+				)
+			);
+			$meta          = json_decode( $meta_response->getBody()->getContents(), true );
+
+			$filename  = isset( $meta['name'] ) ? $meta['name'] : 'download';
+			$mime_type = isset( $meta['mimeType'] ) ? $meta['mimeType'] : 'application/octet-stream';
+			$size      = isset( $meta['size'] ) ? (int) $meta['size'] : 0;
+
+			// Stream the file content
+			$response = $http->request(
+				'GET',
+				'drive/v3/files/' . $file_id,
+				array(
+					'query'  => array(
+						'alt'               => 'media',
+						'supportsAllDrives' => 'true',
+					),
+					'stream' => true,
+				)
+			);
+			$stream   = $response->getBody()->detach();
+
+			if ( is_null( $stream ) ) {
+				return new WP_Error( 'stream_error', 'Failed to open stream', array( 'status' => 500 ) );
+			}
+
+			header( 'Content-Type: ' . $mime_type );
+			header( 'Content-Disposition: attachment; filename="' . addslashes( $filename ) . '"' );
+			if ( $size > 0 ) {
+				header( 'Content-Length: ' . $size );
+			}
+
+			ob_end_clean();
+			fpassthru( $stream );
+			exit;
+		} catch ( Plugin_Not_Authorized_Exception $e ) {
+			// phpcs:ignore SlevomatCodingStandard.Variables.UnusedVariable.UnusedVariable
+			return new WP_Error( 'not_authorized', 'Plugin not authorized', array( 'status' => 403 ) );
+		} catch ( \Exception $e ) {
+			return new WP_Error( 'download_error', 'Download failed: ' . $e->getMessage(), array( 'status' => 500 ) );
+		}
 	}
 
 	/**

@@ -744,8 +744,9 @@ class ExifInspector {
 			img.alt = this.currentFile.name;
 		}
 
-		if (downloadLink && this.currentFile.webContentLink) {
-			downloadLink.href = this.currentFile.webContentLink;
+		if (downloadLink && this.currentFile.id) {
+			// Use server-side proxy with OAuth auth to avoid 403 from Google's public download URL
+			downloadLink.href = this.restUrl + 'download-original?file_id=' + encodeURIComponent(this.currentFile.id) + '&_wpnonce=' + encodeURIComponent(this.nonce);
 			downloadLink.textContent = `Download Original (${this.currentFile.mimeType || 'Image'})`;
 			downloadLink.style.display = 'inline-block';
 		} else if (downloadLink) {
