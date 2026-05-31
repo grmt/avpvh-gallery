@@ -263,8 +263,7 @@ export class Shortcode {
 				// then resume the slideshow or advance to boundary if at the end.
 				const onVideoEnded = (): void => {
 					videoEl.removeEventListener('ended', onVideoEnded);
-					// Resume slideshow (it was paused when video loaded)
-					this.slideshowPaused = false;
+					// Keep slideshow paused until AFTER we advance to next item
 					// Wait until currentTime actually reaches duration (sometimes there's a gap)
 					// Then add brief pause to show final frame + preload next item
 					const waitForComplete = (): void => {
@@ -282,6 +281,8 @@ export class Shortcode {
 										this.startSlideshow(pswp);
 									}
 								}
+								// NOW resume slideshow after advancing
+								this.slideshowPaused = false;
 							}, 500); // Brief pause to show final frame
 						} else {
 							// Not quite there yet, check again next frame
