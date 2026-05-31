@@ -79,6 +79,88 @@ final class Exif_Inspector_REST {
 				'permission_callback' => array( $this, 'check_admin_permission' ),
 			)
 		);
+
+		register_rest_route(
+			'avpvh-gallery/v1',
+			'exif-inspector/file-size',
+			array(
+				'callback'            => array( $this, 'get_file_size' ),
+				'methods'             => 'POST',
+				'permission_callback' => array( $this, 'check_admin_permission' ),
+			)
+		);
+	}
+
+	/**
+	 * Gets the file size of a URL by doing a HEAD request server-side.
+	 * This bypasses CORS restrictions that block client-side fetch.
+	 *
+	 * @param WP_REST_Request $request The request object.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_file_size( $request ) {
+		$params = $request->get_json_params();
+		$url    = isset( $params['url'] ) ? $params['url'] : '';
+
+		if ( '' === $url ) {
+			return new WP_Error( 'invalid_url', 'URL is required', array( 'status' => 400 ) );
+		}
+
+		// Validate URL is from Google
+		if ( false === strpos( $url, 'googleusercontent.com' ) && false === strpos( $url, 'drive.google.com' ) ) {
+			return new WP_Error( 'invalid_url', 'Invalid URL', array( 'status' => 400 ) );
+		}
+
+		// Try HEAD request first
+		$response = wp_remote_head(
+			$url,
+			array(
+				'timeout'   => 15,
+				'sslverify' => apply_filters( 'https_local_ssl_verify', true ),
+				'redirection' => 5,
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return new WP_Error( 'request_failed', 'Failed to fetch URL: ' . $response->get_error_message(), array( 'status' => 500 ) );
+		}
+
+		$content_length = wp_remote_retrieve_header( $response, 'content-length' );
+		$status_code    = wp_remote_retrieve_response_code( $response );
+
+		// If HEAD didn't return content-length, try GET
+		if ( empty( $content_length ) ) {
+			$response = wp_remote_get(
+				$url,
+				array(
+					'timeout'   => 15,
+					'sslverify' => apply_filters( 'https_local_ssl_verify', true ),
+					'redirection' => 5,
+				)
+			);
+
+			if ( is_wp_error( $response ) ) {
+				return new WP_Error( 'request_failed', 'Failed to fetch URL: ' . $response->get_error_message(), array( 'status' => 500 ) );
+			}
+
+			$content_length = wp_remote_retrieve_header( $response, 'content-length' );
+			$status_code    = wp_remote_retrieve_response_code( $response );
+
+			// If still no content-length, get body size
+			if ( empty( $content_length ) ) {
+				$body           = wp_remote_retrieve_body( $response );
+				$content_length = strlen( $body );
+			}
+		}
+
+		return new WP_REST_Response(
+			array(
+				'size'        => (int) $content_length,
+				'status_code' => $status_code,
+			),
+			200
+		);
 	}
 
 	/**

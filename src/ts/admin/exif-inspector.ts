@@ -35,6 +35,7 @@ interface FileData {
 interface TimingData {
 	networkTime: number;
 	renderTime: number;
+	fileSize?: number;
 }
 
 interface PreviewSize {
@@ -776,6 +777,10 @@ class ExifInspector {
 				<img class="preview-image loading" alt="Preview ${size}px" src="${previewUrl}" data-size="${size}" />
 				<div class="timing-info">
 					<div class="timing-row">
+						<span class="timing-label">File Size:</span>
+						<span class="timing-value">...</span>
+					</div>
+					<div class="timing-row">
 						<span class="timing-label">Network:</span>
 						<span class="timing-value">...</span>
 					</div>
@@ -803,6 +808,32 @@ class ExifInspector {
 		const startTime = performance.now();
 		const imageUrl = img.src;
 		const previewItem = img.closest('.preview-item') as HTMLElement;
+
+		// Fetch file size via server-side proxy (bypasses CORS)
+		fetch(this.restUrl + 'file-size', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-WP-Nonce': this.nonce,
+			},
+			body: JSON.stringify({ url: imageUrl }),
+			credentials: 'include',
+		})
+			.then(response => response.json())
+			.then((data: { size?: number }) => {
+				if (data.size && data.size > 0) {
+					if (!this.previewTimings[size]) {
+						this.previewTimings[size] = { networkTime: 0, renderTime: 0, fileSize: 0 };
+					}
+					this.previewTimings[size].fileSize = data.size;
+					if (previewItem) {
+						this.updateTimingDisplay(previewItem, size);
+					}
+				}
+			})
+			.catch(() => {
+				// Continue even if fetch fails
+			});
 
 		const onLoad = () => {
 			const totalTime = performance.now() - startTime;
@@ -843,7 +874,23 @@ class ExifInspector {
 			return;
 		}
 
+		let fileSizeHtml = '';
+		if (timing.fileSize !== undefined && timing.fileSize > 0) {
+			const sizeInKB = timing.fileSize / 1024;
+			const sizeInMB = timing.fileSize / (1024 * 1024);
+			const sizeDisplay = sizeInMB > 1
+				? `${sizeInMB.toFixed(2)} MB`
+				: `${sizeInKB.toFixed(2)} KB`;
+			fileSizeHtml = `
+				<div class="timing-row">
+					<span class="timing-label">File Size:</span>
+					<span class="timing-value">${sizeDisplay}</span>
+				</div>
+			`;
+		}
+
 		timingInfo.innerHTML = `
+			${fileSizeHtml}
 			<div class="timing-row">
 				<span class="timing-label">Network:</span>
 				<span class="timing-value">${timing.networkTime.toFixed(2)}ms</span>
