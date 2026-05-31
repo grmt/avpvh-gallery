@@ -774,7 +774,7 @@ class ExifInspector {
 
 			item.innerHTML = `
 				<h4>${size}px</h4>
-				<img class="preview-image loading" alt="Preview ${size}px" src="${previewUrl}" data-size="${size}" />
+				<img class="preview-image loading" alt="Preview ${size}px" data-size="${size}" />
 				<div class="timing-info">
 					<div class="timing-row">
 						<span class="timing-label">File Size:</span>
@@ -794,7 +794,7 @@ class ExifInspector {
 			container.appendChild(item);
 
 			const img = item.querySelector('img') as HTMLImageElement;
-			this.measureImageLoad(img, size);
+			this.fetchAndDisplayPreview(img, previewUrl, size);
 		}
 	}
 
@@ -804,63 +804,51 @@ class ExifInspector {
 		return thumbnailLink.replace(/=s\d+$/, `=s${size}`);
 	}
 
-	private measureImageLoad(img: HTMLImageElement, size: number) {
+	private fetchAndDisplayPreview(img: HTMLImageElement, imageUrl: string, size: number) {
 		const startTime = performance.now();
-		const imageUrl = img.src;
 		const previewItem = img.closest('.preview-item') as HTMLElement;
 
-		// Fetch file size via server-side proxy (bypasses CORS)
-		fetch(this.restUrl + 'file-size', {
-			method: 'POST',
+		// One request that gives us both image data AND its size
+		const proxyUrl = this.restUrl + 'proxy-image?url=' + encodeURIComponent(imageUrl);
+		fetch(proxyUrl, {
+			method: 'GET',
 			headers: {
-				'Content-Type': 'application/json',
 				'X-WP-Nonce': this.nonce,
 			},
-			body: JSON.stringify({ url: imageUrl }),
 			credentials: 'include',
 		})
-			.then(response => response.json())
-			.then((data: { size?: number }) => {
-				if (data.size && data.size > 0) {
-					if (!this.previewTimings[size]) {
-						this.previewTimings[size] = { networkTime: 0, renderTime: 0, fileSize: 0 };
-					}
-					this.previewTimings[size].fileSize = data.size;
+			.then(response => {
+				if (!response.ok) {
+					throw new Error('HTTP ' + response.status);
+				}
+				return response.blob();
+			})
+			.then(blob => {
+				const networkTime = performance.now() - startTime;
+				const renderStart = performance.now();
+
+				this.previewTimings[size] = {
+					networkTime,
+					renderTime: 0,
+					fileSize: blob.size,
+				};
+
+				img.onload = () => {
+					this.previewTimings[size].renderTime = performance.now() - renderStart;
+					img.classList.remove('loading');
 					if (previewItem) {
 						this.updateTimingDisplay(previewItem, size);
 					}
-				}
+				};
+				img.src = URL.createObjectURL(blob);
 			})
 			.catch(() => {
-				// Continue even if fetch fails
+				img.classList.remove('loading');
+				const timingInfo = previewItem?.querySelector('.timing-info') as HTMLElement;
+				if (timingInfo) {
+					timingInfo.innerHTML = '<div class="error-message">Failed to load image</div>';
+				}
 			});
-
-		const onLoad = () => {
-			const totalTime = performance.now() - startTime;
-			if (!this.previewTimings[size]) {
-				this.previewTimings[size] = { networkTime: 0, renderTime: 0 };
-			}
-			this.previewTimings[size].networkTime = totalTime;
-			this.previewTimings[size].renderTime = 0;
-
-			img.classList.remove('loading');
-			if (previewItem) {
-				this.updateTimingDisplay(previewItem, size);
-			}
-		};
-
-		const onError = () => {
-			img.classList.remove('loading');
-			const timingInfo = previewItem?.querySelector('.timing-info') as HTMLElement;
-			if (timingInfo) {
-				timingInfo.innerHTML =
-					'<div class="error-message">Failed to load image</div>';
-			}
-		};
-
-		img.addEventListener('load', onLoad, { once: true });
-		img.addEventListener('error', onError, { once: true });
-		img.src = imageUrl;
 	}
 
 	private updateTimingDisplay(previewItem: HTMLElement, size: number) {

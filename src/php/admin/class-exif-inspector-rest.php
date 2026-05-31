@@ -82,28 +82,36 @@ final class Exif_Inspector_REST {
 
 		register_rest_route(
 			'avpvh-gallery/v1',
-			'exif-inspector/file-size',
+			'exif-inspector/proxy-image',
 			array(
-				'callback'            => array( $this, 'get_file_size' ),
-				'methods'             => 'POST',
+				'callback'            => array( $this, 'proxy_image' ),
+				'methods'             => 'GET',
 				'permission_callback' => array( $this, 'check_admin_permission' ),
+				'args'                => array(
+					'url' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+				),
 			)
 		);
 	}
 
 	/**
-	 * Gets the file size of a URL by doing a HEAD request server-side.
-	 * This bypasses CORS restrictions that block client-side fetch.
+	 * Proxies an image from Google Drive through the server.
+	 * Returns the actual image bytes with proper Content-Length header,
+	 * bypassing CORS restrictions and providing the size in one request.
 	 *
 	 * @param WP_REST_Request $request The request object.
 	 *
 	 * @return WP_REST_Response|WP_Error
+	 *
+	 * @SuppressWarnings("PHPMD.ExitExpression")
 	 */
-	public function get_file_size( $request ) {
-		$params = $request->get_json_params();
-		$url    = isset( $params['url'] ) ? $params['url'] : '';
+	public function proxy_image( $request ) {
+		$url = $request->get_param( 'url' );
 
-		if ( '' === $url ) {
+		if ( empty( $url ) ) {
 			return new WP_Error( 'invalid_url', 'URL is required', array( 'status' => 400 ) );
 		}
 
@@ -112,12 +120,11 @@ final class Exif_Inspector_REST {
 			return new WP_Error( 'invalid_url', 'Invalid URL', array( 'status' => 400 ) );
 		}
 
-		// Try HEAD request first
-		$response = wp_remote_head(
+		$response = wp_remote_get(
 			$url,
 			array(
-				'timeout'   => 15,
-				'sslverify' => apply_filters( 'https_local_ssl_verify', true ),
+				'timeout'     => 30,
+				'sslverify'   => apply_filters( 'https_local_ssl_verify', true ),
 				'redirection' => 5,
 			)
 		);
@@ -126,41 +133,21 @@ final class Exif_Inspector_REST {
 			return new WP_Error( 'request_failed', 'Failed to fetch URL: ' . $response->get_error_message(), array( 'status' => 500 ) );
 		}
 
-		$content_length = wp_remote_retrieve_header( $response, 'content-length' );
-		$status_code    = wp_remote_retrieve_response_code( $response );
+		$status_code  = wp_remote_retrieve_response_code( $response );
+		$body         = wp_remote_retrieve_body( $response );
+		$content_type = wp_remote_retrieve_header( $response, 'content-type' );
 
-		// If HEAD didn't return content-length, try GET
-		if ( empty( $content_length ) ) {
-			$response = wp_remote_get(
-				$url,
-				array(
-					'timeout'   => 15,
-					'sslverify' => apply_filters( 'https_local_ssl_verify', true ),
-					'redirection' => 5,
-				)
-			);
-
-			if ( is_wp_error( $response ) ) {
-				return new WP_Error( 'request_failed', 'Failed to fetch URL: ' . $response->get_error_message(), array( 'status' => 500 ) );
-			}
-
-			$content_length = wp_remote_retrieve_header( $response, 'content-length' );
-			$status_code    = wp_remote_retrieve_response_code( $response );
-
-			// If still no content-length, get body size
-			if ( empty( $content_length ) ) {
-				$body           = wp_remote_retrieve_body( $response );
-				$content_length = strlen( $body );
-			}
+		if ( 200 !== $status_code ) {
+			return new WP_Error( 'upstream_error', 'Upstream returned status ' . $status_code, array( 'status' => 502 ) );
 		}
 
-		return new WP_REST_Response(
-			array(
-				'size'        => (int) $content_length,
-				'status_code' => $status_code,
-			),
-			200
-		);
+		// Stream the image bytes back with proper headers
+		header( 'Content-Type: ' . ( $content_type ? $content_type : 'image/jpeg' ) );
+		header( 'Content-Length: ' . strlen( $body ) );
+		header( 'Cache-Control: public, max-age=3600' );
+		// Note: same-origin response, so JS can read Content-Length natively
+		echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		exit;
 	}
 
 	/**
