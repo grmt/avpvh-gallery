@@ -82,35 +82,27 @@ html.pswp-is-open body {
 	cursor: copy;
 }
 
+/* Small subtle video badge, bottom-left of the tile. */
 .avpvh-video-play-btn {
 	align-items: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	background-color: #000;
-	background-color: rgb(0, 0, 0, 50%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	border-radius: 50%; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	background-color: rgb(0, 0, 0, 45%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border-radius: 4px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	bottom: 8px;
 	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	height: 60px;
+	height: 26px;
 	justify-content: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	left: 50%;
+	left: 8px;
+	pointer-events: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	position: absolute;
-	top: 50%;
-	transform: translate(-50%, -50%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	transition: background-color 0.3s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	width: 60px;
+	width: 26px;
 	z-index: 4;
 }
 
-a[data-pswp-type="video"] .avpvh-video-play-btn {
-	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-}
-
-a[data-pswp-type="video"]:hover .avpvh-video-play-btn {
-	background-color: rgb(0, 0, 0, 70%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
-}
-
 .avpvh-video-play-btn svg {
-	fill: #ffab91;
-	height: 32px;
-	width: 32px;
+	fill: #fff;
+	height: 16px;
+	width: 16px;
 }
 
 .avpvh-grid-img {

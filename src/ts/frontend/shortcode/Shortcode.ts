@@ -31,6 +31,11 @@ export class Shortcode {
 	private folderNavigating = false;
 	private slideshowPaused = false;
 	private slideshowWasActive = false;
+	// When the active slide is a video the fixed-interval slideshow is suspended;
+	// the video's own 'ended' event (or a stall fallback) advances instead.
+	private currentSlideIsVideo = false;
+	private videoFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+	private activeVideoCleanup: (() => void) | null = null;
 	// Set when a full-size image fails to load (Google rate-limit or an expired
 	// URL). While set, the auto-slideshow stays paused so we don't keep firing
 	// doomed requests; it clears again as soon as a full-size image loads.
@@ -137,11 +142,15 @@ export class Shortcode {
 		lightbox.addFilter('itemData', (itemData) => {
 			const el = itemData.element;
 			if (el instanceof HTMLElement && 'video' === el.dataset['pswpType']) {
+				const posterImg = el.querySelector('img');
 				return {
 					...itemData,
 					type: 'video',
 					videoSrc: el.dataset['avpvhVideoSrc'] ?? '',
 					videoMime: el.dataset['avpvhVideoMime'] ?? '',
+					// Grid thumbnail (already cached) doubles as the video poster so
+					// the slide shows the picture before/while it loads.
+					videoPoster: posterImg instanceof HTMLImageElement ? (posterImg.currentSrc || posterImg.src) : '',
 				};
 			}
 			// Check if this image needs horizontal flip correction
@@ -170,10 +179,19 @@ export class Shortcode {
 				wrap.className = 'avpvh-pswp-video';
 				const videoEl = document.createElement('video');
 				videoEl.controls = true;
-				videoEl.autoplay = true;
+				videoEl.playsInline = true;
+				videoEl.setAttribute('playsinline', '');
+				// Don't fetch any video bytes until this slide becomes the active one
+				// (see onSlideActivate). Preloaded neighbours therefore show only their
+				// poster thumbnail instead of each spawning a downloading <video>.
+				videoEl.preload = 'none';
 				videoEl.style.maxWidth = '100%';
 				videoEl.style.maxHeight = '100%';
 				const data = e.content.data as Record<string, unknown>;
+				const poster = data['videoPoster'];
+				if (typeof poster === 'string' && '' !== poster) {
+					videoEl.poster = poster;
+				}
 				const src = data['videoSrc'];
 				const mime = data['videoMime'];
 				if (typeof src === 'string') {
@@ -187,111 +205,6 @@ export class Shortcode {
 				wrap.appendChild(videoEl);
 				e.content.element = wrap;
 
-				// Add progress bar to show video duration/progress + buffering
-				const progressBar = document.createElement('div');
-				progressBar.className = 'avpvh-video-progress';
-				progressBar.style.cssText =
-					'position:absolute;bottom:0;left:0;width:100%;height:3px;background:#555;opacity:0.6;' +
-					'display:none;z-index:10;';
-				wrap.appendChild(progressBar);
-
-				let animationFrameId: number | null = null;
-				const updateProgress = (): void => {
-					if (videoEl.duration > 0 && !videoEl.paused) {
-						const percent = (videoEl.currentTime / videoEl.duration) * 100;
-						const progressFill = progressBar.querySelector('.avpvh-video-progress-fill') as HTMLElement;
-						if (progressFill) {
-							progressFill.style.width = percent + '%';
-						}
-						animationFrameId = requestAnimationFrame(updateProgress);
-					}
-				};
-
-				const updateBuffered = (): void => {
-					if (videoEl.duration > 0 && videoEl.buffered.length > 0) {
-						const bufferedEnd = videoEl.buffered.end(videoEl.buffered.length - 1);
-						const bufferedPercent = (bufferedEnd / videoEl.duration) * 100;
-						const bufferedBar = progressBar.querySelector('.avpvh-video-buffered') as HTMLElement;
-						if (bufferedBar) {
-							bufferedBar.style.width = bufferedPercent + '%';
-						}
-					}
-				};
-
-				const onCanPlay = (): void => {
-					// Show progress bar once video is ready
-					if (videoEl.duration > 0) {
-						progressBar.style.display = 'block';
-						progressBar.innerHTML =
-							'<div class="avpvh-video-buffered" style="position:absolute;left:0;top:0;height:100%;background:#888;width:0%;"></div>' +
-							'<div class="avpvh-video-progress-fill" style="position:absolute;left:0;top:0;height:100%;background:#4CAF50;width:0%;"></div>';
-						updateProgress();
-						updateBuffered();
-					}
-				};
-
-				const onPlay = (): void => {
-					if (animationFrameId === null) {
-						updateProgress();
-					}
-				};
-
-				const onPause = (): void => {
-					if (animationFrameId !== null) {
-						cancelAnimationFrame(animationFrameId);
-						animationFrameId = null;
-					}
-				};
-
-				videoEl.addEventListener('canplay', onCanPlay, { once: true });
-				videoEl.addEventListener('play', onPlay);
-				videoEl.addEventListener('pause', onPause);
-				videoEl.addEventListener('progress', updateBuffered); // Update buffered amount as video downloads
-				videoEl.addEventListener('ended', () => {
-					onPause();
-					progressBar.style.display = 'none';
-				});
-
-				// Pause slideshow while video plays; resume when it finishes.
-				// Slideshow timer stops so video plays uninterrupted.
-				this.slideshowPaused = true;
-				if (this.slideshowTimer !== null) {
-					clearTimeout(this.slideshowTimer);
-					this.slideshowTimer = null;
-				}
-				// When video ends, show the final frame briefly while preloading the next item,
-				// then resume the slideshow or advance to boundary if at the end.
-				const onVideoEnded = (): void => {
-					videoEl.removeEventListener('ended', onVideoEnded);
-					// Keep slideshow paused until AFTER we advance to next item
-					// Wait until currentTime actually reaches duration (sometimes there's a gap)
-					// Then add brief pause to show final frame + preload next item
-					const waitForComplete = (): void => {
-						if (videoEl.currentTime >= videoEl.duration - 0.1) {
-							// Video is truly complete, proceed after brief pause
-							setTimeout(() => {
-								const pswp = this.lightbox.pswp;
-								if (pswp !== undefined) {
-									// If this was the last item, handle boundary navigation
-									if (pswp.currIndex === pswp.getNumItems() - 1) {
-										this.nextBoundary(pswp);
-									} else {
-										// Otherwise, continue to next item normally
-										pswp.next();
-										this.startSlideshow(pswp);
-									}
-								}
-								// NOW resume slideshow after advancing
-								this.slideshowPaused = false;
-							}, 500); // Brief pause to show final frame
-						} else {
-							// Not quite there yet, check again next frame
-							requestAnimationFrame(waitForComplete);
-						}
-					};
-					waitForComplete();
-				};
-				videoEl.addEventListener('ended', onVideoEnded);
 			} else if ('image' === e.content.type) {
 				// Apply horizontal flip to images that were served mirrored by Google Drive
 				if ((e.content.data as Record<string, unknown>)?.['needsHFlip']) {
@@ -300,6 +213,16 @@ export class Shortcode {
 					}
 				}
 			}
+		});
+
+		// Drive video playback from slide activation rather than contentLoad: only
+		// the slide that is actually on screen plays and downloads. Preloaded
+		// neighbours keep preload='none' and simply show their poster thumbnail.
+		lightbox.on('contentActivate', (e) => {
+			this.onSlideActivate(e.content as { data?: Record<string, unknown>; element?: HTMLElement });
+		});
+		lightbox.on('contentDeactivate', (e) => {
+			this.onSlideDeactivate(e.content as { element?: HTMLElement });
 		});
 
 		if ('true' === avpvhShortcodeLocalize.preview_captions) {
@@ -660,6 +583,11 @@ export class Shortcode {
 	private startSlideshow(pswp: PhotoSwipe): void {
 		if (this.slideshowTimer !== null) {
 			clearTimeout(this.slideshowTimer);
+			this.slideshowTimer = null;
+		}
+		if (this.currentSlideIsVideo) {
+			// Videos are not on the fixed timer — they advance when they finish.
+			return;
 		}
 		if (this.slideshowPaused || this.rateLimited) {
 			this.slideshowTimer = null;
@@ -678,6 +606,120 @@ export class Shortcode {
 				this.startSlideshow(pswp);
 			}
 		}, this.SLIDESHOW_DELAY_MS);
+	}
+
+	// ── Video playback driver ─────────────────────────────────────────────
+	// The active slide's <video> plays; when it ends (or fails to start within
+	// the fallback window) we move to the next item. Preloaded neighbours never
+	// play or download (preload='none'), so only one video fetches at a time.
+	private onSlideActivate(content: { data?: Record<string, unknown>; element?: HTMLElement }): void {
+		this.clearVideoFallback();
+		if (this.activeVideoCleanup !== null) {
+			this.activeVideoCleanup();
+		}
+		this.currentSlideIsVideo = content?.data?.['type'] === 'video';
+		const pswp = this.lightbox.pswp;
+		if (pswp === undefined) {
+			return;
+		}
+		if (!this.currentSlideIsVideo) {
+			// Normal photo → hand control back to the timed slideshow.
+			this.startSlideshow(pswp);
+			return;
+		}
+		// Suspend the fixed-interval advance; the video drives the next step.
+		if (this.slideshowTimer !== null) {
+			clearTimeout(this.slideshowTimer);
+			this.slideshowTimer = null;
+		}
+		const videoEl = content.element?.querySelector('video');
+		if (!(videoEl instanceof HTMLVideoElement)) {
+			this.armVideoFallback(pswp, null);
+			return;
+		}
+		// Now that this slide is visible, allow it to fetch and play.
+		videoEl.preload = 'auto';
+		try {
+			videoEl.currentTime = 0;
+		} catch {
+			// Not seekable yet — harmless.
+		}
+		const onEnded = (): void => {
+			cleanup();
+			this.advanceFromVideo(pswp);
+		};
+		const onPlaying = (): void => {
+			// Real playback began → cancel the "didn't start" fallback and just
+			// wait for the video to finish.
+			this.clearVideoFallback();
+		};
+		const cleanup = (): void => {
+			videoEl.removeEventListener('ended', onEnded);
+			videoEl.removeEventListener('playing', onPlaying);
+			this.activeVideoCleanup = null;
+		};
+		videoEl.addEventListener('ended', onEnded);
+		videoEl.addEventListener('playing', onPlaying);
+		this.activeVideoCleanup = cleanup;
+		// If playback hasn't started within the slideshow delay (autoplay blocked,
+		// file unreachable) advance anyway so the show never gets stuck.
+		this.armVideoFallback(pswp, videoEl);
+		const playPromise = videoEl.play();
+		if (playPromise !== undefined) {
+			playPromise.catch(() => {
+				// Autoplay blocked/aborted — the fallback timer or a manual click on
+				// the native controls takes over.
+			});
+		}
+	}
+
+	private onSlideDeactivate(content: { element?: HTMLElement }): void {
+		const videoEl = content?.element?.querySelector('video');
+		if (videoEl instanceof HTMLVideoElement) {
+			videoEl.pause();
+			try {
+				videoEl.currentTime = 0;
+			} catch {
+				// ignore
+			}
+			// Stop downloading once the slide is off-screen again.
+			videoEl.preload = 'none';
+		}
+		if (this.activeVideoCleanup !== null) {
+			this.activeVideoCleanup();
+		}
+		this.clearVideoFallback();
+	}
+
+	private advanceFromVideo(pswp: PhotoSwipe): void {
+		if (this.lightbox.pswp !== pswp) {
+			return;
+		}
+		if (pswp.currIndex === pswp.getNumItems() - 1) {
+			this.nextBoundary(pswp);
+		} else {
+			pswp.next();
+		}
+		// contentActivate for the new slide takes it from here.
+	}
+
+	private armVideoFallback(pswp: PhotoSwipe, videoEl: HTMLVideoElement | null): void {
+		this.clearVideoFallback();
+		this.videoFallbackTimer = setTimeout(() => {
+			this.videoFallbackTimer = null;
+			// If the video actually started in the meantime, leave it playing.
+			if (videoEl !== null && (videoEl.currentTime > 0 || !videoEl.paused)) {
+				return;
+			}
+			this.advanceFromVideo(pswp);
+		}, this.SLIDESHOW_DELAY_MS);
+	}
+
+	private clearVideoFallback(): void {
+		if (this.videoFallbackTimer !== null) {
+			clearTimeout(this.videoFallbackTimer);
+			this.videoFallbackTimer = null;
+		}
 	}
 
 	private navigateToAdjacentFolder(direction: 'next' | 'prev', pswp: PhotoSwipe): void {
