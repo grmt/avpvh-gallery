@@ -119,6 +119,11 @@ class ExifInspector {
 						<h3>Preview Sizes with Timings</h3>
 						<div id="previews-container" class="previews-container"></div>
 					</div>
+
+					<div class="icons-section">
+						<h3>Google Drive Icons (all sizes)</h3>
+						<div id="icons-container" class="previews-container"></div>
+					</div>
 				</div>
 
 				<style>
@@ -198,11 +203,34 @@ class ExifInspector {
 
 					.exif-section h3,
 					.original-section h3,
-					.previews-section h3 {
+					.previews-section h3,
+					.icons-section h3 {
 						margin-top: 0;
 						margin-bottom: 15px;
 						font-size: 16px;
 						color: #333;
+					}
+
+					.icons-section {
+						margin-top: 30px;
+					}
+
+					.icon-image {
+						display: block;
+						margin: 0 auto 10px;
+						image-rendering: pixelated;
+					}
+
+					.icon-url {
+						font-family: monospace;
+						font-size: 10px;
+						word-break: break-all;
+						color: #555;
+						margin-top: 6px;
+						padding: 4px;
+						background-color: #fff;
+						border: 1px solid #eee;
+						border-radius: 2px;
 					}
 
 					.original-section {
@@ -503,6 +531,9 @@ class ExifInspector {
 
 		// Display previews
 		this.displayPreviews();
+
+		// Display all Google Drive icon sizes
+		this.displayIcons();
 	}
 
 	private fetchFullExifData() {
@@ -813,6 +844,110 @@ class ExifInspector {
 		// Replace the size parameter in the thumbnail link
 		// Thumbnail links end with =s256 or similar
 		return thumbnailLink.replace(/=s\d+$/, `=s${size}`);
+	}
+
+	private buildIconUrl(iconLink: string, size: number): string {
+		// Drive icon URLs look like https://drive-thirdparty.googleusercontent.com/16/type/<mime>
+		// Swap the size segment after the host.
+		return iconLink.replace(/googleusercontent\.com\/\d+\//, `googleusercontent.com/${size}/`);
+	}
+
+	private displayIcons() {
+		const container = document.getElementById('icons-container');
+		if (!container || !this.currentFile || !this.currentFile.iconLink) {
+			return;
+		}
+
+		container.innerHTML = '';
+
+		// Sizes Google supports for /drive-thirdparty icons + their typical use.
+		const sizes: Array<{ size: number; usage: string }> = [
+			{ size: 16, usage: 'list rows, breadcrumbs' },
+			{ size: 32, usage: 'file picker' },
+			{ size: 64, usage: 'medium list view' },
+			{ size: 128, usage: 'tile / grid view' },
+			{ size: 256, usage: 'large preview' },
+		];
+
+		for (const { size, usage } of sizes) {
+			const iconUrl = this.buildIconUrl(this.currentFile.iconLink, size);
+			const item = document.createElement('div');
+			item.className = 'preview-item';
+
+			item.innerHTML = `
+				<h4>${size}px</h4>
+				<img class="icon-image loading" alt="Icon ${size}px" width="${size}" height="${size}" data-size="${size}" />
+				<div class="timing-info">
+					<div class="timing-row">
+						<span class="timing-label">File Size:</span>
+						<span class="timing-value">...</span>
+					</div>
+					<div class="timing-row">
+						<span class="timing-label">Network:</span>
+						<span class="timing-value">...</span>
+					</div>
+					<div class="timing-row">
+						<span class="timing-label">Usage:</span>
+						<span class="timing-value">${usage}</span>
+					</div>
+				</div>
+				<div class="icon-url">${this.escapeHtml(iconUrl)}</div>
+			`;
+
+			container.appendChild(item);
+
+			const img = item.querySelector('img') as HTMLImageElement;
+			this.fetchAndDisplayIcon(img, iconUrl, size);
+		}
+	}
+
+	private fetchAndDisplayIcon(img: HTMLImageElement, iconUrl: string, size: number) {
+		const startTime = performance.now();
+		const previewItem = img.closest('.preview-item') as HTMLElement;
+
+		const proxyUrl = this.restUrl + 'proxy-image?url=' + encodeURIComponent(iconUrl);
+		fetch(proxyUrl, {
+			method: 'GET',
+			headers: { 'X-WP-Nonce': this.nonce },
+			credentials: 'include',
+		})
+			.then(response => {
+				if (!response.ok) {
+					throw new Error('HTTP ' + response.status);
+				}
+				return response.blob();
+			})
+			.then(blob => {
+				const networkTime = performance.now() - startTime;
+				img.onload = () => {
+					img.classList.remove('loading');
+				};
+				img.src = URL.createObjectURL(blob);
+
+				if (previewItem) {
+					const timingInfo = previewItem.querySelector('.timing-info') as HTMLElement;
+					if (timingInfo) {
+						const sizeInKB = blob.size / 1024;
+						const fileSizeText = blob.size < 1024 ? `${blob.size} B` : `${sizeInKB.toFixed(2)} KB`;
+						const rows = timingInfo.querySelectorAll('.timing-value');
+						if (rows[0]) {
+							rows[0].textContent = fileSizeText;
+						}
+						if (rows[1]) {
+							rows[1].textContent = `${networkTime.toFixed(2)}ms`;
+						}
+					}
+				}
+			})
+			.catch(() => {
+				img.classList.remove('loading');
+				if (previewItem) {
+					const timingInfo = previewItem.querySelector('.timing-info') as HTMLElement;
+					if (timingInfo) {
+						timingInfo.innerHTML = '<div class="error-message">Failed to load icon</div>';
+					}
+				}
+			});
 	}
 
 	private fetchAndDisplayPreview(img: HTMLImageElement, imageUrl: string, size: number) {
