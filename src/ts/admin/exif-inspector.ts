@@ -13,6 +13,8 @@ interface FileData {
 	id: string;
 	name: string;
 	thumbnailLink: string;
+	iconLink?: string;
+	hasThumbnail?: boolean;
 	webContentLink?: string;
 	mimeType?: string;
 	size?: string;
@@ -465,10 +467,18 @@ class ExifInspector {
 		this.previewTimings = {};
 		this.fullExifData = {};
 
-		// Update file header
+		// Update file header (with Drive icon if available)
 		const fileName = document.getElementById('file-name');
 		if (fileName) {
-			fileName.textContent = this.currentFile.name;
+			fileName.textContent = '';
+			if (this.currentFile.iconLink) {
+				const icon = document.createElement('img');
+				icon.src = this.currentFile.iconLink;
+				icon.alt = '';
+				icon.style.cssText = 'vertical-align: middle; margin-right: 8px; width: 24px; height: 24px;';
+				fileName.appendChild(icon);
+			}
+			fileName.appendChild(document.createTextNode(this.currentFile.name));
 		}
 
 		const fileCount = document.getElementById('file-count');

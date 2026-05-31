@@ -330,6 +330,8 @@ final class Exif_Inspector_REST {
 					'name',
 					'size',
 					'thumbnailLink',
+					'iconLink',
+					'hasThumbnail',
 					'webContentLink',
 				)
 			);
@@ -386,6 +388,8 @@ final class Exif_Inspector_REST {
 					'name',
 					'size',
 					'thumbnailLink',
+					'iconLink',
+					'hasThumbnail',
 					'webContentLink',
 				)
 			);
