@@ -1128,19 +1128,35 @@ export class Shortcode {
 		// Let PhotoSwipe re-query the DOM for newly added gallery items
 		const pswp = this.lightbox.pswp;
 		if (pswp !== undefined) {
-			const ds = pswp.options.dataSource as Record<string, unknown> | undefined;
-			if (ds !== undefined) {
-				delete ds['items'];
+			// Check if a video is currently playing
+			const currentSlide = pswp.currSlide;
+			const currentElement = currentSlide?.data?.element;
+			const isVideoPlaying = currentElement instanceof HTMLElement &&
+				currentElement.dataset['pswpType'] === 'video' &&
+				currentElement.querySelector('video:not([style*="display: none"])') !== null;
+
+			// Only clear the items cache if not playing a video
+			// (clearing while video plays can interrupt playback)
+			if (!isVideoPlaying) {
+				const ds = pswp.options.dataSource as Record<string, unknown> | undefined;
+				if (ds !== undefined) {
+					delete ds['items'];
+				}
 			}
+
 			// Keep loop disabled while more items remain; re-enable when fully loaded
 			pswp.options.loop = !this.hasMore;
 
-			if (this.pendingLightboxAdvance) {
+			// Only auto-advance if not playing a video
+			if (this.pendingLightboxAdvance && !isVideoPlaying) {
 				this.pendingLightboxAdvance = false;
 				setTimeout(() => {
 					pswp.next();
 					this.startSlideshow(pswp);
 				}, 50);
+			} else if (this.pendingLightboxAdvance) {
+				// Video is playing, just clear the pending flag
+				this.pendingLightboxAdvance = false;
 			}
 		}
 	}
