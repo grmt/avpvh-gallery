@@ -46,7 +46,8 @@
     "test:php:phpunit": "vendor/bin/phpunit",
     "posttest:php:phpunit": "composer install",
     "test:php": "run-p -c --aggregate-output test:php:*",
-    "test": "run-p -c --aggregate-output test:*"
+    "test": "run-p -c --aggregate-output test:*",
+    "plugin-check": "wp-env start && wp-env run cli wp plugin check skaut-google-drive-gallery --ignore-codes=missing_composer_json_file; CODE=$?; wp-env stop; exit $CODE"
   },
   "engines": {
     "npm": "^8.0.0"
@@ -67,9 +68,11 @@
     "@wordpress/browserslist-config": "^6.22.0",
     "@wordpress/editor": "^14.46.0",
     "@wordpress/element": "^6.46.0",
+    "@wordpress/env": "^11.8.1",
     "@wordpress/eslint-plugin": "^22.9.0",
     "@wordpress/stylelint-config": "^23.16.0",
     "eslint": "^8.57.1",
+    "eslint-import-resolver-typescript": "^3.10.1",
     "eslint-plugin-compat": "^6.0.2",
     "eslint-plugin-deprecation": "^3.0.0",
     "eslint-plugin-prefer-arrow-functions": "^3.4.2",
@@ -88,9 +91,9 @@
     "stylelint": "^16.19.1",
     "stylelint-config-standard": "^38.0.0",
     "stylelint-no-unsupported-browser-features": "^8.0.4",
-    "tinymce": "^7.8.0",
+    "tinymce": "^7.9.3",
     "typescript": "^5.8.3",
-    "vite": "^6.4.2"
+    "vite": "^8.0.16"
   },
   "browserslist": [
     "extends @wordpress/browserslist-config"

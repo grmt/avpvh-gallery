@@ -190,3 +190,4 @@ tags
 clover.xml
 
 .claude/worktrees/
+.wp-env/
