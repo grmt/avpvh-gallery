@@ -382,7 +382,7 @@ a[data-exif-orientation="270"] .avpvh-grid-img {
 	padding: 0 !important;
 }
 
-.pswp__button--arrow svg {
+.pswp__button--arrow svg.pswp__icn {
 	background: none !important;
 	box-shadow: none !important;
 	display: block !important;
@@ -406,7 +406,7 @@ a[data-exif-orientation="270"] .avpvh-grid-img {
 		width: 60px !important;
 	}
 
-	.pswp__button--arrow svg {
+	.pswp__button--arrow svg.pswp__icn {
 		height: 30px !important;
 		left: 15px !important;
 		top: 15px !important;
