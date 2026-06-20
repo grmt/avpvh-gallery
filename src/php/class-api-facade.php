@@ -330,7 +330,7 @@ final class API_Facade {
 					'isoSpeed',
 					'focalLength',
 				),
-				'videoMediaMetadata' => array( 'width', 'height' ),
+				'videoMediaMetadata' => array( 'width', 'height', 'durationMillis' ),
 				'webContentLink',
 				'webViewLink',
 				'thumbnailLink',
