@@ -153,22 +153,6 @@ export class Shortcode {
 					videoPoster: posterImg instanceof HTMLImageElement ? (posterImg.currentSrc || posterImg.src) : '',
 				};
 			}
-			// Check if this image needs horizontal flip correction
-			// (happens when Google Drive serves preview with different EXIF handling than thumbnail)
-			if (el instanceof HTMLAnchorElement) {
-				const thumb = el.querySelector('img');
-				if (thumb !== null && thumb.naturalWidth > 0 && thumb.naturalHeight > 0) {
-					const thumbRatio = thumb.naturalWidth / thumb.naturalHeight;
-					const pswpWidth = parseInt(el.getAttribute('data-pswp-width') ?? '1', 10);
-					const pswpHeight = parseInt(el.getAttribute('data-pswp-height') ?? '1', 10);
-					const pswpRatio = pswpWidth / pswpHeight;
-					const ratioDiff = Math.abs(thumbRatio - pswpRatio);
-					// If ratios differ, the preview might be mirrored (lower threshold for sensitivity)
-					if (ratioDiff > 0.01) {
-						itemData.needsHFlip = true;
-					}
-				}
-			}
 			return itemData;
 		});
 
@@ -310,10 +294,13 @@ export class Shortcode {
 						}
 					};
 
-					el.addEventListener('click', (e) => {
-						e.preventDefault();
-						e.stopPropagation();
-						exifOverlay.classList.toggle('avpvh-exif-visible');
+					el.addEventListener('click', () => {
+						const isVisible = exifOverlay.classList.contains('avpvh-exif-visible');
+						if (isVisible) {
+							exifOverlay.classList.remove('avpvh-exif-visible');
+						} else {
+							exifOverlay.classList.add('avpvh-exif-visible');
+						}
 					});
 
 					instance.on('change', update);
