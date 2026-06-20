@@ -354,7 +354,7 @@ final class Options {
 			'lightbox',
 			esc_html__( 'Activity indicator', 'avpvh-gallery' )
 		);
-		self::$preview_captions           = new Boolean_Option(
+		self::$preview_captions = new Boolean_Option(
 			'preview_captions',
 			true,
 			'advanced',

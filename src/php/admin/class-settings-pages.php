@@ -9,10 +9,13 @@ namespace Avpvh\Admin;
 
 use Avpvh\Admin\Settings_Pages\Advanced_Settings;
 use Avpvh\Admin\Settings_Pages\Basic_Settings;
+use Avpvh\Admin\Settings_Pages\Exif_Inspector;
 use Avpvh\GET_Helpers;
 
 require_once __DIR__ . '/settings-pages/class-advanced-settings.php';
 require_once __DIR__ . '/settings-pages/class-basic-settings.php';
+require_once __DIR__ . '/settings-pages/class-exif-inspector.php';
+require_once __DIR__ . '/class-exif-inspector-rest.php';
 
 /**
  * Registers and renders the plugin settings pages.
@@ -34,6 +37,9 @@ final class Settings_Pages {
 	 * Registers all the hooks all the pages, registers the plugin into the WordPress admin menu and register a handler for OAuth redirect.
 	 */
 	public function __construct() {
+		// Initialize REST routes globally (not just in admin)
+		new Exif_Inspector_REST();
+
 		if ( ! is_admin() ) {
 			return;
 		}
@@ -41,6 +47,7 @@ final class Settings_Pages {
 		add_action( 'admin_menu', array( $this, 'add' ) );
 		$this->basic = new Basic_Settings();
 		new Advanced_Settings();
+		new Exif_Inspector();
 		add_action( 'admin_init', array( self::class, 'action_handler' ) );
 	}
 

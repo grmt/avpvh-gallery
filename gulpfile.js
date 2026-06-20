@@ -120,9 +120,7 @@ gulp.task(
 		}),
 		shell.task(
 			[
-				process.platform === 'win32'
-					? 'npm --script-shell "C:/Program Files/Git/bin/bash.exe" run build'
-					: 'npm run build',
+				'npm run build',
 			],
 			{ cwd: 'node_modules/justified-layout' }
 		),

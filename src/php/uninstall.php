@@ -37,6 +37,8 @@ delete_option( 'avpvh_preview_loop' );
 delete_option( 'avpvh_preview_activity' );
 delete_option( 'avpvh_preview_captions' );
 
+delete_option( 'avpvh_exif_inspector_last_path' );
+
 // Deprecated.
 delete_option( 'avpvh_image_ordering' );
 delete_option( 'avpvh_thumbnail_size' );

@@ -41,9 +41,10 @@ final class Images {
 			$fields   = new API_Fields(
 				array(
 					'id',
+					'name',
 					'thumbnailLink',
 					'createdTime',
-					'imageMediaMetadata' => array( 'time', 'width', 'height' ),
+					'imageMediaMetadata' => array( 'time', 'width', 'height', 'rotation', 'cameraMake', 'cameraModel', 'aperture', 'exposureTime', 'isoSpeed', 'focalLength' ),
 					'description',
 				)
 			);
@@ -52,8 +53,9 @@ final class Images {
 			$fields   = new API_Fields(
 				array(
 					'id',
+					'name',
 					'thumbnailLink',
-					'imageMediaMetadata' => array( 'width', 'height' ),
+					'imageMediaMetadata' => array( 'width', 'height', 'rotation', 'cameraMake', 'cameraModel', 'aperture', 'exposureTime', 'isoSpeed', 'focalLength' ),
 					'description',
 				)
 			);
@@ -74,13 +76,43 @@ final class Images {
 						$height   = array_key_exists( 'height', $metadata ) && is_numeric( $metadata['height'] )
 							? intval( $metadata['height'] )
 							: 0;
+						$rotation = array_key_exists( 'rotation', $metadata ) ? intval( $metadata['rotation'] ) : 0;
+						if ( 90 === $rotation || 270 === $rotation ) {
+							[ $width, $height ] = [ $height, $width ];
+						}
+
+						$exif = array_filter(
+							array(
+								'aperture'   => array_key_exists( 'aperture', $metadata ) && is_numeric( $metadata['aperture'] )
+									? round( floatval( $metadata['aperture'] ), 1 )
+									: null,
+								'exposure'   => array_key_exists( 'exposureTime', $metadata ) && is_numeric( $metadata['exposureTime'] )
+									? floatval( $metadata['exposureTime'] )
+									: null,
+								'focal'      => array_key_exists( 'focalLength', $metadata ) && is_numeric( $metadata['focalLength'] )
+									? round( floatval( $metadata['focalLength'] ) )
+									: null,
+								'iso'        => array_key_exists( 'isoSpeed', $metadata ) && is_numeric( $metadata['isoSpeed'] )
+									? intval( $metadata['isoSpeed'] )
+									: null,
+								'make'       => array_key_exists( 'cameraMake', $metadata ) ? $metadata['cameraMake'] : null,
+								'model'      => array_key_exists( 'cameraModel', $metadata ) ? $metadata['cameraModel'] : null,
+								'time'       => array_key_exists( 'time', $metadata ) ? $metadata['time'] : null,
+								'orientation' => 0 !== $rotation ? $rotation : null,
+							),
+							static function ( $v ) {
+								return null !== $v;
+							}
+						);
 
 						return array(
 							'description' => array_key_exists( 'description', $image )
 								? esc_attr( $image['description'] )
 								: '',
+							'exif'        => $exif,
 							'height'      => $height,
 							'id'          => $image['id'],
+							'name'        => array_key_exists( 'name', $image ) ? $image['name'] : '',
 							'image'       => substr( $image['thumbnailLink'], 0, -3 ) . $options->get( 'preview_size' ),
 							'thumbnail'   => substr( $image['thumbnailLink'], 0, -4 ) .
 								'h' .

@@ -11,7 +11,9 @@ use Avpvh\Admin\Settings_Pages;
 use Avpvh\Admin\TinyMCE_Plugin;
 use Avpvh\Frontend\Block;
 use Avpvh\Frontend\Gallery;
+use Avpvh\Frontend\Members_API;
 use Avpvh\Frontend\Page;
+use Avpvh\Frontend\Photo_Tags;
 use Avpvh\Frontend\Shortcode;
 use Avpvh\Frontend\Video_Proxy;
 
@@ -34,6 +36,8 @@ final class Main {
 		new Page();
 		new Gallery();
 		new Video_Proxy();
+		new Photo_Tags();
+		new Members_API();
 		new Settings_Pages();
 		new TinyMCE_Plugin();
 	}
@@ -57,6 +61,9 @@ final class Main {
 			deactivate_plugins( plugin_basename( __FILE__ ) );
 			wp_die( esc_html__( 'Google Drive gallery requires at least PHP 5.6', 'avpvh-gallery' ) );
 		}
+
+		// Create photo tagging tables
+		Photo_Tags_DB::create_tables();
 
 		set_transient( 'avpvh_activation_notice', true, 30 );
 	}

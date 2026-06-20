@@ -52,6 +52,7 @@ final class Shortcode {
 			array( 'jquery' )
 		);
 		Script_And_Style_Helpers::register_style( 'avpvh_gallery_css', 'frontend/css/shortcode.min.css' );
+		Script_And_Style_Helpers::register_style( 'avpvh_photo_tagger_css', 'frontend/css/photo-tagger.min.css' );
 
 		Script_And_Style_Helpers::register_style( 'avpvh_photoswipe_style', 'bundled/photoswipe.min.css' );
 		Script_And_Style_Helpers::register_script(
@@ -125,6 +126,7 @@ final class Shortcode {
 			'avpvhShortcodeLocalize',
 			array(
 				'ajax_url'            => admin_url( 'admin-ajax.php' ),
+				'tag_nonce'           => wp_create_nonce( 'avpvh_tag_nonce' ),
 				'breadcrumbs_top'     => esc_html__( 'Gallery', 'avpvh-gallery' ),
 				'empty_gallery'       => esc_html__( 'The gallery is empty.', 'avpvh-gallery' ),
 				'error_header'        => esc_html__(
@@ -142,13 +144,21 @@ final class Shortcode {
 				'preview_closebutton' => $options->get( 'preview_close_button' ),
 				'preview_quitOnEnd'   => 'true' === $options->get( 'preview_loop' ) ? 'false' : 'true',
 				'preview_speed'       => $options->get( 'preview_speed' ),
+				'favicon_url'         => ( static function () {
+					$id  = (int) get_option( 'site_icon' );
+					$src = $id ? wp_get_attachment_image_src( $id, 'full' ) : false;
+					return $src ? $src[0] : get_site_icon_url( 32 );
+				} )(),
 			)
 		);
 		wp_enqueue_style( 'avpvh_gallery_css' );
-		wp_add_inline_style(
-			'avpvh_gallery_css',
-			'.avpvh-dir-name {font-size: ' . $options->get( 'dir_title_size' ) . ';}'
-		);
+		wp_enqueue_style( 'avpvh_photo_tagger_css' );
+		$inline_css = '.avpvh-dir-name {font-size: ' . $options->get( 'dir_title_size' ) . ';}';
+		$favicon    = get_site_icon_url( 32 );
+		if ( '' !== $favicon ) {
+			$inline_css .= ':root{--avpvh-favicon-url:url("' . esc_url( $favicon ) . '");}';
+		}
+		wp_add_inline_style( 'avpvh_gallery_css', $inline_css );
 
 		$root_path = Options::$root_path->get();
 		$root      = end( $root_path );

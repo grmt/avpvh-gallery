@@ -14,4 +14,6 @@ declare const avpvhShortcodeLocalize: {
 	breadcrumbs_top: string;
 	load_more: string;
 	empty_gallery: string;
+	favicon_url: string;
+	tag_nonce: string;
 };

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-WordPress plugin (`skaut-google-drive-gallery`) that renders galleries on a WP site from images/videos stored in Google Drive. Distributed via the WordPress.org plugin directory. Supports PHP 5.6+ and WordPress 4.9.6+ — language features and APIs must respect those floors.
+WordPress plugin (`avpvh-gallery`) that renders galleries on a WP site from images/videos stored in Google Drive. Supports PHP 5.6+ and WordPress 4.9.6+ — language features and APIs must respect those floors.
 
 ## Build / lint / test
 
@@ -21,7 +21,7 @@ Common commands:
 
 ### PHP entry & wiring
 
-[src/php/skaut-google-drive-gallery.php](src/php/skaut-google-drive-gallery.php) is the WP plugin header and the only file with `require_once` chains — it loads everything explicitly (no Composer autoloading of plugin code) and instantiates [Main](src/php/class-main.php). `Main` wires the seven subsystems: `Shortcode`, `Block` (Gutenberg), `Page` (AJAX endpoint that paginates gallery contents), `Gallery` (AJAX endpoint for the initial gallery payload), `Video_Proxy`, `Settings_Pages`, `TinyMCE_Plugin`.
+[src/php/avpvh-gallery.php](src/php/avpvh-gallery.php) is the WP plugin header and the only file with `require_once` chains — it loads everything explicitly (no Composer autoloading of plugin code) and instantiates [Main](src/php/class-main.php). `Main` wires the seven subsystems: `Shortcode`, `Block` (Gutenberg), `Page` (AJAX endpoint that paginates gallery contents), `Gallery` (AJAX endpoint for the initial gallery payload), `Video_Proxy`, `Settings_Pages`, `TinyMCE_Plugin`.
 
 The Google API surface is wrapped by two layers: [API_Client](src/php/class-api-client.php) handles raw Google client setup, batching, and Guzzle promises; [API_Facade](src/php/class-api-facade.php) exposes the domain-specific calls (`get_directory_id`, list images/videos, etc.) returning `PromiseInterface`. Frontend code calls the facade, never the raw client.
 
@@ -29,11 +29,11 @@ The Google API surface is wrapped by two layers: [API_Client](src/php/class-api-
 
 ### PHP-Scoper vendor isolation (critical)
 
-All Composer dependencies are prefixed into the `Sgdg\Vendor\` namespace via [scoper.inc.php](scoper.inc.php) during `npm run build`, written to `dist/vendor/`. This avoids conflicts when other WP plugins ship different versions of Google's API client / Guzzle / Monolog.
+All Composer dependencies are prefixed into the `Avpvh\Vendor\` namespace via [scoper.inc.php](scoper.inc.php) during `npm run build`, written to `dist/vendor/`. This avoids conflicts when other WP plugins ship different versions of Google's API client / Guzzle / Monolog.
 
 Implications:
-- Imports of vendor code use `Sgdg\Vendor\Google\Client`, `Sgdg\Vendor\GuzzleHttp\Promise\PromiseInterface`, etc. — never the upstream namespace.
-- The autoloader is patched (see [gulpfile.js](gulpfile.js#L44) `build:deps:composer:autoloader`) so the classmap entries are also prefixed, and `$GLOBALS['__composer_autoload_files']` is renamed to `$GLOBALS['__composer_autoload_files_Sgdg_Vendor']`.
+- Imports of vendor code use `Avpvh\Vendor\Google\Client`, `Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface`, etc. — never the upstream namespace.
+- The autoloader is patched (see [gulpfile.js](gulpfile.js#L44) `build:deps:composer:autoloader`) so the classmap entries are also prefixed, and `$GLOBALS['__composer_autoload_files']` is renamed to `$GLOBALS['__composer_autoload_files_Avpvh_Vendor']`.
 - `npm run test:php:phpunit` has a `pretest` hook that removes `vendor/google` and re-dumps the autoloader; `posttest` runs `composer install` to restore it. If a test run is interrupted, run `composer install` manually before further work.
 - Static analysis (Phan, PHPStan) scans `dist/vendor`, not `vendor` — that's why `npm run build` must precede lint.
 
@@ -53,7 +53,7 @@ Only one PHPUnit test currently lives in [tests/unit/](tests/unit/). Bootstrap l
 
 ## Conventions
 
-- WordPress Coding Standards via PHPCS (`phpcs.xml`) — class files are `class-foo-bar.php`, classes are `Foo_Bar`. The `WordPress.NamingConventions.PrefixAllGlobals` prefix is `Sgdg`.
+- WordPress Coding Standards via PHPCS (`phpcs.xml`) — class files are `class-foo-bar.php`, classes are `Foo_Bar`. The `WordPress.NamingConventions.PrefixAllGlobals` prefix is `Avpvh`.
 - `SlevomatCodingStandard.Complexity.Cognitive` caps cognitive complexity at 10.
 - TypeScript runs `strict` plus `exactOptionalPropertyTypes`, `noPropertyAccessFromIndexSignature`, `noUnusedLocals/Parameters`. ESLint adds `@typescript-eslint/strict-type-checked` + `stylistic-type-checked`.
 - Browser support follows `@wordpress/browserslist-config` (enforced by `eslint-plugin-compat` and `stylelint-no-unsupported-browser-features`).

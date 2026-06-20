@@ -1,5 +1,36 @@
+/* Hide overflow while PhotoSwipe is open so slide transitions don't cause
+   a scrollbar to flash in — most visible in browser fullscreen mode. */
+html.pswp-is-open,
+html.pswp-is-open body {
+	overflow: hidden;
+}
+
 .avpvh-gallery-container {
 	margin-bottom: 1em;
+}
+
+.avpvh-breadcrumbs {
+	align-items: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	font-size: 14px;
+	gap: 0.5em; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	margin-bottom: 1em;
+	padding: 8px 0;
+}
+
+.avpvh-breadcrumb-up {
+	align-items: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	justify-content: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	padding: 4px;
+}
+
+.avpvh-breadcrumb-up img {
+	transition: transform 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-breadcrumb-up:hover img {
+	transform: rotate(-45deg) scale(1.1) !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
 .avpvh-gallery {
@@ -21,10 +52,89 @@
 	background-size: cover; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
+.avpvh-exif-overlay {
+	background-color: #000;
+	background-color: rgb(0, 0, 0, 65%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	bottom: 0;
+	color: #fff;
+	font-size: 11px;
+	left: 0;
+	opacity: 0;
+	overflow: hidden;
+	padding: 5px 8px;
+	position: absolute;
+	right: 0;
+	text-overflow: ellipsis;
+	transition: opacity 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	white-space: nowrap;
+	pointer-events: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	z-index: 5;
+}
+
+.avpvh-grid-a:hover .avpvh-exif-overlay {
+	opacity: 1;
+}
+
+.avpvh-exif-filename {
+	font-weight: bold;
+}
+
+.avpvh-exif-data {
+	font-weight: normal;
+	margin-top: 2px;
+}
+
+.avpvh-grid-a:hover .avpvh-exif-overlay {
+	cursor: copy;
+}
+
+/* Small subtle video badge, bottom-left of the tile. */
+.avpvh-video-play-btn {
+	align-items: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	background-color: #000;
+	background-color: rgb(0, 0, 0, 45%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border-radius: 4px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	bottom: 8px;
+	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	height: 26px;
+	justify-content: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	left: 8px;
+	pointer-events: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	position: absolute;
+	width: 26px;
+	z-index: 4;
+}
+
+.avpvh-video-play-btn svg {
+	fill: #fff;
+	height: 16px;
+	width: 16px;
+}
+
 .avpvh-grid-img {
 	box-shadow: none !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	display: block;
 	height: 100% !important;
+	image-orientation: from-image; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	object-fit: cover !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	object-position: center !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	width: 100% !important;
+}
+
+/* Apply explicit orientation transforms when from-image isn't sufficient */
+a[data-exif-orientation="90"] .avpvh-grid-img {
+	transform: rotate(90deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+a[data-exif-orientation="180"] .avpvh-grid-img {
+	transform: rotate(180deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+a[data-exif-orientation="270"] .avpvh-grid-img {
+	transform: rotate(270deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
 .avpvh-dir-overlay {
@@ -38,21 +148,102 @@
 	right: 0;
 }
 
+.avpvh-dir-name {
+	font-weight: bold;
+	overflow: hidden;
+	text-overflow: ellipsis; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	white-space: nowrap;
+}
+
 .avpvh-dir-counts {
-	font-size: 0.8em;
+	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	font-size: 1em;
+	gap: 0.9em; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	margin-top: 4px;
 }
 
-.avpvh-count-icon {
-	vertical-align: sub;
+.avpvh-count-svg {
+	display: inline-block;
+	fill: currentColor;
+	height: 1.5em;
+	vertical-align: middle;
+	width: 1.5em;
 }
 
-.avpvh-count-icon-indent {
-	margin-left: 15px;
+/* Colour the folder / image / video count icons for visibility */
+.avpvh-dir-counts span:nth-child(1) .avpvh-count-svg {
+	fill: #ffd54f; /* gold — folder */
 }
 
-.avpvh-dir-icon {
-	background: #f0f0f0;
-	display: block;
+.avpvh-dir-counts span:nth-child(2) .avpvh-count-svg {
+	fill: #81d4fa; /* light blue — photo */
+}
+
+.avpvh-dir-counts span:nth-child(3) .avpvh-count-svg {
+	fill: #ffab91; /* light coral — video */
+}
+
+/* Folders without a thumbnail: name + counts at the bottom */
+.avpvh-grid-no-thumb .avpvh-dir-overlay {
+	background-color: rgb(0, 0, 0, 40%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border-radius: 0 0 8px 8px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	padding: 5px 8px;
+}
+
+.avpvh-grid-no-thumb .avpvh-dir-name {
+	font-size: 1.15em;
+}
+
+/* Subfolder name list inside the folder body */
+.avpvh-dir-sublist {
+	bottom: 30%;
+	left: 8%;
+	overflow: hidden; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	position: absolute;
+	right: 6%;
+	top: 24%;
+}
+
+.avpvh-dir-sublist-item {
+	align-items: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	color: #1a2c3a;
+	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	font-size: 13px;
+	gap: 6px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	line-height: 1.6;
+	overflow: hidden; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	white-space: nowrap;
+}
+
+.avpvh-dir-sublist-item span {
+	overflow: hidden; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	text-overflow: ellipsis; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-dir-sublist-thumb {
+	border-radius: 2px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	flex-shrink: 0; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	height: 24px;
+	object-fit: cover; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	width: 24px;
+}
+
+.avpvh-dir-sublist-thumb-svg {
+	fill: #a8b8c4;
+	flex-shrink: 0; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	height: 24px;
+	width: 24px;
+}
+
+.avpvh-dir-sublist-more {
+	color: #3a5060;
+	font-size: 13px;
+}
+
+/* Folders without thumbnail: rounded corners instead of tab shape */
+.avpvh-grid-no-thumb {
+	background-color: #a8b8c4;
+	border-radius: 8px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
 .avpvh-loading,
@@ -119,6 +310,27 @@
 	padding: 1px 12px;
 }
 
+.avpvh-pswp-path {
+	background-color: rgb(0, 0, 0, 50%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	color: #fff;
+	cursor: copy;
+	font-size: 13px;
+	left: 0;
+	padding: 8px 60px;
+	pointer-events: all; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	position: absolute;
+	right: 0;
+	text-align: center;
+	text-shadow: 0 1px 2px rgb(0, 0, 0, 60%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	top: 44px;
+	transition: opacity 0.4s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.pswp--ui-idle .avpvh-pswp-path {
+	opacity: 0;
+	pointer-events: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
 .avpvh-pswp-caption {
 	bottom: 0;
 	color: #fff;
@@ -130,6 +342,18 @@
 	right: 0;
 	text-align: center;
 	text-shadow: 0 1px 2px rgb(0, 0, 0, 60%);
+}
+
+.pswp__button--arrow {
+	background: none !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transition: opacity 0.4s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.pswp--ui-idle .pswp__button--arrow {
+	/* Fade the arrows out when idle, but keep them clickable so a click always
+	   navigates (and revives them via the idle-reset) instead of passing through
+	   to the image. */
+	opacity: 0 !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
 .avpvh-pswp-video {
@@ -146,7 +370,6 @@
 }
 
 /* stylelint-disable selector-class-pattern */
-
 /* Protect PhotoSwipe navigation arrows from theme conflicts */
 .pswp__button--arrow,
 .pswp__button--arrow::before,
@@ -191,3 +414,62 @@
 	}
 }
 /* stylelint-enable selector-class-pattern */
+
+/* Ensure orientation is respected in PhotoSwipe lightbox images */
+.pswp__img {
+	image-orientation: from-image; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+/* Lightbox info button */
+.avpvh-lightbox-info-btn {
+	background: transparent;
+	border: none;
+	color: #fff;
+	cursor: pointer;
+	font-size: 22px;
+	font-weight: bold;
+	padding: 4px 8px;
+	text-shadow: 0 0 3px rgb(0, 0, 0, 60%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	opacity: 0.6;
+	transition: opacity 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	position: absolute !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	right: 12px !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	left: auto !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	top: 12px !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	z-index: 11 !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-lightbox-info-btn:hover {
+	opacity: 1;
+}
+
+.avpvh-lightbox-exif-overlay {
+	background-color: #000;
+	background-color: rgb(0, 0, 0, 65%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	color: #fff;
+	font-size: 13px;
+	max-width: 300px;
+	opacity: 0;
+	padding: 8px;
+	pointer-events: none;
+	position: absolute;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	transition: opacity 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-lightbox-exif-overlay.avpvh-exif-visible {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* Cached grid thumbnail shown in the lightbox when the full-size image fails
+   to load (Google rate-limit / expired URL). Centred and scaled to fit. */
+.avpvh-pswp-fallback {
+	left: 50%;
+	max-height: 100%;
+	max-width: 100%;
+	position: absolute;
+	top: 50%;
+	transform: translate(-50%, -50%);
+}

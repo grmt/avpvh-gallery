@@ -51,7 +51,7 @@ final class Videos {
 					'webContentLink',
 					'webViewLink',
 					'thumbnailLink',
-					'videoMediaMetadata' => array( 'width', 'height' ),
+					'videoMediaMetadata' => array( 'width', 'height', 'durationMillis' ),
 					'copyRequiresWriterPermission',
 					'permissions'        => array( 'type', 'role' ),
 				)
@@ -71,6 +71,10 @@ final class Videos {
 				$videos             = array_map(
 					static function ( $video ) use ( $options ) {
 						return array(
+							'duration'  => array_key_exists( 'videoMediaMetadata', $video ) &&
+								array_key_exists( 'durationMillis', $video['videoMediaMetadata'] )
+								? (int) round( ( (int) $video['videoMediaMetadata']['durationMillis'] ) / 1000 )
+								: 0,
 							'height'    => array_key_exists( 'videoMediaMetadata', $video ) &&
 								array_key_exists( 'height', $video['videoMediaMetadata'] )
 								? $video['videoMediaMetadata']['height']

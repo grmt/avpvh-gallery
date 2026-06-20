@@ -1,4 +1,5 @@
 declare interface Video {
+	duration?: number;
 	height: number;
 	id: string;
 	mimeType: string;

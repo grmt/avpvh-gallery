@@ -43,6 +43,7 @@
 		<!-- Incompatible with PHP version requirements -->
 		<exclude name="SlevomatCodingStandard.ControlStructures.RequireNullCoalesceOperator.NullCoalesceOperatorNotUsed"/>
 		<exclude name="SlevomatCodingStandard.Exceptions.ReferenceThrowableOnly.ReferencedGeneralException"/>
+		<exclude name="SlevomatCodingStandard.Exceptions.RequireNonCapturingCatch.NonCapturingCatchRequired"/>
 		<exclude name="SlevomatCodingStandard.Functions.RequireArrowFunction.RequiredArrowFunction"/>
 		<exclude name="SlevomatCodingStandard.Functions.RequireTrailingCommaInCall.MissingTrailingComma"/>
 		<exclude name="SlevomatCodingStandard.Numbers.RequireNumericLiteralSeparator.RequiredNumericLiteralSeparator"/>
