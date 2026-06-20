@@ -24,7 +24,7 @@ interface FileData {
 		rotation: number;
 		cameraMake?: string;
 		cameraModel?: string;
-	aperture?: number;
+		aperture?: number;
 		exposureTime?: number;
 		isoSpeed?: number;
 		focalLength?: number;
@@ -53,15 +53,15 @@ declare const avpvhExifInspector: {
 };
 
 class ExifInspector {
-	private rootId: string;
-	private restUrl: string;
-	private nonce: string;
-	private currentPath: string[] = [];
+	private readonly rootId: string;
+	private readonly restUrl: string;
+	private readonly nonce: string;
+	private readonly currentPath: Array<string> = [];
 	private currentFile: FileData | null = null;
-	private allFiles: FileData[] = [];
-	private currentFileIndex: number = -1;
+	private allFiles: Array<FileData> = [];
+	private currentFileIndex = -1;
 	private previewTimings: Record<number, TimingData> = {};
-	private fullExifData: Record<string, string | number> = {};
+	private fullExifData: Record<string, number | string> = {};
 
 	constructor() {
 		this.rootId = avpvhExifInspector.root_id;
@@ -72,9 +72,12 @@ class ExifInspector {
 
 	private init() {
 		const root = document.getElementById('avpvh-exif-inspector-root');
-		if (!root) return;
+		if (!root) {
+			return;
+		}
 
-		const lastPath = localStorage.getItem('avpvh_exif_inspector_last_path') || '';
+		const lastPath =
+			localStorage.getItem('avpvh_exif_inspector_last_path') || '';
 
 		root.innerHTML = `
 			<div class="avpvh-exif-inspector">
@@ -350,11 +353,19 @@ class ExifInspector {
 			</div>
 		`;
 
-		document.getElementById('load-btn')?.addEventListener('click', () => this.loadFile());
-		document.getElementById('prev-btn')?.addEventListener('click', () => this.previousFile());
-		document.getElementById('next-btn')?.addEventListener('click', () => this.nextFile());
+		document
+			.getElementById('load-btn')
+			?.addEventListener('click', async () => this.loadFile());
+		document.getElementById('prev-btn')?.addEventListener('click', () => {
+			this.previousFile();
+		});
+		document.getElementById('next-btn')?.addEventListener('click', () => {
+			this.nextFile();
+		});
 
-		const pathInput = document.getElementById('path-input') as HTMLInputElement;
+		const pathInput = document.getElementById(
+			'path-input'
+		) as HTMLInputElement;
 		if (pathInput) {
 			pathInput.addEventListener('keypress', (e) => {
 				if (e.key === 'Enter') {
@@ -372,7 +383,9 @@ class ExifInspector {
 
 	private async loadFile() {
 		console.log('loadFile called');
-		const pathInput = document.getElementById('path-input') as HTMLInputElement;
+		const pathInput = document.getElementById(
+			'path-input'
+		) as HTMLInputElement;
 		const path = pathInput.value.trim();
 		console.log('Path:', path);
 
@@ -388,7 +401,10 @@ class ExifInspector {
 		this.clearError();
 		try {
 			// Parse the path and navigate to the file
-			const parts = path.split('/').map((p) => p.trim()).filter((p) => p);
+			const parts = path
+				.split('/')
+				.map((p) => p.trim())
+				.filter((p) => p);
 
 			if (parts.length === 0) {
 				this.showError('Please enter a valid file path');
@@ -400,7 +416,12 @@ class ExifInspector {
 
 			// Navigate to the folder
 			let currentId = this.rootId;
-			console.log('Starting folder navigation with', parts.length, 'parts:', parts);
+			console.log(
+				'Starting folder navigation with',
+				parts.length,
+				'parts:',
+				parts
+			);
 			for (const folderName of parts) {
 				console.log('Navigating to:', folderName);
 				currentId = await this.navigateToFolder(currentId, folderName);
@@ -411,7 +432,9 @@ class ExifInspector {
 			console.log('Listing files in folder:', currentId);
 			await this.listFilesInFolder(currentId);
 			console.log('Found', this.allFiles.length, 'files');
-			const fileIndex = this.allFiles.findIndex((f) => f.name === fileName);
+			const fileIndex = this.allFiles.findIndex(
+				(f) => f.name === fileName
+			);
 			console.log('File index:', fileIndex, 'looking for:', fileName);
 
 			if (fileIndex === -1) {
@@ -423,32 +446,45 @@ class ExifInspector {
 			this.currentFileIndex = fileIndex;
 			this.displayCurrentFile();
 		} catch (error) {
-			this.showError(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			this.showError(
+				`Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
 		} finally {
 			this.showLoading(false);
 		}
 	}
 
-	private async navigateToFolder(parentId: string, folderName: string): Promise<string> {
+	private async navigateToFolder(
+		parentId: string,
+		folderName: string
+	): Promise<string> {
 		const response = await fetch(`${this.restUrl}list-folders`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
 				'X-WP-Nonce': this.nonce,
 			},
-			body: JSON.stringify({ parent_id: parentId, folder_name: folderName }),
+			body: JSON.stringify({
+				parent_id: parentId,
+				folder_name: folderName,
+			}),
 			credentials: 'include',
 		});
 
 		if (!response.ok) {
 			let errorMsg = response.statusText;
 			try {
-				const errorData = (await response.json()) as { message?: string; code?: string };
+				const errorData = (await response.json()) as {
+					message?: string;
+					code?: string;
+				};
 				errorMsg = errorData.message || errorMsg;
 			} catch (e) {
 				// Could not parse JSON error response
 			}
-			throw new Error(`Folder not found: "${folderName}" (HTTP ${response.status}: ${errorMsg})`);
+			throw new Error(
+				`Folder not found: "${folderName}" (HTTP ${response.status}: ${errorMsg})`
+			);
 		}
 
 		const data = (await response.json()) as { folder_id: string };
@@ -469,24 +505,32 @@ class ExifInspector {
 		if (!response.ok) {
 			let errorMsg = response.statusText;
 			try {
-				const errorData = (await response.json()) as { message?: string; code?: string };
+				const errorData = (await response.json()) as {
+					message?: string;
+					code?: string;
+				};
 				errorMsg = errorData.message || errorMsg;
 			} catch (e) {
 				// Could not parse JSON error response
 			}
-			throw new Error(`Failed to load files: HTTP ${response.status} - ${errorMsg}`);
+			throw new Error(
+				`Failed to load files: HTTP ${response.status} - ${errorMsg}`
+			);
 		}
 
-		const data = (await response.json()) as { files: FileData[] };
+		const data = (await response.json()) as { files: Array<FileData> };
 		this.allFiles = data.files;
 	}
 
 	private displayCurrentFile() {
-		if (this.currentFileIndex < 0 || this.currentFileIndex >= this.allFiles.length) {
+		if (
+			this.currentFileIndex < 0 ||
+			this.currentFileIndex >= this.allFiles.length
+		) {
 			return;
 		}
 
-		const fileSection = document.querySelector('.file-info-section') as HTMLElement;
+		const fileSection = document.querySelector('.file-info-section')!;
 		if (fileSection) {
 			fileSection.style.display = 'block';
 		}
@@ -503,10 +547,13 @@ class ExifInspector {
 				const icon = document.createElement('img');
 				icon.src = this.currentFile.iconLink;
 				icon.alt = '';
-				icon.style.cssText = 'vertical-align: middle; margin-right: 8px; width: 24px; height: 24px;';
+				icon.style.cssText =
+					'vertical-align: middle; margin-right: 8px; width: 24px; height: 24px;';
 				fileName.appendChild(icon);
 			}
-			fileName.appendChild(document.createTextNode(this.currentFile.name));
+			fileName.appendChild(
+				document.createTextNode(this.currentFile.name)
+			);
 		}
 
 		const fileCount = document.getElementById('file-count');
@@ -515,10 +562,19 @@ class ExifInspector {
 		}
 
 		// Update nav buttons
-		const prevBtn = document.getElementById('prev-btn') as HTMLButtonElement;
-		const nextBtn = document.getElementById('next-btn') as HTMLButtonElement;
-		if (prevBtn) prevBtn.disabled = this.currentFileIndex === 0;
-		if (nextBtn) nextBtn.disabled = this.currentFileIndex === this.allFiles.length - 1;
+		const prevBtn = document.getElementById(
+			'prev-btn'
+		) as HTMLButtonElement;
+		const nextBtn = document.getElementById(
+			'next-btn'
+		) as HTMLButtonElement;
+		if (prevBtn) {
+			prevBtn.disabled = this.currentFileIndex === 0;
+		}
+		if (nextBtn) {
+			nextBtn.disabled =
+				this.currentFileIndex === this.allFiles.length - 1;
+		}
 
 		// Fetch full EXIF data
 		this.fetchFullExifData();
@@ -542,7 +598,10 @@ class ExifInspector {
 		}
 
 		if (!this.currentFile.webContentLink) {
-			console.log('No download link available for file:', this.currentFile.id);
+			console.log(
+				'No download link available for file:',
+				this.currentFile.id
+			);
 			return;
 		}
 
@@ -559,29 +618,33 @@ class ExifInspector {
 				download_link: this.currentFile.webContentLink,
 			}),
 		})
-			.then(response => {
+			.then(async (response) => {
 				if (!response.ok) {
-					console.log('Full EXIF fetch returned', response.status, '- will use API metadata only');
+					console.log(
+						'Full EXIF fetch returned',
+						response.status,
+						'- will use API metadata only'
+					);
 					return null;
 				}
 				return response.json();
 			})
-			.then(data => {
-				if (data && data.exif) {
+			.then((data) => {
+				if (data?.exif) {
 					console.log('Received full EXIF data:', data.exif);
 					this.fullExifData = data.exif;
 					// Update the EXIF display with new data
 					this.displayExifData();
 				}
 			})
-			.catch(error => {
+			.catch((error) => {
 				console.log('Error fetching full EXIF data:', error);
 				// Continue with API metadata only
 			});
 	}
 
 	private displayExifData() {
-		const tbody = document.querySelector('.exif-table tbody') as HTMLTableSectionElement;
+		const tbody = document.querySelector('.exif-table tbody')!;
 		if (!tbody || !this.currentFile) {
 			return;
 		}
@@ -590,7 +653,10 @@ class ExifInspector {
 
 		// Add file info
 		if (this.currentFile.size) {
-			const sizeInMB = (parseInt(this.currentFile.size, 10) / (1024 * 1024)).toFixed(2);
+			const sizeInMB = (
+				parseInt(this.currentFile.size, 10) /
+				(1024 * 1024)
+			).toFixed(2);
 			this.addTableRow(tbody, 'File Size', `${sizeInMB} MB`);
 		}
 
@@ -608,33 +674,61 @@ class ExifInspector {
 		// Otherwise, fall back to API metadata
 		const metadata = this.currentFile.imageMediaMetadata;
 		if (!metadata) {
-			tbody.innerHTML += '<tr><td colspan="2"><em>No EXIF data available</em></td></tr>';
+			tbody.innerHTML +=
+				'<tr><td colspan="2"><em>No EXIF data available</em></td></tr>';
 			return;
 		}
 
 		if (metadata.width && metadata.height) {
-			this.addTableRow(tbody, 'Dimensions', `${metadata.width} × ${metadata.height} px`);
+			this.addTableRow(
+				tbody,
+				'Dimensions',
+				`${metadata.width} × ${metadata.height} px`
+			);
 		}
 
 		// Camera info
-		if (metadata.cameraMake) this.addTableRow(tbody, 'Camera Make', metadata.cameraMake);
-		if (metadata.cameraModel) this.addTableRow(tbody, 'Camera Model', metadata.cameraModel);
+		if (metadata.cameraMake) {
+			this.addTableRow(tbody, 'Camera Make', metadata.cameraMake);
+		}
+		if (metadata.cameraModel) {
+			this.addTableRow(tbody, 'Camera Model', metadata.cameraModel);
+		}
 
 		// Exposure info
-		if (metadata.aperture) this.addTableRow(tbody, 'Aperture', `f/${metadata.aperture}`);
+		if (metadata.aperture) {
+			this.addTableRow(tbody, 'Aperture', `f/${metadata.aperture}`);
+		}
 		if (metadata.exposureTime) {
-			const expTime = metadata.exposureTime < 1 ? `1/${Math.round(1 / metadata.exposureTime)}` : metadata.exposureTime;
+			const expTime =
+				metadata.exposureTime < 1
+					? `1/${Math.round(1 / metadata.exposureTime)}`
+					: metadata.exposureTime;
 			this.addTableRow(tbody, 'Exposure Time', `${expTime}s`);
 		}
-		if (metadata.isoSpeed) this.addTableRow(tbody, 'ISO Speed', String(metadata.isoSpeed));
+		if (metadata.isoSpeed) {
+			this.addTableRow(tbody, 'ISO Speed', String(metadata.isoSpeed));
+		}
 
 		// Focus info
-		if (metadata.focalLength) this.addTableRow(tbody, 'Focal Length', `${metadata.focalLength} mm`);
+		if (metadata.focalLength) {
+			this.addTableRow(
+				tbody,
+				'Focal Length',
+				`${metadata.focalLength} mm`
+			);
+		}
 
 		// Date info
-		if (metadata.time) this.addTableRow(tbody, 'Date/Time', metadata.time);
+		if (metadata.time) {
+			this.addTableRow(tbody, 'Date/Time', metadata.time);
+		}
 		if (metadata.rotation !== undefined && metadata.rotation !== 0) {
-			this.addTableRow(tbody, 'Orientation', `${metadata.rotation} - ${this.orientationDescription(metadata.rotation)}`);
+			this.addTableRow(
+				tbody,
+				'Orientation',
+				`${metadata.rotation} - ${this.orientationDescription(metadata.rotation)}`
+			);
 		}
 	}
 
@@ -681,14 +775,16 @@ class ExifInspector {
 		};
 
 		// Sort EXIF data by section and field name
-		const sortedEntries = Object.entries(this.fullExifData).sort(([a], [b]) => {
-			const aSection = a.split(':')[0];
-			const bSection = b.split(':')[0];
-			if (aSection !== bSection) {
-				return aSection.localeCompare(bSection);
+		const sortedEntries = Object.entries(this.fullExifData).sort(
+			([a], [b]) => {
+				const aSection = a.split(':')[0];
+				const bSection = b.split(':')[0];
+				if (aSection !== bSection) {
+					return aSection.localeCompare(bSection);
+				}
+				return a.localeCompare(b);
 			}
-			return a.localeCompare(b);
-		});
+		);
 
 		// Display each EXIF field
 		for (const [key, value] of sortedEntries) {
@@ -702,11 +798,12 @@ class ExifInspector {
 		}
 
 		if (sortedEntries.length === 0) {
-			tbody.innerHTML += '<tr><td colspan="2"><em>No EXIF data available</em></td></tr>';
+			tbody.innerHTML +=
+				'<tr><td colspan="2"><em>No EXIF data available</em></td></tr>';
 		}
 	}
 
-	private formatExifValue(key: string, value: string | number): string {
+	private formatExifValue(key: string, value: number | string): string {
 		if (typeof value === 'number') {
 			value = String(value);
 		}
@@ -741,7 +838,11 @@ class ExifInspector {
 		return value;
 	}
 
-	private addTableRow(tbody: HTMLTableSectionElement, label: string, value: string) {
+	private addTableRow(
+		tbody: HTMLTableSectionElement,
+		label: string,
+		value: string
+	) {
 		const row = tbody.insertRow();
 		const cellLabel = row.insertCell(0);
 		const cellValue = row.insertCell(1);
@@ -775,19 +876,31 @@ class ExifInspector {
 			return;
 		}
 
-		const img = document.getElementById('original-image') as HTMLImageElement;
-		const downloadLink = document.getElementById('original-download-link') as HTMLAnchorElement;
-		const sizeInfo = document.getElementById('original-size') as HTMLElement;
+		const img = document.getElementById(
+			'original-image'
+		) as HTMLImageElement;
+		const downloadLink = document.getElementById(
+			'original-download-link'
+		) as HTMLAnchorElement;
+		const sizeInfo = document.getElementById('original-size')!;
 
 		if (img && this.currentFile.thumbnailLink) {
 			// Show a large preview from the thumbnail
-			img.src = this.buildPreviewUrl(this.currentFile.thumbnailLink, 1920);
+			img.src = this.buildPreviewUrl(
+				this.currentFile.thumbnailLink,
+				1920
+			);
 			img.alt = this.currentFile.name;
 		}
 
 		if (downloadLink && this.currentFile.id) {
 			// Use server-side proxy with OAuth auth to avoid 403 from Google's public download URL
-			downloadLink.href = this.restUrl + 'download-original?file_id=' + encodeURIComponent(this.currentFile.id) + '&_wpnonce=' + encodeURIComponent(this.nonce);
+			downloadLink.href =
+				this.restUrl +
+				'download-original?file_id=' +
+				encodeURIComponent(this.currentFile.id) +
+				'&_wpnonce=' +
+				encodeURIComponent(this.nonce);
 			downloadLink.textContent = `Download Original (${this.currentFile.mimeType || 'Image'})`;
 			downloadLink.style.display = 'inline-block';
 		} else if (downloadLink) {
@@ -795,7 +908,10 @@ class ExifInspector {
 		}
 
 		if (sizeInfo && this.currentFile.size) {
-			const sizeInMB = (parseInt(this.currentFile.size, 10) / (1024 * 1024)).toFixed(2);
+			const sizeInMB = (
+				parseInt(this.currentFile.size, 10) /
+				(1024 * 1024)
+			).toFixed(2);
 			sizeInfo.textContent = `File size: ${sizeInMB} MB`;
 		}
 	}
@@ -810,7 +926,10 @@ class ExifInspector {
 
 		const sizes = [256, 512, 1024, 1920];
 		for (const size of sizes) {
-			const previewUrl = this.buildPreviewUrl(this.currentFile.thumbnailLink, size);
+			const previewUrl = this.buildPreviewUrl(
+				this.currentFile.thumbnailLink,
+				size
+			);
 			const item = document.createElement('div');
 			item.className = 'preview-item';
 
@@ -835,7 +954,7 @@ class ExifInspector {
 
 			container.appendChild(item);
 
-			const img = item.querySelector('img') as HTMLImageElement;
+			const img = item.querySelector('img')!;
 			this.fetchAndDisplayPreview(img, previewUrl, size);
 		}
 	}
@@ -849,12 +968,15 @@ class ExifInspector {
 	private buildIconUrl(iconLink: string, size: number): string {
 		// Drive icon URLs look like https://drive-thirdparty.googleusercontent.com/16/type/<mime>
 		// Swap the size segment after the host.
-		return iconLink.replace(/googleusercontent\.com\/\d+\//, `googleusercontent.com/${size}/`);
+		return iconLink.replace(
+			/googleusercontent\.com\/\d+\//,
+			`googleusercontent.com/${size}/`
+		);
 	}
 
 	private displayIcons() {
 		const container = document.getElementById('icons-container');
-		if (!container || !this.currentFile || !this.currentFile.iconLink) {
+		if (!container || !this.currentFile?.iconLink) {
 			return;
 		}
 
@@ -896,28 +1018,33 @@ class ExifInspector {
 
 			container.appendChild(item);
 
-			const img = item.querySelector('img') as HTMLImageElement;
+			const img = item.querySelector('img')!;
 			this.fetchAndDisplayIcon(img, iconUrl, size);
 		}
 	}
 
-	private fetchAndDisplayIcon(img: HTMLImageElement, iconUrl: string, size: number) {
+	private fetchAndDisplayIcon(
+		img: HTMLImageElement,
+		iconUrl: string,
+		size: number
+	) {
 		const startTime = performance.now();
-		const previewItem = img.closest('.preview-item') as HTMLElement;
+		const previewItem = img.closest('.preview-item')!;
 
-		const proxyUrl = this.restUrl + 'proxy-image?url=' + encodeURIComponent(iconUrl);
+		const proxyUrl =
+			this.restUrl + 'proxy-image?url=' + encodeURIComponent(iconUrl);
 		fetch(proxyUrl, {
 			method: 'GET',
 			headers: { 'X-WP-Nonce': this.nonce },
 			credentials: 'include',
 		})
-			.then(response => {
+			.then(async (response) => {
 				if (!response.ok) {
 					throw new Error('HTTP ' + response.status);
 				}
 				return response.blob();
 			})
-			.then(blob => {
+			.then((blob) => {
 				const networkTime = performance.now() - startTime;
 				img.onload = () => {
 					img.classList.remove('loading');
@@ -925,11 +1052,16 @@ class ExifInspector {
 				img.src = URL.createObjectURL(blob);
 
 				if (previewItem) {
-					const timingInfo = previewItem.querySelector('.timing-info') as HTMLElement;
+					const timingInfo =
+						previewItem.querySelector('.timing-info')!;
 					if (timingInfo) {
 						const sizeInKB = blob.size / 1024;
-						const fileSizeText = blob.size < 1024 ? `${blob.size} B` : `${sizeInKB.toFixed(2)} KB`;
-						const rows = timingInfo.querySelectorAll('.timing-value');
+						const fileSizeText =
+							blob.size < 1024
+								? `${blob.size} B`
+								: `${sizeInKB.toFixed(2)} KB`;
+						const rows =
+							timingInfo.querySelectorAll('.timing-value');
 						if (rows[0]) {
 							rows[0].textContent = fileSizeText;
 						}
@@ -942,20 +1074,27 @@ class ExifInspector {
 			.catch(() => {
 				img.classList.remove('loading');
 				if (previewItem) {
-					const timingInfo = previewItem.querySelector('.timing-info') as HTMLElement;
+					const timingInfo =
+						previewItem.querySelector('.timing-info')!;
 					if (timingInfo) {
-						timingInfo.innerHTML = '<div class="error-message">Failed to load icon</div>';
+						timingInfo.innerHTML =
+							'<div class="error-message">Failed to load icon</div>';
 					}
 				}
 			});
 	}
 
-	private fetchAndDisplayPreview(img: HTMLImageElement, imageUrl: string, size: number) {
+	private fetchAndDisplayPreview(
+		img: HTMLImageElement,
+		imageUrl: string,
+		size: number
+	) {
 		const startTime = performance.now();
-		const previewItem = img.closest('.preview-item') as HTMLElement;
+		const previewItem = img.closest('.preview-item')!;
 
 		// One request that gives us both image data AND its size
-		const proxyUrl = this.restUrl + 'proxy-image?url=' + encodeURIComponent(imageUrl);
+		const proxyUrl =
+			this.restUrl + 'proxy-image?url=' + encodeURIComponent(imageUrl);
 		fetch(proxyUrl, {
 			method: 'GET',
 			headers: {
@@ -963,13 +1102,13 @@ class ExifInspector {
 			},
 			credentials: 'include',
 		})
-			.then(response => {
+			.then(async (response) => {
 				if (!response.ok) {
 					throw new Error('HTTP ' + response.status);
 				}
 				return response.blob();
 			})
-			.then(blob => {
+			.then((blob) => {
 				const networkTime = performance.now() - startTime;
 				const renderStart = performance.now();
 
@@ -980,7 +1119,8 @@ class ExifInspector {
 				};
 
 				img.onload = () => {
-					this.previewTimings[size].renderTime = performance.now() - renderStart;
+					this.previewTimings[size].renderTime =
+						performance.now() - renderStart;
 					img.classList.remove('loading');
 					if (previewItem) {
 						this.updateTimingDisplay(previewItem, size);
@@ -990,9 +1130,10 @@ class ExifInspector {
 			})
 			.catch(() => {
 				img.classList.remove('loading');
-				const timingInfo = previewItem?.querySelector('.timing-info') as HTMLElement;
+				const timingInfo = previewItem.querySelector('.timing-info')!;
 				if (timingInfo) {
-					timingInfo.innerHTML = '<div class="error-message">Failed to load image</div>';
+					timingInfo.innerHTML =
+						'<div class="error-message">Failed to load image</div>';
 				}
 			});
 	}
@@ -1003,7 +1144,7 @@ class ExifInspector {
 			return;
 		}
 
-		const timingInfo = previewItem.querySelector('.timing-info') as HTMLElement;
+		const timingInfo = previewItem.querySelector('.timing-info')!;
 		if (!timingInfo) {
 			return;
 		}
@@ -1012,9 +1153,10 @@ class ExifInspector {
 		if (timing.fileSize !== undefined && timing.fileSize > 0) {
 			const sizeInKB = timing.fileSize / 1024;
 			const sizeInMB = timing.fileSize / (1024 * 1024);
-			const sizeDisplay = sizeInMB > 1
-				? `${sizeInMB.toFixed(2)} MB`
-				: `${sizeInKB.toFixed(2)} KB`;
+			const sizeDisplay =
+				sizeInMB > 1
+					? `${sizeInMB.toFixed(2)} MB`
+					: `${sizeInKB.toFixed(2)} KB`;
 			fileSizeHtml = `
 				<div class="timing-row">
 					<span class="timing-label">File Size:</span>
@@ -1058,8 +1200,10 @@ class ExifInspector {
 	}
 
 	private showError(message: string) {
-		const pathSection = document.querySelector('.path-input-section') as HTMLElement;
-		if (!pathSection) return;
+		const pathSection = document.querySelector('.path-input-section')!;
+		if (!pathSection) {
+			return;
+		}
 
 		// Remove any existing error message
 		this.clearError();

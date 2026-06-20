@@ -1,15 +1,14 @@
-/* eslint-disable @typescript-eslint/member-ordering, @typescript-eslint/class-methods-use-this -- Disabled because PhotoSwipe v5 integration requires specific method declarations and helper methods */
+/* eslint-disable @typescript-eslint/member-ordering -- Disabled because PhotoSwipe v5 integration requires specific method declarations and helper methods */
 import $ from 'jquery';
 import { default as justifiedLayout } from 'justified-layout';
 import PhotoSwipe from 'photoswipe';
-// eslint-disable-next-line import/no-unresolved -- PhotoSwipe subpath exports are standard but modern, so ESLint import plugin has issues resolving them
 import PhotoSwipeLightbox from 'photoswipe/lightbox';
 
 import { isError } from '../../isError';
 import { printError } from '../../printError';
+import { PhotoTagger } from '../photo-tagger/PhotoTagger';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
-import { PhotoTagger } from '../photo-tagger/PhotoTagger';
 
 function escapeHtml(unsafe: string): string {
 	return unsafe
@@ -70,8 +69,13 @@ export class Shortcode {
 		this.shortHash = hash.substring(0, 8);
 		const faviconEl =
 			document.querySelector<HTMLLinkElement>('link[rel~="icon"]') ??
-			document.querySelector<HTMLLinkElement>('link[rel="shortcut icon"]');
-		this.faviconUrl = faviconEl !== null ? faviconEl.href : avpvhShortcodeLocalize.favicon_url;
+			document.querySelector<HTMLLinkElement>(
+				'link[rel="shortcut icon"]'
+			);
+		this.faviconUrl =
+			faviconEl !== null
+				? faviconEl.href
+				: avpvhShortcodeLocalize.favicon_url;
 		this.pageQueryParameter = new QueryParameter(this.shortHash, 'page');
 		this.pathQueryParameter = new QueryParameter(this.shortHash, 'path');
 		this.path = this.pathQueryParameter.get();
@@ -144,10 +148,18 @@ export class Shortcode {
 		});
 		// Replace PhotoSwipe's error placeholder with the cached grid thumbnail.
 		lightbox.addFilter('contentErrorElement', (errorMsgEl, content) => {
-			const data = (content as unknown as { data?: { element?: HTMLElement } }).data;
+			const data = (
+				content as unknown as { data?: { element?: HTMLElement } }
+			).data;
 			const anchor = data?.element;
-			const thumb = anchor instanceof HTMLElement ? anchor.querySelector('img') : null;
-			const src = thumb instanceof HTMLImageElement ? (thumb.currentSrc || thumb.src) : '';
+			const thumb =
+				anchor instanceof HTMLElement
+					? anchor.querySelector('img')
+					: null;
+			const src =
+				thumb instanceof HTMLImageElement
+					? thumb.currentSrc || thumb.src
+					: '';
 			if ('' === src) {
 				return errorMsgEl;
 			}
@@ -156,10 +168,11 @@ export class Shortcode {
 			img.src = src;
 			// If even the thumbnail can't be shown, fail quietly (blank) rather
 			// than a broken-image icon.
-			img.addEventListener('error', () => { img.style.display = 'none'; });
+			img.addEventListener('error', () => {
+				img.style.display = 'none';
+			});
 			return img;
 		});
-
 
 		lightbox.addFilter('itemData', (itemData) => {
 			const el = itemData.element;
@@ -175,7 +188,10 @@ export class Shortcode {
 					videoMime: el.dataset['avpvhVideoMime'] ?? '',
 					// Grid thumbnail (already cached) doubles as the video poster so
 					// the slide shows the picture before/while it loads.
-					videoPoster: posterImg instanceof HTMLImageElement ? (posterImg.currentSrc || posterImg.src) : '',
+					videoPoster:
+						posterImg instanceof HTMLImageElement
+							? posterImg.currentSrc || posterImg.src
+							: '',
 				};
 			}
 			return itemData;
@@ -213,10 +229,9 @@ export class Shortcode {
 				}
 				wrap.appendChild(videoEl);
 				e.content.element = wrap;
-
 			} else if ('image' === e.content.type) {
 				// Apply horizontal flip to images that were served mirrored by Google Drive
-				if ((e.content.data as Record<string, unknown>)?.['needsHFlip']) {
+				if ((e.content.data as Record<string, unknown>)['needsHFlip']) {
 					if (e.content.element instanceof HTMLImageElement) {
 						e.content.element.style.transform = 'scaleX(-1)';
 					}
@@ -228,7 +243,12 @@ export class Shortcode {
 		// the slide that is actually on screen plays and downloads. Preloaded
 		// neighbours keep preload='none' and simply show their poster thumbnail.
 		lightbox.on('contentActivate', (e) => {
-			this.onSlideActivate(e.content as { data?: Record<string, unknown>; element?: HTMLElement });
+			this.onSlideActivate(
+				e.content as {
+					data?: Record<string, unknown>;
+					element?: HTMLElement;
+				}
+			);
 		});
 		lightbox.on('contentDeactivate', (e) => {
 			this.onSlideDeactivate(e.content as { element?: HTMLElement });
@@ -278,9 +298,10 @@ export class Shortcode {
 					el.title = 'Klik om pad te kopiëren';
 					const update = (): void => {
 						const slideEl = instance.currSlide?.data.element;
-						const fullPath = slideEl instanceof HTMLElement
-							? (slideEl.dataset['avpvhFullpath'] ?? '')
-							: '';
+						const fullPath =
+							slideEl instanceof HTMLElement
+								? (slideEl.dataset['avpvhFullpath'] ?? '')
+								: '';
 						el.textContent = fullPath;
 					};
 					instance.on('change', update);
@@ -289,7 +310,9 @@ export class Shortcode {
 						void navigator.clipboard.writeText(text).then(() => {
 							const original = el.textContent;
 							el.textContent = 'Gekopieerd!';
-							setTimeout(() => { el.textContent = original; }, 1200);
+							setTimeout(() => {
+								el.textContent = original;
+							}, 1200);
 						});
 					});
 				},
@@ -320,7 +343,10 @@ export class Shortcode {
 					};
 
 					el.addEventListener('click', () => {
-						const isVisible = exifOverlay.classList.contains('avpvh-exif-visible');
+						const isVisible =
+							exifOverlay.classList.contains(
+								'avpvh-exif-visible'
+							);
 						if (isVisible) {
 							exifOverlay.classList.remove('avpvh-exif-visible');
 						} else {
@@ -404,21 +430,38 @@ export class Shortcode {
 				// Prev button sits flush with the viewport's left edge, so nudge
 				// its trowel inward (to the right) for visual symmetry with next.
 				const arrowConfig: Array<[string, string, string]> = [
-					['.pswp__button--arrow--prev', 'scaleX(-1) rotate(45deg)', 'margin-left:12px;'],
-					['.pswp__button--arrow--next', 'rotate(45deg)', 'margin-right:12px;'],
+					[
+						'.pswp__button--arrow--prev',
+						'scaleX(-1) rotate(45deg)',
+						'margin-left:12px;',
+					],
+					[
+						'.pswp__button--arrow--next',
+						'rotate(45deg)',
+						'margin-right:12px;',
+					],
 				];
 				// Unique filter ID to avoid collisions if multiple galleries share the page
-				const filterId = 'avpvh-whitemask-' + Math.random().toString(36).substring(2, 9);
-				const svgPrefix = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="44" height="44">' +
+				const filterId =
+					'avpvh-whitemask-' +
+					Math.random().toString(36).substring(2, 9);
+				const svgPrefix =
+					'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="44" height="44">' +
 					'<defs>' +
-					'<filter id="' + filterId + '" x="0" y="0" width="100%" height="100%">' +
+					'<filter id="' +
+					filterId +
+					'" x="0" y="0" width="100%" height="100%">' +
 					// Step 1: Set alpha based on darkness. White (1,1,1) → alpha 0; black (0,0,0) → alpha 1.
 					'<feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  -1 -1 -1 0 2"/>' +
 					// Step 2: Set RGB to pure white, keep new alpha.
 					'<feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0"/>' +
 					'</filter>' +
 					'</defs>' +
-					'<image href="' + faviconUrl + '" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet" filter="url(#' + filterId + ')"/>' +
+					'<image href="' +
+					faviconUrl +
+					'" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet" filter="url(#' +
+					filterId +
+					')"/>' +
 					'</svg>';
 
 				arrowConfig.forEach(([selector, transform, extraMargin]) => {
@@ -430,7 +473,9 @@ export class Shortcode {
 					btn.querySelectorAll('svg').forEach((s) => {
 						(s as SVGElement).style.display = 'none';
 					});
-					btn.querySelectorAll('.avpvh-trowel').forEach((n) => { n.remove(); });
+					btn.querySelectorAll('.avpvh-trowel').forEach((n) => {
+						n.remove();
+					});
 
 					const wrapper = document.createElement('div');
 					wrapper.className = 'avpvh-trowel';
@@ -440,7 +485,9 @@ export class Shortcode {
 						'width:44px;height:44px;display:block;' +
 						'pointer-events:none;' +
 						extraMargin +
-						'transform:' + transform + ';';
+						'transform:' +
+						transform +
+						';';
 					wrapper.innerHTML = svgPrefix;
 					btn.appendChild(wrapper);
 				});
@@ -501,10 +548,26 @@ export class Shortcode {
 		// Down events use the capture phase: PhotoSwipe's gesture handler calls
 		// stopPropagation() on them for its drag logic, so a bubble-phase listener
 		// would never see arrow/image clicks.
-		el.addEventListener('mousemove', (e: MouseEvent) => { onActivity(overPhotoTarget(e.target)); });
-		el.addEventListener('mousedown', (e: MouseEvent) => { onActivity(overPhotoTarget(e.target)); }, true);
-		el.addEventListener('pointerdown', (e: Event) => { onActivity(overPhotoTarget(e.target)); }, true);
-		el.addEventListener('touchstart', (e: Event) => { onActivity(overPhotoTarget(e.target)); });
+		el.addEventListener('mousemove', (e: MouseEvent) => {
+			onActivity(overPhotoTarget(e.target));
+		});
+		el.addEventListener(
+			'mousedown',
+			(e: MouseEvent) => {
+				onActivity(overPhotoTarget(e.target));
+			},
+			true
+		);
+		el.addEventListener(
+			'pointerdown',
+			(e: Event) => {
+				onActivity(overPhotoTarget(e.target));
+			},
+			true
+		);
+		el.addEventListener('touchstart', (e: Event) => {
+			onActivity(overPhotoTarget(e.target));
+		});
 		// Leaving the lightbox entirely (windowed only) resumes immediately.
 		el.addEventListener('mouseleave', () => {
 			lastOverPhoto = false;
@@ -522,27 +585,31 @@ export class Shortcode {
 
 		// ── Boundary navigation ───────────────────────────────────────
 		// Capture click on arrow buttons before PhotoSwipe sees them
-		el.addEventListener('click', (e: MouseEvent) => {
-			const target = e.target;
-			if (!(target instanceof Element)) {
-				return;
-			}
-			if (
-				target.closest('.pswp__button--arrow--next') !== null &&
-				pswp.currIndex === pswp.getNumItems() - 1
-			) {
-				e.stopImmediatePropagation();
-				e.preventDefault();
-				this.nextBoundary(pswp);
-			} else if (
-				target.closest('.pswp__button--arrow--prev') !== null &&
-				pswp.currIndex === 0
-			) {
-				e.stopImmediatePropagation();
-				e.preventDefault();
-				this.prevBoundary(pswp);
-			}
-		}, true);
+		el.addEventListener(
+			'click',
+			(e: MouseEvent) => {
+				const target = e.target;
+				if (!(target instanceof Element)) {
+					return;
+				}
+				if (
+					target.closest('.pswp__button--arrow--next') !== null &&
+					pswp.currIndex === pswp.getNumItems() - 1
+				) {
+					e.stopImmediatePropagation();
+					e.preventDefault();
+					this.nextBoundary(pswp);
+				} else if (
+					target.closest('.pswp__button--arrow--prev') !== null &&
+					pswp.currIndex === 0
+				) {
+					e.stopImmediatePropagation();
+					e.preventDefault();
+					this.prevBoundary(pswp);
+				}
+			},
+			true
+		);
 
 		// Capture keyboard before PhotoSwipe's document-level handler
 		const handleKeydown = (e: KeyboardEvent): void => {
@@ -555,9 +622,12 @@ export class Shortcode {
 				// so it pauses the slideshow and keeps the trowels visible.
 				onActivity(false);
 			}
-			if (e.key === 'ArrowRight' && pswp.currIndex === pswp.getNumItems() - 1) {
+			if (
+				e.key === 'ArrowRight' &&
+				pswp.currIndex === pswp.getNumItems() - 1
+			) {
 				e.stopImmediatePropagation();
-    this.slideshowWasActive = true;
+				this.slideshowWasActive = true;
 				this.nextBoundary(pswp);
 			} else if (e.key === 'ArrowLeft' && pswp.currIndex === 0) {
 				e.stopImmediatePropagation();
@@ -624,12 +694,15 @@ export class Shortcode {
 	// The active slide's <video> plays; when it ends (or fails to start within
 	// the fallback window) we move to the next item. Preloaded neighbours never
 	// play or download (preload='none'), so only one video fetches at a time.
-	private onSlideActivate(content: { data?: Record<string, unknown>; element?: HTMLElement }): void {
+	private onSlideActivate(content: {
+		data?: Record<string, unknown>;
+		element?: HTMLElement;
+	}): void {
 		this.clearVideoFallback();
 		if (this.activeVideoCleanup !== null) {
 			this.activeVideoCleanup();
 		}
-		this.currentSlideIsVideo = content?.data?.['type'] === 'video';
+		this.currentSlideIsVideo = content.data?.['type'] === 'video';
 		const pswp = this.lightbox.pswp;
 		if (pswp === undefined) {
 			return;
@@ -686,7 +759,7 @@ export class Shortcode {
 	}
 
 	private onSlideDeactivate(content: { element?: HTMLElement }): void {
-		const videoEl = content?.element?.querySelector('video');
+		const videoEl = content.element?.querySelector('video');
 		if (videoEl instanceof HTMLVideoElement) {
 			videoEl.pause();
 			try {
@@ -715,12 +788,18 @@ export class Shortcode {
 		// contentActivate for the new slide takes it from here.
 	}
 
-	private armVideoFallback(pswp: PhotoSwipe, videoEl: HTMLVideoElement | null): void {
+	private armVideoFallback(
+		pswp: PhotoSwipe,
+		videoEl: HTMLVideoElement | null
+	): void {
 		this.clearVideoFallback();
 		this.videoFallbackTimer = setTimeout(() => {
 			this.videoFallbackTimer = null;
 			// If the video actually started in the meantime, leave it playing.
-			if (videoEl !== null && (videoEl.currentTime > 0 || !videoEl.paused)) {
+			if (
+				videoEl !== null &&
+				(videoEl.currentTime > 0 || !videoEl.paused)
+			) {
 				return;
 			}
 			this.advanceFromVideo(pswp);
@@ -734,7 +813,10 @@ export class Shortcode {
 		}
 	}
 
-	private navigateToAdjacentFolder(direction: 'next' | 'prev', pswp: PhotoSwipe): void {
+	private navigateToAdjacentFolder(
+		direction: 'next' | 'prev',
+		pswp: PhotoSwipe
+	): void {
 		const currentPath = this.pathQueryParameter.get();
 		if ('' === currentPath) {
 			this.folderNavigating = false;
@@ -744,10 +826,16 @@ export class Shortcode {
 		this.findAdjacentFolder(currentPath, direction, pswp);
 	}
 
-	private findAdjacentFolder(currentPath: string, direction: 'next' | 'prev', pswp: PhotoSwipe): void {
+	private findAdjacentFolder(
+		currentPath: string,
+		direction: 'next' | 'prev',
+		pswp: PhotoSwipe
+	): void {
 		const lastSlash = currentPath.lastIndexOf('/');
-		const parentPath = lastSlash >= 0 ? currentPath.substring(0, lastSlash) : '';
-		const currentFolderId = lastSlash >= 0 ? currentPath.substring(lastSlash + 1) : currentPath;
+		const parentPath =
+			lastSlash >= 0 ? currentPath.substring(0, lastSlash) : '';
+		const currentFolderId =
+			lastSlash >= 0 ? currentPath.substring(lastSlash + 1) : currentPath;
 
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
@@ -762,21 +850,31 @@ export class Shortcode {
 					this.folderNavigating = false;
 					return;
 				}
-				const siblings = (data as GallerySuccessResponse).directories ?? [];
-				const currentIndex = siblings.findIndex((d) => d.id === currentFolderId);
+				const siblings = data.directories ?? [];
+				const currentIndex = siblings.findIndex(
+					(d) => d.id === currentFolderId
+				);
 				if (currentIndex < 0) {
 					this.folderNavigating = false;
 					return;
 				}
-				const targetIndex = 'next' === direction ? currentIndex + 1 : currentIndex - 1;
+				const targetIndex =
+					'next' === direction ? currentIndex + 1 : currentIndex - 1;
 
 				// Found adjacent folder at this level
 				if (targetIndex >= 0 && targetIndex < siblings.length) {
 					const targetDir = siblings[targetIndex];
-					const newPath = ('' !== parentPath ? parentPath + '/' : '') + targetDir.id;
+					const newPath =
+						('' !== parentPath ? parentPath + '/' : '') +
+						targetDir.id;
 					pswp.close();
-					this.pendingLightboxOpen = 'next' === direction ? 'first' : 'last';
-					history.pushState({}, '', this.pathQueryParameter.add(newPath));
+					this.pendingLightboxOpen =
+						'next' === direction ? 'first' : 'last';
+					history.pushState(
+						{},
+						'',
+						this.pathQueryParameter.add(newPath)
+					);
 					this.path = newPath;
 					this.folderNavigating = false;
 					this.get();
@@ -958,8 +1056,12 @@ export class Shortcode {
 		);
 	}
 
-	private getSubfolderItems(directory: Directory, parentPath: string): JQuery.jqXHR<GalleryResponse> {
-		const subfolderPath = (parentPath ? parentPath + '/' : '') + directory.id;
+	private getSubfolderItems(
+		directory: Directory,
+		parentPath: string
+	): JQuery.jqXHR<GalleryResponse> {
+		const subfolderPath =
+			(parentPath ? parentPath + '/' : '') + directory.id;
 		return $.get(avpvhShortcodeLocalize.ajax_url, {
 			action: 'gallery',
 			hash: this.hash,
@@ -1050,7 +1152,10 @@ export class Shortcode {
 		});
 	}
 
-	private loadSubfolderItemsForSlideshow(data: GallerySuccessResponse, callback: () => void): void {
+	private loadSubfolderItemsForSlideshow(
+		data: GallerySuccessResponse,
+		callback: () => void
+	): void {
 		// Don't load subfolder items if there are no directories
 		if (!data.directories || data.directories.length === 0) {
 			callback();
@@ -1068,70 +1173,101 @@ export class Shortcode {
 		}
 
 		// Wait for all subfolder requests, then add items to slideshow
-		void $.when(...subfolderRequests).done((...responses: unknown[]) => {
-			const pswp = this.lightbox.pswp;
-			if (pswp) {
-				// Get current PhotoSwipe items
-				let items = (pswp.options.dataSource as Record<string, unknown>)?.['items'];
-				if (!Array.isArray(items)) {
-					items = [];
-				}
-
-				// Add items from each subfolder
-				(responses as GalleryResponse[]).forEach((subResponse) => {
-					if (isError(subResponse)) {
-						return;
+		void $.when(...subfolderRequests).done(
+			(...responses: Array<unknown>) => {
+				const pswp = this.lightbox.pswp;
+				if (pswp) {
+					// Get current PhotoSwipe items
+					let items = (
+						pswp.options.dataSource as Record<string, unknown>
+					)['items'];
+					if (!Array.isArray(items)) {
+						items = [];
 					}
-					const subData = subResponse as GallerySuccessResponse;
-					const images = subData.images ?? [];
-					const videos = subData.videos ?? [];
 
-					// Add images from subfolder
-					images.forEach((image) => {
-						const el = document.createElement('a');
-						el.className = 'avpvh-grid-a';
-						el.dataset['pswpWidth'] = String(image.width > 0 ? image.width : 2000);
-						el.dataset['pswpHeight'] = String(image.height > 0 ? image.height : 1500);
-						el.dataset['avpvhId'] = image.id;
-						el.dataset['avpvhCaption'] = image.description;
-						el.href = image.image;
-						(items as Record<string, unknown>[]).push({ element: el });
-					});
+					// Add items from each subfolder
+					(responses as Array<GalleryResponse>).forEach(
+						(subResponse) => {
+							if (isError(subResponse)) {
+								return;
+							}
+							const subData = subResponse;
+							const images = subData.images ?? [];
+							const videos = subData.videos ?? [];
 
-					// Add videos from subfolder
-					videos.forEach((video) => {
-						if ('' !== document.createElement('video').canPlayType(video.mimeType)) {
-							const el = document.createElement('a');
-							el.className = 'avpvh-grid-a';
-							el.dataset['pswpWidth'] = String(video.width > 0 ? video.width : 1920);
-							el.dataset['pswpHeight'] = String(video.height > 0 ? video.height : 1080);
-							el.dataset['pswpType'] = 'video';
-							el.dataset['avpvhId'] = video.id;
-							el.dataset['avpvhVideoSrc'] = video.src;
-							el.dataset['avpvhVideoMime'] = video.mimeType;
-							el.href = video.src;
-							(items as Record<string, unknown>[]).push({ element: el });
+							// Add images from subfolder
+							images.forEach((image) => {
+								const el = document.createElement('a');
+								el.className = 'avpvh-grid-a';
+								el.dataset['pswpWidth'] = String(
+									image.width > 0 ? image.width : 2000
+								);
+								el.dataset['pswpHeight'] = String(
+									image.height > 0 ? image.height : 1500
+								);
+								el.dataset['avpvhId'] = image.id;
+								el.dataset['avpvhCaption'] = image.description;
+								el.href = image.image;
+								(items as Array<Record<string, unknown>>).push({
+									element: el,
+								});
+							});
+
+							// Add videos from subfolder
+							videos.forEach((video) => {
+								if (
+									'' !==
+									document
+										.createElement('video')
+										.canPlayType(video.mimeType)
+								) {
+									const el = document.createElement('a');
+									el.className = 'avpvh-grid-a';
+									el.dataset['pswpWidth'] = String(
+										video.width > 0 ? video.width : 1920
+									);
+									el.dataset['pswpHeight'] = String(
+										video.height > 0 ? video.height : 1080
+									);
+									el.dataset['pswpType'] = 'video';
+									el.dataset['avpvhId'] = video.id;
+									el.dataset['avpvhVideoSrc'] = video.src;
+									el.dataset['avpvhVideoMime'] =
+										video.mimeType;
+									el.href = video.src;
+									(
+										items as Array<Record<string, unknown>>
+									).push({
+										element: el,
+									});
+								}
+							});
 						}
-					});
-				});
+					);
 
-				// Update PhotoSwipe datasource with combined items
-				const ds = pswp.options.dataSource as Record<string, unknown>;
-				if (ds) {
-					ds['items'] = items;
+					// Update PhotoSwipe datasource with combined items
+					const ds = pswp.options.dataSource as Record<
+						string,
+						unknown
+					>;
+					if (ds) {
+						ds['items'] = items;
+					}
 				}
-			}
 
-			// Call callback after items are loaded
-			callback();
-		});
+				// Call callback after items are loaded
+				callback();
+			}
+		);
 	}
 
 	private openLightboxIfPending(): void {
 		if (this.pendingLightboxOpen !== null) {
 			const action = this.pendingLightboxOpen;
 			this.pendingLightboxOpen = null;
-			const links = this.container.find('a.avpvh-grid-a[data-pswp-width]').get();
+			const links = this.container
+				.find('a.avpvh-grid-a[data-pswp-width]')
+				.get();
 			if (0 < links.length) {
 				const index = 'first' === action ? 0 : links.length - 1;
 				this.lightbox.loadAndOpen(index);
@@ -1228,15 +1364,20 @@ export class Shortcode {
 		if (pswp !== undefined) {
 			// Check if a video is currently playing
 			const currentSlide = pswp.currSlide;
-			const currentElement = currentSlide?.data?.element;
-			const isVideoPlaying = currentElement instanceof HTMLElement &&
+			const currentElement = currentSlide?.data.element;
+			const isVideoPlaying =
+				currentElement instanceof HTMLElement &&
 				currentElement.dataset['pswpType'] === 'video' &&
-				currentElement.querySelector('video:not([style*="display: none"])') !== null;
+				currentElement.querySelector(
+					'video:not([style*="display: none"])'
+				) !== null;
 
 			// Only clear the items cache if not playing a video
 			// (clearing while video plays can interrupt playback)
 			if (!isVideoPlaying) {
-				const ds = pswp.options.dataSource as Record<string, unknown> | undefined;
+				const ds = pswp.options.dataSource as
+					| Record<string, unknown>
+					| undefined;
 				if (ds !== undefined) {
 					delete ds['items'];
 				}
@@ -1262,7 +1403,11 @@ export class Shortcode {
 	private fixPhotoSwipeDimensions(): void {
 		this.container.find('a.avpvh-grid-a[data-pswp-width]').each((_, el) => {
 			const img = el.querySelector('img');
-			if (img === null || img.naturalWidth === 0 || img.naturalHeight === 0) {
+			if (
+				img === null ||
+				img.naturalWidth === 0 ||
+				img.naturalHeight === 0
+			) {
 				return;
 			}
 			// Extract the preview size from the href URL which ends with =s{size}
@@ -1311,9 +1456,7 @@ export class Shortcode {
 			return false;
 		});
 
-		this.container
-			.find('.avpvh-gallery')
-			.addClass('avpvh-gallery-loaded');
+		this.container.find('.avpvh-gallery').addClass('avpvh-gallery-loaded');
 		ShortcodeRegistry.reflowAll();
 
 		// Click on EXIF overlay: copy full path to clipboard, don't open lightbox
@@ -1323,10 +1466,10 @@ export class Shortcode {
 			.on('click.avpvh-copy', (e) => {
 				e.preventDefault();
 				e.stopPropagation();
-				const anchor = (e.currentTarget as HTMLElement).closest('a');
+				const anchor = e.currentTarget.closest('a');
 				const fullPath = anchor?.dataset['avpvhFullpath'] ?? '';
 				void navigator.clipboard.writeText(fullPath).then(() => {
-					const el = e.currentTarget as HTMLElement;
+					const el = e.currentTarget;
 					const original = el.innerHTML;
 					el.innerHTML =
 						'<div class="avpvh-exif-filename">Gekopieerd!</div>';
@@ -1376,13 +1519,23 @@ export class Shortcode {
 	private renderBreadcrumbs(path: Array<PartialDirectory>): string {
 		const faviconUrl = this.faviconUrl;
 		// Parent path = all but last segment, joined with /
-		const parentPath = path.slice(0, -1).map((c) => c.id).join('/');
-		const upIcon = '' !== faviconUrl
-			? '<img src="' + faviconUrl + '" alt="Up" style="height:1.5em;width:1.5em;vertical-align:middle;border-radius:2px;object-fit:contain;transform:rotate(-45deg)">'
-			: '&#8679;';
+		const parentPath = path
+			.slice(0, -1)
+			.map((c) => c.id)
+			.join('/');
+		const upIcon =
+			'' !== faviconUrl
+				? '<img src="' +
+					faviconUrl +
+					'" alt="Up" style="height:1.5em;width:1.5em;vertical-align:middle;border-radius:2px;object-fit:contain;transform:rotate(-45deg)">'
+				: '&#8679;';
 		let html =
 			'<div class="avpvh-breadcrumbs">' +
-			'<a class="avpvh-breadcrumb-up" data-avpvh-path="' + parentPath + '" href="' + this.pathQueryParameter.add(parentPath) + '">' +
+			'<a class="avpvh-breadcrumb-up" data-avpvh-path="' +
+			parentPath +
+			'" href="' +
+			this.pathQueryParameter.add(parentPath) +
+			'">' +
 			upIcon +
 			'</a>';
 		let field = '';
@@ -1434,7 +1587,7 @@ export class Shortcode {
 			html +=
 				' style="background-image: url(\'' +
 				directory.thumbnail +
-				'\')">'; 
+				'\')">';
 		} else {
 			html += '>';
 
@@ -1454,7 +1607,8 @@ export class Shortcode {
 					const displayName = isTruncated
 						? sub.name.substring(0, 5) + '…'
 						: sub.name;
-					html += '<div class="avpvh-dir-sublist-item' +
+					html +=
+						'<div class="avpvh-dir-sublist-item' +
 						(isTruncated ? ' avpvh-dir-sublist-more' : '') +
 						'">' +
 						displayName +
@@ -1474,32 +1628,38 @@ export class Shortcode {
 		if (directory.dircount !== undefined && directory.dircount > 0) {
 			countParts.push(
 				'<span>' +
-				Shortcode.SVG_FOLDER + ' ' +
-				directory.dircount.toString() +
-				(1000 === directory.dircount ? '+' : '') +
-				'</span>'
+					Shortcode.SVG_FOLDER +
+					' ' +
+					directory.dircount.toString() +
+					(1000 === directory.dircount ? '+' : '') +
+					'</span>'
 			);
 		}
 		if (directory.imagecount !== undefined && directory.imagecount > 0) {
 			countParts.push(
 				'<span>' +
-				Shortcode.SVG_IMAGE + ' ' +
-				directory.imagecount.toString() +
-				(1000 === directory.imagecount ? '+' : '') +
-				'</span>'
+					Shortcode.SVG_IMAGE +
+					' ' +
+					directory.imagecount.toString() +
+					(1000 === directory.imagecount ? '+' : '') +
+					'</span>'
 			);
 		}
 		if (directory.videocount !== undefined && directory.videocount > 0) {
 			countParts.push(
 				'<span>' +
-				Shortcode.SVG_VIDEO + ' ' +
-				directory.videocount.toString() +
-				(1000 === directory.videocount ? '+' : '') +
-				'</span>'
+					Shortcode.SVG_VIDEO +
+					' ' +
+					directory.videocount.toString() +
+					(1000 === directory.videocount ? '+' : '') +
+					'</span>'
 			);
 		}
 		if (0 < countParts.length) {
-			html += '<div class="avpvh-dir-counts">' + countParts.join('') + '</div>';
+			html +=
+				'<div class="avpvh-dir-counts">' +
+				countParts.join('') +
+				'</div>';
 		}
 		html += '</div></a>';
 		return html;
@@ -1538,7 +1698,10 @@ export class Shortcode {
 
 	private static formatExifDate(time: string): string {
 		// EXIF time format: "YYYY:MM:DD HH:MM:SS"
-		const match = /^(\d{4}):(\d{2}):(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(time);
+		const match =
+			/^(\d{4}):(\d{2}):(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(
+				time
+			);
 		if (match === null) {
 			return '';
 		}
@@ -1550,7 +1713,10 @@ export class Shortcode {
 		return date + ' ' + match[4] + ':' + match[5] + seconds;
 	}
 
-	private static renderExifOverlay(fullPath: string, exif: ImageExif | undefined): string {
+	private static renderExifOverlay(
+		fullPath: string,
+		exif: ImageExif | undefined
+	): string {
 		const parts: Array<string> = [];
 		if (exif !== undefined) {
 			if (exif.time !== undefined) {
@@ -1559,7 +1725,11 @@ export class Shortcode {
 					parts.push(d);
 				}
 			}
-			const camera = [exif.make, exif.model].filter((x) => x !== undefined).join(' ').replace(/\s+/g, ' ').trim();
+			const camera = [exif.make, exif.model]
+				.filter((x) => x !== undefined)
+				.join(' ')
+				.replace(/\s+/g, ' ')
+				.trim();
 			if ('' !== camera) {
 				parts.push(camera);
 			}
@@ -1583,19 +1753,25 @@ export class Shortcode {
 		if ('' === fullPath && 0 === parts.length) {
 			return '';
 		}
-		const nameHtml = '' !== fullPath
-			? '<div class="avpvh-exif-filename">' + fullPath + '</div>'
-			: '';
-		const exifHtml = 0 < parts.length
-			? '<div class="avpvh-exif-data">' + parts.join(' · ') + '</div>'
-			: '';
-		return '<div class="avpvh-exif-overlay">' + nameHtml + exifHtml + '</div>';
+		const nameHtml =
+			'' !== fullPath
+				? '<div class="avpvh-exif-filename">' + fullPath + '</div>'
+				: '';
+		const exifHtml =
+			0 < parts.length
+				? '<div class="avpvh-exif-data">' + parts.join(' · ') + '</div>'
+				: '';
+		return (
+			'<div class="avpvh-exif-overlay">' + nameHtml + exifHtml + '</div>'
+		);
 	}
 
 	private renderImage(page: number, image: Image): string {
 		const width = 0 < image.width ? image.width : 2000;
 		const height = 0 < image.height ? image.height : 1500;
-		const orientationAttr = image.exif?.orientation ? ' data-exif-orientation="' + image.exif.orientation + '"' : '';
+		const orientationAttr = image.exif?.orientation
+			? ' data-exif-orientation="' + image.exif.orientation + '"'
+			: '';
 
 		// Format EXIF data for data attribute (used by lightbox)
 		const exifParts: Array<string> = [];
@@ -1606,7 +1782,11 @@ export class Shortcode {
 					exifParts.push(d);
 				}
 			}
-			const camera = [image.exif.make, image.exif.model].filter((x) => x !== undefined).join(' ').replace(/\s+/g, ' ').trim();
+			const camera = [image.exif.make, image.exif.model]
+				.filter((x) => x !== undefined)
+				.join(' ')
+				.replace(/\s+/g, ' ')
+				.trim();
 			if ('' !== camera) {
 				exifParts.push(camera);
 			}
@@ -1622,11 +1802,19 @@ export class Shortcode {
 			if (image.exif.iso !== undefined) {
 				exifParts.push('ISO ' + String(image.exif.iso));
 			}
-			if (image.exif.orientation !== undefined && 0 !== image.exif.orientation) {
-				exifParts.push('Rotation ' + String(image.exif.orientation) + '°');
+			if (
+				image.exif.orientation !== undefined &&
+				0 !== image.exif.orientation
+			) {
+				exifParts.push(
+					'Rotation ' + String(image.exif.orientation) + '°'
+				);
 			}
 		}
-		const exifAttr = 0 < exifParts.length ? ' data-avpvh-exif="' + exifParts.join(' · ') + '"' : '';
+		const exifAttr =
+			0 < exifParts.length
+				? ' data-avpvh-exif="' + exifParts.join(' · ') + '"'
+				: '';
 
 		return (
 			'<a class="avpvh-grid-a" ' +
@@ -1648,7 +1836,8 @@ export class Shortcode {
 			'href="' +
 			image.image +
 			'" data-avpvh-fullpath="' +
-			('' !== this.currentPathNames ? this.currentPathNames + '/' : '') + image.name +
+			('' !== this.currentPathNames ? this.currentPathNames + '/' : '') +
+			image.name +
 			'"' +
 			orientationAttr +
 			exifAttr +
@@ -1657,7 +1846,9 @@ export class Shortcode {
 			image.thumbnail +
 			'">' +
 			Shortcode.renderExifOverlay(
-				('' !== this.currentPathNames ? this.currentPathNames + '/' : '') + image.name,
+				('' !== this.currentPathNames
+					? this.currentPathNames + '/'
+					: '') + image.name,
 				image.exif
 			) +
 			'</a>'
@@ -1672,7 +1863,10 @@ export class Shortcode {
 		const metadataParts: Array<string> = [];
 		metadataParts.push(Shortcode.formatResolution(width, height));
 		// Note: duration and filesize would be added here if available from API
-		const exifAttr = metadataParts.length > 0 ? ' data-avpvh-exif="' + metadataParts.join(' · ') + '"' : '';
+		const exifAttr =
+			metadataParts.length > 0
+				? ' data-avpvh-exif="' + metadataParts.join(' · ') + '"'
+				: '';
 
 		return (
 			'<a class="avpvh-grid-a" ' +
@@ -1698,16 +1892,21 @@ export class Shortcode {
 			'href="' +
 			video.src +
 			'" data-avpvh-fullpath="' +
-			('' !== this.currentPathNames ? this.currentPathNames + '/' : '') + video.id +
+			('' !== this.currentPathNames ? this.currentPathNames + '/' : '') +
+			video.id +
 			'"' +
 			exifAttr +
 			'>' +
 			'<img class="avpvh-grid-img" src="' +
 			video.thumbnail +
 			'">' +
-			'<div class="avpvh-video-play-btn">' + Shortcode.SVG_VIDEO + '</div>' +
+			'<div class="avpvh-video-play-btn">' +
+			Shortcode.SVG_VIDEO +
+			'</div>' +
 			Shortcode.renderExifOverlay(
-				('' !== this.currentPathNames ? this.currentPathNames + '/' : '') + video.id,
+				('' !== this.currentPathNames
+					? this.currentPathNames + '/'
+					: '') + video.id,
 				undefined
 			) +
 			'</a>'
@@ -1715,4 +1914,4 @@ export class Shortcode {
 	}
 }
 
-/* eslint-enable @typescript-eslint/member-ordering, @typescript-eslint/class-methods-use-this -- Re-enable rules after class definition */
+/* eslint-enable @typescript-eslint/member-ordering -- Re-enable rules after class definition */

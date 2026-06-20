@@ -50,16 +50,16 @@ final class Main {
 	 * @return void
 	 */
 	public static function activate() {
-		if ( ! isset( $GLOBALS['wp_version'] ) || version_compare( $GLOBALS['wp_version'], '4.9.6', '<' ) ) {
+		if ( ! isset( $GLOBALS['wp_version'] ) || version_compare( $GLOBALS['wp_version'], '6.5', '<' ) ) {
 			deactivate_plugins( plugin_basename( __FILE__ ) );
 			wp_die(
-				esc_html__( 'Google Drive gallery requires at least WordPress 4.9.6', 'avpvh-gallery' )
+				esc_html__( 'Google Drive gallery requires at least WordPress 6.5', 'avpvh-gallery' )
 			);
 		}
 
-		if ( version_compare( phpversion(), '5.6', '<' ) ) {
+		if ( version_compare( phpversion(), '8.1', '<' ) ) {
 			deactivate_plugins( plugin_basename( __FILE__ ) );
-			wp_die( esc_html__( 'Google Drive gallery requires at least PHP 5.6', 'avpvh-gallery' ) );
+			wp_die( esc_html__( 'Google Drive gallery requires at least PHP 8.1', 'avpvh-gallery' ) );
 		}
 
 		// Create photo tagging tables
