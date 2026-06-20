@@ -61,6 +61,11 @@ final class API_Facade {
 		return API_Client::async_request(
 			// @phan-suppress-next-line PhanTypeMismatchArgument
 			API_Client::get_drive_client()->files->listFiles( $params ),
+			/**
+			 * Directory resolver callback.
+			 *
+			 * @throws Directory_Not_Found_Exception When directory not found.
+			 */
 			static function ( $response ) use ( $name ) {
 				if ( 1 !== count( $response->getFiles() ) ) {
 					throw new Directory_Not_Found_Exception( esc_html( $name ) );

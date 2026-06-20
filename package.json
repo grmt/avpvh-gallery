@@ -32,7 +32,7 @@
     "build": "run-p -c --aggregate-output build:*",
     "lint:css:stylelint": "stylelint --color 'src/**/*.css'",
     "lint:css": "run-p -c --aggregate-output lint:css:*",
-    "lint:php:phan": "export PHAN_DISABLE_XDEBUG_WARN=1; vendor/bin/phan",
+    "lint:php:phan": "export PHAN_DISABLE_XDEBUG_WARN=1; vendor/bin/phan --allow-polyfill-parser",
     "lint:php:phpcs": "vendor/bin/phpcs",
     "lint:php:phpmd": "vendor/bin/phpmd src,tests,.phan/config.php,scoper.inc.php text phpmd.xml",
     "lint:php:phpstan": "vendor/bin/phpstan",

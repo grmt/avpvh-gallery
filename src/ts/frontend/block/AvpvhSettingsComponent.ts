@@ -29,21 +29,25 @@ export abstract class AvpvhSettingsComponent extends Component<
 	public override render(): React.ReactNode {
 		const { editor, name } = this.props;
 		const disabled = undefined === editor.getAttribute(name);
-		return createElement('div', { className: 'avpvh-block-settings-row ' }, [
-			createElement(ToggleControl, {
-				checked: !disabled,
-				label: createElement(
-					'span',
-					{ className: 'avpvh-block-settings-description' },
-					[avpvhBlockLocalize[name].name, ':']
-				),
-				className: 'avpvh-block-settings-checkbox',
-				onChange: () => {
-					this.toggle();
-				},
-			}),
-			this.renderInput(),
-		]);
+		return createElement(
+			'div',
+			{ className: 'avpvh-block-settings-row ' },
+			[
+				createElement(ToggleControl, {
+					checked: !disabled,
+					label: createElement(
+						'span',
+						{ className: 'avpvh-block-settings-description' },
+						[avpvhBlockLocalize[name].name, ':']
+					),
+					className: 'avpvh-block-settings-checkbox',
+					onChange: () => {
+						this.toggle();
+					},
+				}),
+				this.renderInput(),
+			]
+		);
 	}
 
 	protected change(e: React.FormEvent): void {

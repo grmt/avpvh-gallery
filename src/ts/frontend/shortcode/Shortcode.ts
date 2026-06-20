@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/member-ordering, @typescript-eslint/class-methods-use-this -- Disabled because PhotoSwipe v5 integration requires specific method declarations and helper methods */
 import $ from 'jquery';
 import { default as justifiedLayout } from 'justified-layout';
 import PhotoSwipe from 'photoswipe';
+// eslint-disable-next-line import/no-unresolved -- PhotoSwipe subpath exports are standard but modern, so ESLint import plugin has issues resolving them
 import PhotoSwipeLightbox from 'photoswipe/lightbox';
 
 import { isError } from '../../isError';
@@ -8,7 +10,21 @@ import { printError } from '../../printError';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
 
+function escapeHtml(unsafe: string): string {
+	return unsafe
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#039;');
+}
+
 export class Shortcode {
+	private static readonly cache = new Map<
+		string,
+		GalleryResponse | PageResponse
+	>();
+
 	private readonly container: JQuery;
 	private readonly hash: string;
 	private readonly shortHash: string;
@@ -47,16 +63,25 @@ export class Shortcode {
 			pswpModule: PhotoSwipe,
 			showHideAnimationType: 'fade',
 			loop: 'true' !== avpvhShortcodeLocalize.preview_quitOnEnd,
-			showHideAnimationDuration: parseInt(
+			showAnimationDuration: parseInt(
+				avpvhShortcodeLocalize.preview_speed,
+				10
+			),
+			hideAnimationDuration: parseInt(
 				avpvhShortcodeLocalize.preview_speed,
 				10
 			),
 			close: 'true' === avpvhShortcodeLocalize.preview_closebutton,
+			arrowPrev: 'true' === avpvhShortcodeLocalize.preview_arrows,
+			arrowNext: 'true' === avpvhShortcodeLocalize.preview_arrows,
 		});
 
 		lightbox.addFilter('itemData', (itemData) => {
 			const el = itemData.element;
-			if (el instanceof HTMLElement && 'video' === el.dataset['pswpType']) {
+			if (
+				el instanceof HTMLElement &&
+				'video' === el.dataset['pswpType']
+			) {
 				return {
 					...itemData,
 					type: 'video',
@@ -190,8 +215,15 @@ export class Shortcode {
 			.children()
 			.each((i, child) => {
 				$(child).css('display', 'inline-block');
-				const image = child.firstChild as HTMLImageElement;
-				let ratio = image.naturalWidth / image.naturalHeight;
+				let ratio = NaN;
+				const pswpWidth = $(child).attr('data-pswp-width');
+				const pswpHeight = $(child).attr('data-pswp-height');
+				if (pswpWidth !== undefined && pswpHeight !== undefined) {
+					ratio = parseFloat(pswpWidth) / parseFloat(pswpHeight);
+				} else {
+					const image = child.firstChild as HTMLImageElement;
+					ratio = image.naturalWidth / image.naturalHeight;
+				}
 				if (0 < $(child).find('svg').length) {
 					const bbox = (
 						$(child).find('svg')[0] as SVGGraphicsElement
@@ -267,6 +299,20 @@ export class Shortcode {
 			.replaceWith('<div class="avpvh-loading"><div></div></div>');
 		this.container.find('.avpvh-more-button').remove();
 		ShortcodeRegistry.reflowAll();
+
+		const cacheKey = `gallery-${this.hash}-${this.path}-${this.lastPage.toString()}`;
+		if (Shortcode.cache.has(cacheKey)) {
+			const cachedData = Shortcode.cache.get(cacheKey) as GalleryResponse;
+			if (isError(cachedData)) {
+				this.container.html(
+					printError(cachedData, avpvhShortcodeLocalize)
+				);
+			} else {
+				this.getSuccess(cachedData);
+			}
+			return;
+		}
+
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
 			{
@@ -282,6 +328,7 @@ export class Shortcode {
 					);
 					return;
 				}
+				Shortcode.cache.set(cacheKey, data);
 				this.getSuccess(data);
 			}
 		);
@@ -390,6 +437,23 @@ export class Shortcode {
 				'<div class="avpvh-loading">' + '<div>' + '</div>' + '</div>'
 			);
 		this.container.find('.avpvh-more-button').remove();
+
+		const cacheKey = `page-${this.hash}-${this.pathQueryParameter.get()}-${this.lastPage.toString()}`;
+		if (Shortcode.cache.has(cacheKey)) {
+			const cachedData = Shortcode.cache.get(cacheKey) as PageResponse;
+			if (isError(cachedData)) {
+				this.container
+					.find('.avpvh-loading')
+					.replaceWith(
+						printError(cachedData, avpvhShortcodeLocalize)
+					);
+				this.container.find('.avpvh-more-button').remove();
+			} else {
+				this.addSuccess(cachedData);
+			}
+			return;
+		}
+
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
 			{
@@ -406,6 +470,7 @@ export class Shortcode {
 					this.container.find('.avpvh-more-button').remove();
 					return;
 				}
+				Shortcode.cache.set(cacheKey, data);
 				this.addSuccess(data);
 			}
 		);
@@ -450,6 +515,9 @@ export class Shortcode {
 			this.add();
 			return false;
 		});
+
+		this.container.find('.avpvh-gallery').addClass('avpvh-gallery-loaded');
+		ShortcodeRegistry.reflowAll();
 
 		this.loading = true;
 		void this.container
@@ -505,7 +573,7 @@ export class Shortcode {
 				'" href="' +
 				this.pathQueryParameter.add(field) +
 				'">' +
-				crumb.name +
+				escapeHtml(crumb.name) +
 				'</a>';
 			field += '/';
 		});
@@ -538,7 +606,7 @@ export class Shortcode {
 		html +=
 			'<div class="avpvh-dir-overlay">' +
 			'<div class="avpvh-dir-name">' +
-			directory.name +
+			escapeHtml(directory.name) +
 			'</div>';
 		if (directory.dircount !== undefined) {
 			html +=
@@ -595,7 +663,7 @@ export class Shortcode {
 			image.id +
 			'" ' +
 			'data-avpvh-caption="' +
-			image.description +
+			escapeHtml(image.description) +
 			'" ' +
 			'data-avpvh-page="' +
 			page.toString() +
@@ -644,3 +712,5 @@ export class Shortcode {
 		);
 	}
 }
+
+/* eslint-enable @typescript-eslint/member-ordering, @typescript-eslint/class-methods-use-this -- Re-enable rules after class definition */

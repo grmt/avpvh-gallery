@@ -7,7 +7,6 @@
 
 namespace Avpvh\Frontend\Page;
 
-use DateTime;
 use Avpvh\API_Facade;
 use Avpvh\Exceptions\Internal_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
@@ -16,6 +15,7 @@ use Avpvh\Frontend\API_Fields;
 use Avpvh\Frontend\Options_Proxy;
 use Avpvh\Frontend\Pagination_Helper;
 use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
+use DateTime;
 
 /**
  * Contains all the functions used to display images in a gallery.
@@ -63,7 +63,9 @@ final class Images {
 			static function ( $image_response ) use ( $options ) {
 				$images = array_map(
 					static function ( $image ) use ( $options ) {
-						$metadata = array_key_exists( 'imageMediaMetadata', $image ) && is_array( $image['imageMediaMetadata'] )
+						$metadata = array_key_exists( 'imageMediaMetadata', $image ) && is_array(
+							$image['imageMediaMetadata']
+						)
 							? $image['imageMediaMetadata']
 							: array();
 						$width    = array_key_exists( 'width', $metadata ) && is_numeric( $metadata['width'] )

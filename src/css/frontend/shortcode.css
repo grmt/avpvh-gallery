@@ -4,6 +4,12 @@
 
 .avpvh-gallery {
 	margin: 1em auto 0;
+	opacity: 0;
+	transition: opacity 0.25s ease-in-out;
+}
+
+.avpvh-gallery-loaded {
+	opacity: 1 !important;
 }
 
 .avpvh-grid-a {
@@ -138,3 +144,50 @@
 	max-height: 100%;
 	max-width: 100%;
 }
+
+/* stylelint-disable selector-class-pattern */
+
+/* Protect PhotoSwipe navigation arrows from theme conflicts */
+.pswp__button--arrow,
+.pswp__button--arrow::before,
+.pswp__button--arrow::after {
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	min-height: 0 !important;
+	min-width: 0 !important;
+	padding: 0 !important;
+}
+
+.pswp__button--arrow svg {
+	background: none !important;
+	box-shadow: none !important;
+	display: block !important;
+	height: 30px !important;
+	left: 30px !important;
+	margin: 0 !important;
+	max-height: none !important;
+	max-width: none !important;
+	padding: 0 !important;
+	position: absolute !important;
+	top: 35px !important;
+	width: 30px !important;
+}
+
+/* Force arrows to be properly sized and centered on mobile touch devices */
+@media (width <= 768px) {
+
+	.pswp__button--arrow {
+		height: 60px !important;
+		margin-top: -30px !important;
+		width: 60px !important;
+	}
+
+	.pswp__button--arrow svg {
+		height: 30px !important;
+		left: 15px !important;
+		top: 15px !important;
+		width: 30px !important;
+	}
+}
+/* stylelint-enable selector-class-pattern */

@@ -8,8 +8,6 @@
 namespace Avpvh;
 
 use ArrayAccess;
-use Countable;
-use Iterator;
 use Avpvh\Exceptions\API_Exception;
 use Avpvh\Exceptions\API_Rate_Limit_Exception;
 use Avpvh\Exceptions\Exception as Avpvh_Exception;
@@ -30,6 +28,8 @@ use Avpvh\Vendor\GuzzleHttp\Promise\Promise;
 use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
 use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
 use Avpvh\Vendor\GuzzleHttp\Psr7\Request;
+use Countable;
+use Iterator;
 use Traversable;
 
 /**
@@ -315,11 +315,16 @@ final class API_Client {
 		 *
 		 * @throws Google_Service_Exception Rate limit excepted.
 		 */
-		$task      = new Runner(
+		$task = new Runner(
 			array(
 				'retries' => 100,
 			),
 			'Batch Drive call',
+			/**
+			 * Task runner callback.
+			 *
+			 * @throws Google_Service_Exception API exception.
+			 */
 			static function () use ( $batch ) {
 				$ret = $batch->execute();
 

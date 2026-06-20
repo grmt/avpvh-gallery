@@ -78,14 +78,29 @@ final class Gallery {
 			new Paging_Pagination_Helper()
 		)->withOptions( $options, true );
 		$raw_path                                        = GET_Helpers::get_string_variable( 'path' );
-		$path_name_promise                               = self::path_names(
+		$page_num                                        = GET_Helpers::get_string_variable( 'page' );
+
+		$cache_key = 'avp_g_' . md5(
+			$parent_id . '_' . $raw_path . '_' . $page_num . '_' . wp_json_encode( $options->export_overriden() )
+		);
+		$cached    = get_transient( $cache_key );
+
+		if ( false !== $cached ) {
+			wp_send_json( $cached );
+
+			return;
+		}
+
+		$path_name_promise       = self::path_names(
 			'' !== $raw_path ? explode( '/', $raw_path ) : array(),
 			$options
 		);
-		list($page, $path_names)                         = API_Client::execute(
+		list($page, $path_names) = API_Client::execute(
 			array( Page::get( $parent_id, $pagination_helper, $options ), $path_name_promise, $path_verification )
 		);
-		$page['path']                                    = $path_names;
+		$page['path']            = $path_names;
+
+		set_transient( $cache_key, $page, 3600 );
 		wp_send_json( $page );
 	}
 

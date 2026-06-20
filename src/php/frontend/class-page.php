@@ -22,6 +22,7 @@ use Avpvh\Frontend\Page\Directories;
 use Avpvh\Frontend\Page\Images;
 use Avpvh\Frontend\Page\Videos;
 use Avpvh\Frontend\Paging_Pagination_Helper;
+use Avpvh\GET_Helpers;
 use Avpvh\Helpers;
 use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
 use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
@@ -78,8 +79,24 @@ final class Page {
 			new Paging_Pagination_Helper()
 		)->withOptions( $options, false );
 
+		$raw_path = GET_Helpers::get_string_variable( 'path' );
+		$page_num = GET_Helpers::get_string_variable( 'page' );
+
+		$cache_key = 'avp_p_' . md5(
+			$parent_id . '_' . $raw_path . '_' . $page_num . '_' . wp_json_encode( $options->export_overriden() )
+		);
+		$cached    = get_transient( $cache_key );
+
+		if ( false !== $cached ) {
+			wp_send_json( $cached );
+
+			return;
+		}
+
 		$page_promise = self::get( $parent_id, $pagination_helper, $options );
 		list( $page ) = API_Client::execute( array( $page_promise, $path_verification ) );
+
+		set_transient( $cache_key, $page, 3600 );
 		wp_send_json( $page );
 	}
 

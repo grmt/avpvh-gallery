@@ -28,16 +28,20 @@ gulp.task('build:css', gulp.parallel('build:css:admin', 'build:css:frontend'));
 
 gulp.task(
 	'build:deps:composer:scoper',
-	gulp.series(shell.task('php -d memory_limit=512M -d error_reporting=24575 vendor/bin/php-scoper add-prefix --force'), () =>
-		gulp
-			.src(['dist/vendor/composer/autoload_real.php'])
-			.pipe(
-				replace(
-					"$GLOBALS['__composer_autoload_files']",
-					"$GLOBALS['__composer_autoload_files_Avpvh_Vendor']"
+	gulp.series(
+		shell.task(
+			'php -d memory_limit=512M -d error_reporting=24575 vendor/bin/php-scoper add-prefix --force'
+		),
+		() =>
+			gulp
+				.src(['dist/vendor/composer/autoload_real.php'])
+				.pipe(
+					replace(
+						"$GLOBALS['__composer_autoload_files']",
+						"$GLOBALS['__composer_autoload_files_Avpvh_Vendor']"
+					)
 				)
-			)
-			.pipe(gulp.dest('dist/vendor/composer/'))
+				.pipe(gulp.dest('dist/vendor/composer/'))
 	)
 );
 
@@ -116,7 +120,9 @@ gulp.task(
 		}),
 		shell.task(
 			[
-				'npm --script-shell "C:/Program Files/Git/bin/bash.exe" run build',
+				process.platform === 'win32'
+					? 'npm --script-shell "C:/Program Files/Git/bin/bash.exe" run build'
+					: 'npm run build',
 			],
 			{ cwd: 'node_modules/justified-layout' }
 		),

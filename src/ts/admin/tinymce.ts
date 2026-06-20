@@ -10,7 +10,9 @@ function tinymceSubmit(): void {
 	if ($('#avpvh-tinymce-insert').attr('disabled') !== undefined) {
 		return;
 	}
-	tinymce.activeEditor?.insertContent('[avpvh path="' + path.join('/') + '"]');
+	tinymce.activeEditor?.insertContent(
+		'[avpvh path="' + path.join('/') + '"]'
+	);
 	tb_remove();
 }
 

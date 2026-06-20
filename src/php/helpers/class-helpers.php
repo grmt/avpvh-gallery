@@ -7,8 +7,8 @@
 
 namespace Avpvh;
 
-use Exception as Base_Exception;
 use Avpvh\Exceptions\Exception as Avpvh_Exception;
+use Exception as Base_Exception;
 use const WP_DEBUG;
 use const WP_DEBUG_DISPLAY;
 

@@ -7,7 +7,6 @@
 
 namespace Avpvh\Frontend;
 
-use Exception as Base_Exception;
 use Avpvh\API_Client;
 use Avpvh\API_Facade;
 use Avpvh\Exceptions\API_Exception;
@@ -24,6 +23,7 @@ use Avpvh\Options;
 use Avpvh\Script_And_Style_Helpers;
 use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
 use Avpvh\Vendor\GuzzleHttp\Promise\RejectedPromise;
+use Exception as Base_Exception;
 use const DAY_IN_SECONDS;
 
 /**
@@ -165,7 +165,7 @@ final class Shortcode {
 				'overriden' => $options->export_overriden(),
 				'root'      => $root,
 			),
-			DAY_IN_SECONDS
+			30 * DAY_IN_SECONDS
 		);
 
 		return '<div class="avpvh-gallery-container" data-avpvh-hash="' .

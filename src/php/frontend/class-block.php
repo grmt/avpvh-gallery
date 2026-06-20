@@ -7,12 +7,12 @@
 
 namespace Avpvh\Frontend;
 
-use Exception as Base_Exception;
 use Avpvh\Exceptions\Exception as Avpvh_Exception;
 use Avpvh\Frontend\Options_Proxy;
 use Avpvh\Frontend\Shortcode;
 use Avpvh\Helpers;
 use Avpvh\Script_And_Style_Helpers;
+use Exception as Base_Exception;
 
 /**
  * Adds a gallery block to the Gutenberg editor.
