@@ -11,7 +11,7 @@
 Plugin Name:       AVPVH Gallery
 Plugin URI:        https://github.com/skaut/avpvh-gallery/
 Description:       A WordPress gallery using Google Drive as file storage
-Version:           2.13.14
+Version:           2.13.14.0.0
 Requires at least: 6.5
 Requires PHP:      8.1
 Author:            Junák - český skaut
