@@ -1,23 +1,25 @@
 {
   "name": "avpvh-gallery",
-  "version": "2.13.14.1",
+  "version": "2.13.14.2",
   "description": "A WordPress gallery using Google Drive as file storage",
   "keywords": [
     "wordpress",
-    "skaut",
     "google",
     "drive",
     "gallery"
   ],
-  "homepage": "https://wordpress.org/plugins/avpvh-gallery",
+  "homepage": "https://github.com/grmt/avpvh-gallery",
   "bugs": {
-    "url": "https://github.com/skaut/avpvh-gallery/issues"
+    "url": "https://github.com/grmt/avpvh-gallery/issues"
   },
   "license": "MIT",
-  "author": "Marek Dědič",
+  "author": "Garmt Boekholt <info@avphilipsvanhorne.nl>",
+  "contributors": [
+    "Marek Dědič (original author, Junák - český skaut)"
+  ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/skaut/avpvh-gallery.git"
+    "url": "git+https://github.com/grmt/avpvh-gallery.git"
   },
   "type": "module",
   "scripts": {
