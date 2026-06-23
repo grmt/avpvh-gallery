@@ -4,7 +4,7 @@
   xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd"
   backupGlobals="false"
   backupStaticAttributes="false"
-  bootstrap="tests/bootstrap.php"
+  bootstrap="../tests/bootstrap.php"
   cacheResult="false"
   colors="true"
   convertErrorsToExceptions="true"
@@ -25,36 +25,36 @@
 >
   <coverage>
     <include>
-      <directory suffix=".php">dist/</directory>
+      <directory suffix=".php">../dist/</directory>
     </include>
     <exclude>
-      <directory>dist/vendor/</directory>
+      <directory>../dist/vendor/</directory>
     </exclude>
     <report>
-      <clover outputFile="clover.xml"/>
+      <clover outputFile="../clover.xml"/>
       <text outputFile="php://stdout" showUncoveredFiles="false"/>
     </report>
   </coverage>
   <!-- For older versions of PHPUnit -->
   <filter>
     <whitelist processUncoveredFilesFromWhitelist="true">
-      <directory suffix=".php">dist/</directory>
+      <directory suffix=".php">../dist/</directory>
       <exclude>
-        <directory suffix=".php">dist/vendor/</directory>
-        <file>dist/uninstall.php</file>
+        <directory suffix=".php">../dist/vendor/</directory>
+        <file>../dist/uninstall.php</file>
       </exclude>
     </whitelist>
   </filter>
   <php>
-    <server name="DOCUMENT_ROOT" value="tests"/>
+    <server name="DOCUMENT_ROOT" value="../tests"/>
   </php>
   <testsuites>
     <testsuite name="unit">
-      <directory>tests/unit/</directory>
+      <directory>../tests/unit/</directory>
     </testsuite>
   </testsuites>
   <!-- For older versions of PHPUnit -->
   <logging>
-    <log type="coverage-clover" target="clover.xml"/>
+    <log type="coverage-clover" target="../clover.xml"/>
   </logging>
 </phpunit>

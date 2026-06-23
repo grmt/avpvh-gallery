@@ -28,16 +28,20 @@ gulp.task('build:css', gulp.parallel('build:css:admin', 'build:css:frontend'));
 
 gulp.task(
 	'build:deps:composer:scoper',
-	gulp.series(shell.task('vendor/bin/php-scoper add-prefix --force'), () =>
-		gulp
-			.src(['dist/vendor/scoper-autoload.php'])
-			.pipe(
-				replace(
-					"$GLOBALS['__composer_autoload_files']",
-					"$GLOBALS['__composer_autoload_files_Sgdg_Vendor']"
+	gulp.series(
+		shell.task(
+			'php -d memory_limit=512M -d error_reporting=24575 vendor/bin/php-scoper add-prefix --config config/scoper.inc.php --force'
+		),
+		() =>
+			gulp
+				.src(['dist/vendor/composer/autoload_real.php'])
+				.pipe(
+					replace(
+						"$GLOBALS['__composer_autoload_files']",
+						"$GLOBALS['__composer_autoload_files_Avpvh_Vendor']"
+					)
 				)
-			)
-			.pipe(gulp.dest('dist/vendor/'))
+				.pipe(gulp.dest('dist/vendor/composer/'))
 	)
 );
 
@@ -66,12 +70,12 @@ gulp.task(
 								} else if (mode === 'classMap') {
 									line = line.replace(
 										/^(\s*)'([^']*)' =>/,
-										"$1'Sgdg\\\\Vendor\\\\$2' =>"
+										"$1'Avpvh\\\\Vendor\\\\$2' =>"
 									);
 								} else {
 									line = line.replace(
 										'namespace Composer\\Autoload;',
-										'namespace Sgdg\\Vendor\\Composer\\Autoload;'
+										'namespace Avpvh\\Vendor\\Composer\\Autoload;'
 									);
 								}
 								return line;
@@ -94,19 +98,12 @@ gulp.task(
 	gulp.series('build:deps:composer:scoper', 'build:deps:composer:autoloader')
 );
 
-gulp.task(
-	'build:deps:npm:imagelightbox',
-	gulp.parallel(
-		() =>
-			gulp
-				.src(['node_modules/imagelightbox/dist/imagelightbox.css'])
-				.pipe(gulp.dest('dist/bundled/')),
-		() =>
-			gulp
-				.src(['node_modules/imagelightbox/dist/imagelightbox.umd.cjs'])
-				.pipe(rename('imagelightbox.umd.js'))
-				.pipe(gulp.dest('dist/bundled/'))
-	)
+gulp.task('build:deps:npm:photoswipe', () =>
+	gulp
+		.src(['node_modules/photoswipe/dist/photoswipe.css'])
+		.pipe(cleanCSS())
+		.pipe(rename({ suffix: '.min' }))
+		.pipe(gulp.dest('dist/bundled/'))
 );
 
 gulp.task('build:deps:npm:imagesloaded', () =>
@@ -121,9 +118,12 @@ gulp.task(
 		shell.task(['npm install --production=false'], {
 			cwd: 'node_modules/justified-layout',
 		}),
-		shell.task(['npm run build'], {
-			cwd: 'node_modules/justified-layout',
-		}),
+		shell.task(
+			[
+				'npm run build',
+			],
+			{ cwd: 'node_modules/justified-layout' }
+		),
 		() =>
 			gulp
 				.src(
@@ -136,9 +136,9 @@ gulp.task(
 gulp.task(
 	'build:deps:npm',
 	gulp.parallel(
-		'build:deps:npm:imagelightbox',
 		'build:deps:npm:imagesloaded',
-		'build:deps:npm:justified-layout'
+		'build:deps:npm:justified-layout',
+		'build:deps:npm:photoswipe'
 	)
 );
 

@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <ruleset>
-	<file>src</file>
-	<file>tests</file>
-	<file>.phan</file>
+	<file>../src</file>
+	<file>../tests</file>
+	<file>../.phan</file>
 	<file>scoper.inc.php</file>
 
-	<arg name="basepath" value="./"/>
+	<arg name="basepath" value="../"/>
 	<arg name="colors"/>
 	<arg value="s"/>
 	<arg name="extensions" value="php"/>
@@ -25,12 +25,12 @@
 	</rule>
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
 		<properties>
-			<property name="prefixes" type="array" value="Sgdg"/>
+			<property name="prefixes" type="array" value="Avpvh"/>
 		</properties>
 	</rule>
 	<rule ref="WordPress.WP.I18n">
 		<properties>
-			<property name="text_domain" type="array" value="skaut-google-drive-gallery"/>
+			<property name="text_domain" type="array" value="avpvh-gallery"/>
 		</properties>
 	</rule>
 	<rule ref="WordPress.WhiteSpace.ControlStructureSpacing">
@@ -43,6 +43,7 @@
 		<!-- Incompatible with PHP version requirements -->
 		<exclude name="SlevomatCodingStandard.ControlStructures.RequireNullCoalesceOperator.NullCoalesceOperatorNotUsed"/>
 		<exclude name="SlevomatCodingStandard.Exceptions.ReferenceThrowableOnly.ReferencedGeneralException"/>
+		<exclude name="SlevomatCodingStandard.Exceptions.RequireNonCapturingCatch.NonCapturingCatchRequired"/>
 		<exclude name="SlevomatCodingStandard.Functions.RequireArrowFunction.RequiredArrowFunction"/>
 		<exclude name="SlevomatCodingStandard.Functions.RequireTrailingCommaInCall.MissingTrailingComma"/>
 		<exclude name="SlevomatCodingStandard.Numbers.RequireNumericLiteralSeparator.RequiredNumericLiteralSeparator"/>

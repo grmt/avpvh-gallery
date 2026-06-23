@@ -21,7 +21,7 @@ return array(
 		'vendor/skaut/wordpress-stubs/stubs',
 	),
 	'file_list'                                 => array(
-		'scoper.inc.php',
+		'config/scoper.inc.php',
 	),
 	'minimum_target_php_version'                => '5.6',
 	'plugins'                                   => array(
