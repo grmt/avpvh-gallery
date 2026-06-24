@@ -30,7 +30,7 @@ gulp.task(
 	'build:deps:composer:scoper',
 	gulp.series(
 		shell.task(
-			'php -d memory_limit=512M -d error_reporting=24575 vendor/bin/php-scoper add-prefix --force'
+			'php -d memory_limit=512M -d error_reporting=24575 vendor/bin/php-scoper add-prefix --config config/scoper.inc.php --force'
 		),
 		() =>
 			gulp

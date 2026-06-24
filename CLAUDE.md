@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 WordPress plugin (`avpvh-gallery`) that renders galleries on a WP site from images/videos stored in Google Drive. Supports PHP 5.6+ and WordPress 4.9.6+ — language features and APIs must respect those floors.
 
+## Deploy
+
+After `npm run build`, push `dist/` to the live server (excludes `vendor/` — already present server-side):
+
+```bash
+rsync -av --omit-dir-times --exclude='vendor/' dist/ grmt@avpvh.nl:/opt/docker/volumes/html/wp-content-pvh/plugins/avpvh-gallery/
+```
+
+SSH key is auto-selected from `~/.ssh/` (no explicit `-i` needed). Directory-timestamp warnings can be ignored — the files themselves transfer correctly.
+
 ## Build / lint / test
 
 `npm run build` is the single entry point — it composes Gulp (CSS, vendored npm/Composer deps, PHP file copy) with four Vite bundles in parallel and writes everything to `dist/`. The plugin always runs out of `dist/`; `src/` is never loaded directly (see [tests/bootstrap.php](tests/bootstrap.php#L33) — even PHPUnit requires the dist).
@@ -29,7 +39,7 @@ The Google API surface is wrapped by two layers: [API_Client](src/php/class-api-
 
 ### PHP-Scoper vendor isolation (critical)
 
-All Composer dependencies are prefixed into the `Avpvh\Vendor\` namespace via [scoper.inc.php](scoper.inc.php) during `npm run build`, written to `dist/vendor/`. This avoids conflicts when other WP plugins ship different versions of Google's API client / Guzzle / Monolog.
+All Composer dependencies are prefixed into the `Avpvh\Vendor\` namespace via [scoper.inc.php](config/scoper.inc.php) during `npm run build`, written to `dist/vendor/`. This avoids conflicts when other WP plugins ship different versions of Google's API client / Guzzle / Monolog.
 
 Implications:
 - Imports of vendor code use `Avpvh\Vendor\Google\Client`, `Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface`, etc. — never the upstream namespace.
