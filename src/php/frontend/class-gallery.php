@@ -77,21 +77,9 @@ final class Gallery {
 		$pagination_helper                               = (
 			new Paging_Pagination_Helper()
 		)->withOptions( $options, true );
-		$raw_path                                        = GET_Helpers::get_string_variable( 'path' );
-		$page_num                                        = GET_Helpers::get_string_variable( 'page' );
+		$raw_path          = GET_Helpers::get_string_variable( 'path' );
 
-		$cache_key = 'avp_g_' . md5(
-			$parent_id . '_' . $raw_path . '_' . $page_num . '_' . wp_json_encode( $options->export_overriden() )
-		);
-		$cached    = get_transient( $cache_key );
-
-		if ( false !== $cached ) {
-			wp_send_json( $cached );
-
-			return;
-		}
-
-		$path_name_promise       = self::path_names(
+		$path_name_promise = self::path_names(
 			'' !== $raw_path ? explode( '/', $raw_path ) : array(),
 			$options
 		);
@@ -100,7 +88,6 @@ final class Gallery {
 		);
 		$page['path']            = $path_names;
 
-		set_transient( $cache_key, $page, 3600 );
 		wp_send_json( $page );
 	}
 
