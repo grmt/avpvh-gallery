@@ -80,7 +80,7 @@ return array(
 			$replace_prefix = mb_ereg_replace( '\\\\', '\\\\', $prefix );
 			$underscore_prefix = mb_ereg_replace( '\\\\', '_', $prefix );
 
-			if ( __DIR__ . '/../vendor/composer/autoload_real.php' === $file_path ) {
+			if ( dirname(__DIR__) . '/vendor/composer/autoload_real.php' === $file_path ) {
 				$contents = safe_replace(
 					"if \\('Composer\\\\\\\\Autoload\\\\\\\\ClassLoader' === \\\$class\\)",
 					"if ('{$replace_prefix}\\\\Composer\\\\Autoload\\\\ClassLoader' === \$class)",
@@ -98,11 +98,11 @@ return array(
 				);
 			}
 
-			if ( __DIR__ . '/../vendor/guzzlehttp/guzzle/src/functions.php' === $file_path ) {
+			if ( dirname(__DIR__) . '/vendor/guzzlehttp/guzzle/src/functions.php' === $file_path ) {
 				$contents = safe_replace( "\\\\{$replace_prefix}\\\\uri_template\(", "\\uri_template(", $contents );
 			}
 
-			if ( __DIR__ . '/../vendor/google/apiclient/src/aliases.php' === $file_path ) {
+			if ( dirname(__DIR__) . '/vendor/google/apiclient/src/aliases.php' === $file_path ) {
 				$contents = safe_replace(
 					"'{$regex_prefix}\\\\\\\\Google\\\\\\\\(.*?)'\\s+=> 'Google_(.*?)'",
 					"'{$replace_prefix}\\\\Google\\\\\\1' => '{$replace_prefix}\\\\Google_\\2'",
