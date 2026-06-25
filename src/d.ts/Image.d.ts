@@ -17,5 +17,7 @@ declare interface Image {
 	image: string;
 	name: string;
 	thumbnail: string;
+	thumb_rotation?: number;
+	light_rotation?: number;
 	width: number;
 }

@@ -3,7 +3,7 @@
         'name' => 'avpvh/gallery',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => 'bf729827b1e7b5e0d7b30cbaa208803b1cdac000',
+        'reference' => 'beac5b3c24618732777abdd0f75e1bb161c0a0a3',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'avpvh/gallery' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => 'bf729827b1e7b5e0d7b30cbaa208803b1cdac000',
+            'reference' => 'beac5b3c24618732777abdd0f75e1bb161c0a0a3',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

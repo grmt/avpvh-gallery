@@ -76,10 +76,6 @@ final class Images {
 						$height   = array_key_exists( 'height', $metadata ) && is_numeric( $metadata['height'] )
 							? intval( $metadata['height'] )
 							: 0;
-						$rotation = array_key_exists( 'rotation', $metadata ) ? intval( $metadata['rotation'] ) : 0;
-						if ( 90 === $rotation || 270 === $rotation ) {
-							[ $width, $height ] = [ $height, $width ];
-						}
 
 						$exif = array_filter(
 							array(
@@ -98,7 +94,6 @@ final class Images {
 								'make'       => array_key_exists( 'cameraMake', $metadata ) ? $metadata['cameraMake'] : null,
 								'model'      => array_key_exists( 'cameraModel', $metadata ) ? $metadata['cameraModel'] : null,
 								'time'       => array_key_exists( 'time', $metadata ) ? $metadata['time'] : null,
-								'orientation' => 0 !== $rotation ? $rotation : null,
 							),
 							static function ( $v ) {
 								return null !== $v;
@@ -123,6 +118,8 @@ final class Images {
 					$image_response
 				);
 
+				$images = self::merge_corrections( $images );
+
 				$image_timestamps = array_map(
 					static function ( $image ) use ( $options ) {
 						return self::extract_timestamp( $image, $options );
@@ -132,6 +129,51 @@ final class Images {
 
 				return self::order( $images, $image_timestamps, $options );
 			}
+		);
+	}
+
+	/**
+	 * Merges stored orientation corrections into a list of images.
+	 *
+	 * @param array<array<string, mixed>> $images A list of mapped image arrays.
+	 *
+	 * @return array<array<string, mixed>> Images with thumb_rotation and light_rotation added.
+	 */
+	private static function merge_corrections( array $images ): array {
+		if ( empty( $images ) ) {
+			return $images;
+		}
+
+		global $wpdb;
+		$ids   = array_column( $images, 'id' );
+		$table = $wpdb->prefix . 'agallery_photo_corrections';
+
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%s' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT image_id, thumb_rotation, light_rotation FROM {$table} WHERE image_id IN ({$placeholders})", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$ids
+			),
+			ARRAY_A
+		);
+
+		$corrections = array();
+		foreach ( $rows ?? array() as $row ) {
+			$corrections[ $row['image_id'] ] = array(
+				'thumb_rotation' => intval( $row['thumb_rotation'] ),
+				'light_rotation' => intval( $row['light_rotation'] ),
+			);
+		}
+
+		return array_map(
+			static function ( $image ) use ( $corrections ) {
+				$corr                     = $corrections[ $image['id'] ] ?? array();
+				$image['thumb_rotation']  = $corr['thumb_rotation'] ?? 0;
+				$image['light_rotation']  = $corr['light_rotation'] ?? 0;
+				return $image;
+			},
+			$images
 		);
 	}
 

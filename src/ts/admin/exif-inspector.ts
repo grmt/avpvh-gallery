@@ -7,6 +7,8 @@ interface ExifData {
 	model?: string;
 	time?: string;
 	orientation?: number;
+	thumb_rotation?: number;
+	light_rotation?: number;
 }
 
 interface FileData {
@@ -126,6 +128,35 @@ class ExifInspector {
 					<div class="icons-section">
 						<h3>Google Drive Icons (all sizes)</h3>
 						<div id="icons-container" class="previews-container"></div>
+					</div>
+
+					<div class="corrections-section">
+						<h3>Orientation Corrections</h3>
+						<table class="corrections-table">
+							<tr>
+								<th>Thumbnail rotation</th>
+								<td>
+									<select id="thumb-rotation-select">
+										<option value="0">0° (geen correctie)</option>
+										<option value="90">90° rechtsom</option>
+										<option value="180">180°</option>
+										<option value="270">270° (90° linksom)</option>
+									</select>
+								</td>
+							</tr>
+							<tr>
+								<th>Lightbox rotation</th>
+								<td>
+									<select id="light-rotation-select">
+										<option value="0">0° (geen correctie)</option>
+										<option value="90">90° rechtsom</option>
+										<option value="180">180°</option>
+										<option value="270">270° (90° linksom)</option>
+									</select>
+								</td>
+							</tr>
+						</table>
+						<p id="correction-status"></p>
 					</div>
 				</div>
 
@@ -349,6 +380,41 @@ class ExifInspector {
 						font-size: 16px;
 						color: #666;
 					}
+
+					.corrections-section {
+						margin-top: 30px;
+						margin-bottom: 30px;
+					}
+
+					.corrections-section h3 {
+						margin-top: 0;
+						margin-bottom: 15px;
+						font-size: 16px;
+						color: #333;
+					}
+
+					.corrections-table {
+						border-collapse: collapse;
+						margin-top: 10px;
+					}
+
+					.corrections-table th,
+					.corrections-table td {
+						border: 1px solid #ddd;
+						padding: 8px 12px;
+						text-align: left;
+					}
+
+					.corrections-table th {
+						background-color: #f5f5f5;
+						font-weight: bold;
+					}
+
+					#correction-status {
+						margin-top: 10px;
+						font-size: 13px;
+						color: #0073aa;
+					}
 				</style>
 			</div>
 		`;
@@ -372,6 +438,12 @@ class ExifInspector {
 					this.loadFile();
 				}
 			});
+		}
+
+		const params = new URLSearchParams(window.location.search);
+		const fileId = params.get('avpvh_file_id');
+		if (fileId !== null && fileId !== '') {
+			void this.loadFileById(fileId);
 		}
 	}
 
@@ -444,6 +516,48 @@ class ExifInspector {
 			}
 
 			this.currentFileIndex = fileIndex;
+			this.displayCurrentFile();
+		} catch (error) {
+			this.showError(
+				`Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
+		} finally {
+			this.showLoading(false);
+		}
+	}
+
+	private async loadFileById(fileId: string) {
+		this.showLoading(true);
+		this.clearError();
+		try {
+			const response = await fetch(`${this.restUrl}file-data`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-WP-Nonce': this.nonce,
+				},
+				body: JSON.stringify({ file_id: fileId }),
+				credentials: 'include',
+			});
+
+			if (!response.ok) {
+				let errorMsg = response.statusText;
+				try {
+					const errorData = (await response.json()) as {
+						message?: string;
+					};
+					errorMsg = errorData.message ?? errorMsg;
+				} catch (e) {
+					// Could not parse JSON error response
+				}
+				throw new Error(
+					`File not found (HTTP ${response.status}: ${errorMsg})`
+				);
+			}
+
+			const data = (await response.json()) as { file: FileData };
+			this.allFiles = [data.file];
+			this.currentFileIndex = 0;
 			this.displayCurrentFile();
 		} catch (error) {
 			this.showError(
@@ -590,6 +704,101 @@ class ExifInspector {
 
 		// Display all Google Drive icon sizes
 		this.displayIcons();
+
+		// Load and wire up orientation corrections
+		void this.loadCorrections();
+	}
+
+	private async loadCorrections() {
+		if (!this.currentFile) {
+			return;
+		}
+
+		const thumbSelect = document.getElementById(
+			'thumb-rotation-select'
+		) as HTMLSelectElement | null;
+		const lightSelect = document.getElementById(
+			'light-rotation-select'
+		) as HTMLSelectElement | null;
+
+		if (!thumbSelect || !lightSelect) {
+			return;
+		}
+
+		const fileId = this.currentFile.id;
+
+		try {
+			const response = await fetch(
+				`${this.restUrl}corrections?file_id=${encodeURIComponent(fileId)}`,
+				{
+					method: 'GET',
+					headers: { 'X-WP-Nonce': this.nonce },
+					credentials: 'include',
+				}
+			);
+			if (response.ok) {
+				const data = (await response.json()) as {
+					thumb_rotation: number;
+					light_rotation: number;
+				};
+				thumbSelect.value = String(data.thumb_rotation);
+				lightSelect.value = String(data.light_rotation);
+			}
+		} catch (e) {
+			// Non-fatal — selects remain at their default 0 value
+		}
+
+		const onSelectChange = (): void => {
+			void this.saveCorrections(
+				fileId,
+				parseInt(thumbSelect.value, 10),
+				parseInt(lightSelect.value, 10)
+			);
+		};
+
+		thumbSelect.onchange = onSelectChange;
+		lightSelect.onchange = onSelectChange;
+	}
+
+	private async saveCorrections(
+		fileId: string,
+		thumbRotation: number,
+		lightRotation: number
+	) {
+		const statusEl = document.getElementById('correction-status');
+
+		try {
+			const response = await fetch(`${this.restUrl}corrections`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-WP-Nonce': this.nonce,
+				},
+				body: JSON.stringify({
+					file_id: fileId,
+					thumb_rotation: thumbRotation,
+					light_rotation: lightRotation,
+				}),
+				credentials: 'include',
+			});
+
+			if (!response.ok) {
+				throw new Error('HTTP ' + String(response.status));
+			}
+
+			if (statusEl) {
+				statusEl.textContent = 'Opgeslagen';
+				setTimeout(() => {
+					if (statusEl.textContent === 'Opgeslagen') {
+						statusEl.textContent = '';
+					}
+				}, 2000);
+			}
+		} catch (e) {
+			if (statusEl) {
+				statusEl.textContent = 'Fout bij opslaan';
+			}
+		}
 	}
 
 	private fetchFullExifData() {
@@ -671,7 +880,7 @@ class ExifInspector {
 			return;
 		}
 
-		// Otherwise, fall back to API metadata
+		// Otherwise, fall back to API metadata — show all KV pairs
 		const metadata = this.currentFile.imageMediaMetadata;
 		if (!metadata) {
 			tbody.innerHTML +=
@@ -679,56 +888,34 @@ class ExifInspector {
 			return;
 		}
 
-		if (metadata.width && metadata.height) {
-			this.addTableRow(
-				tbody,
-				'Dimensions',
-				`${metadata.width} × ${metadata.height} px`
-			);
+		// File-level fields
+		if (this.currentFile.createdTime) {
+			this.addTableRow(tbody, 'Created Time', this.currentFile.createdTime);
+		}
+		if (this.currentFile.description) {
+			this.addTableRow(tbody, 'Description', this.currentFile.description);
 		}
 
-		// Camera info
-		if (metadata.cameraMake) {
-			this.addTableRow(tbody, 'Camera Make', metadata.cameraMake);
-		}
-		if (metadata.cameraModel) {
-			this.addTableRow(tbody, 'Camera Model', metadata.cameraModel);
-		}
-
-		// Exposure info
-		if (metadata.aperture) {
-			this.addTableRow(tbody, 'Aperture', `f/${metadata.aperture}`);
-		}
-		if (metadata.exposureTime) {
-			const expTime =
-				metadata.exposureTime < 1
-					? `1/${Math.round(1 / metadata.exposureTime)}`
-					: metadata.exposureTime;
-			this.addTableRow(tbody, 'Exposure Time', `${expTime}s`);
-		}
-		if (metadata.isoSpeed) {
-			this.addTableRow(tbody, 'ISO Speed', String(metadata.isoSpeed));
-		}
-
-		// Focus info
-		if (metadata.focalLength) {
-			this.addTableRow(
-				tbody,
-				'Focal Length',
-				`${metadata.focalLength} mm`
-			);
-		}
-
-		// Date info
-		if (metadata.time) {
-			this.addTableRow(tbody, 'Date/Time', metadata.time);
-		}
-		if (metadata.rotation !== undefined && metadata.rotation !== 0) {
-			this.addTableRow(
-				tbody,
-				'Orientation',
-				`${metadata.rotation} - ${this.orientationDescription(metadata.rotation)}`
-			);
+		// Dump every key in imageMediaMetadata as-is
+		for (const [key, value] of Object.entries(metadata)) {
+			if (value === undefined || value === null) {
+				continue;
+			}
+			const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
+			let display = String(value);
+			if (key === 'aperture') {
+				display = `f/${value}`;
+			} else if (key === 'exposureTime') {
+				const n = Number(value);
+				display = n < 1 ? `1/${Math.round(1 / n)}s` : `${n}s`;
+			} else if (key === 'focalLength') {
+				display = `${value} mm`;
+			} else if (key === 'rotation') {
+				display = `${value} (${this.orientationDescription(Number(value))})`;
+			} else if (key === 'width' || key === 'height') {
+				display = `${value} px`;
+			}
+			this.addTableRow(tbody, label, display);
 		}
 	}
 

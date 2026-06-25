@@ -16,4 +16,9 @@ declare const avpvhShortcodeLocalize: {
 	empty_gallery: string;
 	favicon_url: string;
 	tag_nonce: string;
+	rest_nonce: string;
+	transform_nonce: string;
+	image_transforms: Record<string, { r: number; h: boolean; v: boolean }>;
+	is_admin: string;
+	exif_inspector_url: string;
 };

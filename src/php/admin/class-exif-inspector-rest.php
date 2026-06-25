@@ -111,6 +111,29 @@ final class Exif_Inspector_REST {
 				),
 			)
 		);
+
+		register_rest_route(
+			'avpvh-gallery/v1',
+			'exif-inspector/corrections',
+			array(
+				array(
+					'callback'            => array( $this, 'get_corrections' ),
+					'methods'             => 'GET',
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+					'args'                => array(
+						'file_id' => array(
+							'required' => true,
+							'type'     => 'string',
+						),
+					),
+				),
+				array(
+					'callback'            => array( $this, 'save_corrections' ),
+					'methods'             => 'POST',
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
 	}
 
 	/**
@@ -505,6 +528,87 @@ final class Exif_Inspector_REST {
 			error_log( '[EXIF Inspector] Unexpected exception in get_full_exif: ' . $e->getMessage() );
 			return new WP_Error( 'unexpected_error', 'Unexpected error: ' . $e->getMessage(), array( 'status' => 500 ) );
 		}
+	}
+
+	/**
+	 * Gets the stored orientation corrections for a file.
+	 *
+	 * @param WP_REST_Request $request The request object.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_corrections( $request ) {
+		global $wpdb;
+		$file_id = $request->get_param( 'file_id' );
+
+		if ( '' === $file_id ) {
+			return new WP_Error( 'invalid_file', 'File ID is required', array( 'status' => 400 ) );
+		}
+
+		$table = $wpdb->prefix . 'agallery_photo_corrections';
+		$row   = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT thumb_rotation, light_rotation FROM {$table} WHERE image_id = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$file_id
+			),
+			ARRAY_A
+		);
+
+		return new WP_REST_Response(
+			array(
+				'thumb_rotation' => $row ? intval( $row['thumb_rotation'] ) : 0,
+				'light_rotation' => $row ? intval( $row['light_rotation'] ) : 0,
+			),
+			200
+		);
+	}
+
+	/**
+	 * Saves orientation corrections for a file.
+	 *
+	 * @param WP_REST_Request $request The request object.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function save_corrections( $request ) {
+		global $wpdb;
+		$params  = $request->get_json_params();
+		$file_id = isset( $params['file_id'] ) ? $params['file_id'] : '';
+
+		if ( '' === $file_id ) {
+			return new WP_Error( 'invalid_file', 'File ID is required', array( 'status' => 400 ) );
+		}
+
+		$valid_rotations  = array( 0, 90, 180, 270 );
+		$thumb_rotation   = isset( $params['thumb_rotation'] ) ? intval( $params['thumb_rotation'] ) : 0;
+		$light_rotation   = isset( $params['light_rotation'] ) ? intval( $params['light_rotation'] ) : 0;
+
+		if ( ! in_array( $thumb_rotation, $valid_rotations, true ) ) {
+			return new WP_Error( 'invalid_rotation', 'thumb_rotation must be 0, 90, 180, or 270', array( 'status' => 400 ) );
+		}
+
+		if ( ! in_array( $light_rotation, $valid_rotations, true ) ) {
+			return new WP_Error( 'invalid_rotation', 'light_rotation must be 0, 90, 180, or 270', array( 'status' => 400 ) );
+		}
+
+		$table = $wpdb->prefix . 'agallery_photo_corrections';
+		$wpdb->replace(
+			$table,
+			array(
+				'image_id'      => $file_id,
+				'thumb_rotation' => $thumb_rotation,
+				'light_rotation' => $light_rotation,
+			),
+			array( '%s', '%d', '%d' )
+		);
+
+		return new WP_REST_Response(
+			array(
+				'thumb_rotation' => $thumb_rotation,
+				'light_rotation' => $light_rotation,
+			),
+			200
+		);
 	}
 
 	/**

@@ -46,6 +46,7 @@ final class Videos {
 			new API_Fields(
 				array(
 					'id',
+					'name',
 					'mimeType',
 					'size',
 					'webContentLink',
@@ -60,16 +61,11 @@ final class Videos {
 			$options->get( 'image_ordering' )
 		)->then(
 			static function ( $raw_videos ) use ( $options ) {
-				$raw_videos         = array_values(
-					array_filter(
-						$raw_videos,
-						static function ( $video ) {
-							return ! is_null( $video['thumbnailLink'] );
-						}
-					)
-				);
 				$videos             = array_map(
 					static function ( $video ) use ( $options ) {
+						$thumbnail = ! is_null( $video['thumbnailLink'] )
+							? substr( $video['thumbnailLink'], 0, -4 ) . 'h' . floor( 1.25 * $options->get( 'grid_height' ) )
+							: null;
 						return array(
 							'duration'  => array_key_exists( 'videoMediaMetadata', $video ) &&
 								array_key_exists( 'durationMillis', $video['videoMediaMetadata'] )
@@ -80,10 +76,9 @@ final class Videos {
 								? $video['videoMediaMetadata']['height']
 								: '0',
 							'id'        => $video['id'],
+							'name'      => $video['name'],
 							'mimeType'  => $video['mimeType'],
-							'thumbnail' => substr( $video['thumbnailLink'], 0, -4 ) .
-								'h' .
-								floor( 1.25 * $options->get( 'grid_height' ) ),
+							'thumbnail' => $thumbnail,
 							'width'     => array_key_exists( 'videoMediaMetadata', $video ) &&
 								array_key_exists( 'width', $video['videoMediaMetadata'] )
 								? $video['videoMediaMetadata']['width']

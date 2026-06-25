@@ -11,6 +11,9 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	die( 'Die, die, die!' );
 }
 
+require_once __DIR__ . '/class-photo-corrections-db.php';
+\Avpvh\Photo_Corrections_DB::drop_tables();
+
 delete_option( 'avpvh_client_id' );
 delete_option( 'avpvh_client_secret' );
 delete_option( 'avpvh_access_token' );

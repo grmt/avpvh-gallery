@@ -127,6 +127,7 @@ final class Shortcode {
 			array(
 				'ajax_url'            => admin_url( 'admin-ajax.php' ),
 				'tag_nonce'           => wp_create_nonce( 'avpvh_tag_nonce' ),
+				'rest_nonce'          => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : '',
 				'breadcrumbs_top'     => esc_html__( 'Gallery', 'avpvh-gallery' ),
 				'empty_gallery'       => esc_html__( 'The gallery is empty.', 'avpvh-gallery' ),
 				'error_header'        => esc_html__(
@@ -149,6 +150,10 @@ final class Shortcode {
 					$src = $id ? wp_get_attachment_image_src( $id, 'full' ) : false;
 					return $src ? $src[0] : get_site_icon_url( 32 );
 				} )(),
+				'is_admin'            => current_user_can( 'manage_options' ) ? 'true' : 'false',
+				'exif_inspector_url'  => current_user_can( 'manage_options' )
+					? admin_url( 'admin.php?page=avpvh_exif_inspector' )
+					: '',
 			)
 		);
 		wp_enqueue_style( 'avpvh_gallery_css' );

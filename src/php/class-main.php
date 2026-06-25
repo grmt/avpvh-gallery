@@ -64,6 +64,7 @@ final class Main {
 
 		// Create photo tagging tables
 		Photo_Tags_DB::create_tables();
+		Photo_Corrections_DB::create_tables();
 
 		set_transient( 'avpvh_activation_notice', true, 30 );
 	}
@@ -81,9 +82,7 @@ final class Main {
 		}
 
 		echo '<div class="notice notice-info is-dismissible"><p>';
-		$help_link = 'https://napoveda.skaut.cz/dobryweb/' .
-			substr( get_locale(), 0, 2 ) .
-			'-avpvh-gallery';
+		$help_link = 'https://github.com/grmt/avpvh-gallery';
 		printf(
 			/* translators: 1: Start of a link to the settings 2: End of the link to the settings 3: Start of a help link 4: End of the help link */
 			esc_html__(

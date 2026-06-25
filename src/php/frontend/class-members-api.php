@@ -53,15 +53,8 @@ final class Members_API {
 	 * @return \WP_REST_Response
 	 */
 	public function get_members_for_tagging() {
-		// Check if avpvh-members plugin is active
 		if ( ! class_exists( '\\AVPVH\\AVPVH_DB' ) ) {
-			return new \WP_REST_Response(
-				array(
-					'data' => array(),
-					'message' => esc_html__( 'avpvh-members plugin not found', 'avpvh-gallery' ),
-				),
-				503
-			);
+			return new \WP_REST_Response( array( 'data' => array() ), 200 );
 		}
 
 		try {

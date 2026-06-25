@@ -38,14 +38,22 @@ export class PhotoTagger {
 	}
 
 	private async loadMembers() {
+		const nonce = avpvhShortcodeLocalize.rest_nonce;
+		if ('' === nonce) {
+			return;
+		}
 		try {
 			const response = await fetch(
-				`/wp-json/avpvh/v1/members/for-tagging`
+				`/wp-json/avpvh/v1/members/for-tagging`,
+				{ headers: { 'X-WP-Nonce': nonce } }
 			);
-			const data = await response.json();
-			this.membersCache = data.data || [];
-		} catch (error) {
-			console.error('Failed to load members:', error);
+			if (!response.ok) {
+				return;
+			}
+			const data = await response.json() as { data?: unknown[] };
+			this.membersCache = (data.data ?? []) as typeof this.membersCache;
+		} catch {
+			// Network error — tagging UI just stays empty
 		}
 	}
 

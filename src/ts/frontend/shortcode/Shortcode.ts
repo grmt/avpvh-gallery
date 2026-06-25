@@ -19,6 +19,21 @@ function escapeHtml(unsafe: string): string {
 		.replace(/'/g, '&#039;');
 }
 
+interface FolderNode {
+	path: string;
+	pathNames: string;
+	total: number; // imagecount + videocount from directory listing, or -1 if unknown
+	items: Array<HTMLElement>;
+	fullyLoaded: boolean;
+	hasMore: boolean;
+	lastPage: number;
+	loadingMore: boolean;
+	next: FolderNode | null;
+	prev: FolderNode | null;
+	nextSearched: boolean;
+	loadingNext: boolean;
+}
+
 export class Shortcode {
 	private static readonly cache = new Map<
 		string,
@@ -42,10 +57,11 @@ export class Shortcode {
 	private slideshowTimer: ReturnType<typeof setTimeout> | null = null;
 	private idleTimer: ReturnType<typeof setTimeout> | null = null;
 	private pendingLightboxOpen: 'first' | 'last' | null = null;
-	private pendingLightboxAdvance = false;
 	private folderNavigating = false;
+	private lightboxTouchStartX = 0;
+	private lightboxTouchStartIndex = 0;
 	private slideshowPaused = false;
-	private slideshowWasActive = false;
+	private readonly slideshowWasActive = false;
 	// When the active slide is a video the fixed-interval slideshow is suspended;
 	// the video's own 'ended' event (or a stall fallback) advances instead.
 	private currentSlideIsVideo = false;
@@ -56,7 +72,12 @@ export class Shortcode {
 	// doomed requests; it clears again as soon as a full-size image loads.
 	private rateLimited = false;
 
-	private readonly SLIDESHOW_DELAY_MS = 5000;
+	private slideNodes: Array<FolderNode> = [];
+	private currentNode: FolderNode | null = null;
+	private readonly knownTotals = new Map<string, number>();
+	private readonly BOUNDARY_PRELOAD_THRESHOLD = 10;
+
+	private readonly SLIDESHOW_DELAY_MS = 4000;
 	private readonly IDLE_HIDE_MS = 3000;
 
 	// Resolved once at construction from the page's <link rel="icon"> so it
@@ -84,6 +105,8 @@ export class Shortcode {
 		this.photoTagger = new PhotoTagger();
 		this.photoTagger.init(container);
 		this.get();
+		this.setupFolderSwipe();
+		this.setupFolderKeyboard();
 		$(window).on('popstate', () => {
 			this.init();
 		});
@@ -98,7 +121,7 @@ export class Shortcode {
 			children: 'a.avpvh-grid-a[data-pswp-width]',
 			pswpModule: PhotoSwipe,
 			showHideAnimationType: 'fade',
-			loop: 'true' !== avpvhShortcodeLocalize.preview_quitOnEnd,
+			loop: false,
 			showAnimationDuration: parseInt(
 				avpvhShortcodeLocalize.preview_speed,
 				10
@@ -202,16 +225,15 @@ export class Shortcode {
 				e.preventDefault();
 				const wrap = document.createElement('div');
 				wrap.className = 'avpvh-pswp-video';
+
 				const videoEl = document.createElement('video');
-				videoEl.controls = true;
 				videoEl.playsInline = true;
 				videoEl.setAttribute('playsinline', '');
 				// Don't fetch any video bytes until this slide becomes the active one
 				// (see onSlideActivate). Preloaded neighbours therefore show only their
 				// poster thumbnail instead of each spawning a downloading <video>.
 				videoEl.preload = 'none';
-				videoEl.style.maxWidth = '100%';
-				videoEl.style.maxHeight = '100%';
+
 				const data = e.content.data as Record<string, unknown>;
 				const poster = data['videoPoster'];
 				if (typeof poster === 'string' && '' !== poster) {
@@ -227,8 +249,130 @@ export class Shortcode {
 					}
 					videoEl.appendChild(source);
 				}
-				wrap.appendChild(videoEl);
+
+				// Thin progress bar — always visible at bottom
+				const bar = document.createElement('div');
+				bar.className = 'avpvh-video-bar';
+				const bufEl = document.createElement('div');
+				bufEl.className = 'avpvh-video-bar-buf';
+				const playedEl = document.createElement('div');
+				playedEl.className = 'avpvh-video-bar-played';
+				bar.appendChild(bufEl);
+				bar.appendChild(playedEl);
+
+				// Hover controls: play/pause + time
+				const ctrl = document.createElement('div');
+				ctrl.className = 'avpvh-video-ctrl';
+				const btnPlay = document.createElement('button');
+				btnPlay.className = 'avpvh-video-btn-play';
+				btnPlay.type = 'button';
+				const timeEl = document.createElement('span');
+				timeEl.className = 'avpvh-video-time';
+				ctrl.appendChild(btnPlay);
+				ctrl.appendChild(timeEl);
+				// Show a proxy badge when the video is served through the server
+				// proxy instead of directly from Drive. Remove it once streaming
+				// starts so it doesn't look like an ongoing error.
+				if (typeof src === 'string' && src.includes('video_proxy')) {
+					const badge = document.createElement('span');
+					badge.className = 'avpvh-video-proxy-badge';
+					badge.title =
+						'Drive kan dit bestand niet zelf streamen — wordt via de server gestreamd';
+					badge.textContent = '⬇ proxy';
+					ctrl.appendChild(badge);
+					videoEl.addEventListener(
+						'canplay',
+						() => {
+							badge.remove();
+						},
+						{ once: true }
+					);
+				}
+
+				const inner = document.createElement('div');
+				inner.className = 'avpvh-video-inner';
+				inner.appendChild(videoEl);
+				inner.appendChild(ctrl);
+				inner.appendChild(bar);
+				wrap.appendChild(inner);
 				e.content.element = wrap;
+
+				const fmt = (s: number): string => {
+					const m = Math.floor(s / 60);
+					const sec = Math.floor(s % 60);
+					return String(m) + ':' + String(sec).padStart(2, '0');
+				};
+				const updateBar = (): void => {
+					if (!isFinite(videoEl.duration) || 0 === videoEl.duration) {
+						return;
+					}
+					playedEl.style.width =
+						String(
+							Math.round(
+								(videoEl.currentTime / videoEl.duration) * 1000
+							) / 10
+						) + '%';
+					if (0 < videoEl.buffered.length) {
+						bufEl.style.width =
+							String(
+								Math.round(
+									(videoEl.buffered.end(
+										videoEl.buffered.length - 1
+									) /
+										videoEl.duration) *
+										1000
+								) / 10
+							) + '%';
+					}
+					timeEl.textContent =
+						fmt(videoEl.currentTime) +
+						' / ' +
+						fmt(videoEl.duration);
+				};
+				const updateBtn = (): void => {
+					btnPlay.textContent = videoEl.paused ? '▶' : '⏸';
+					btnPlay.setAttribute(
+						'aria-label',
+						videoEl.paused ? 'Afspelen' : 'Pauzeren'
+					);
+				};
+				videoEl.addEventListener('timeupdate', updateBar);
+				videoEl.addEventListener('progress', updateBar);
+				videoEl.addEventListener('play', updateBtn);
+				videoEl.addEventListener('pause', updateBtn);
+				updateBtn();
+
+				// Click on video = play/pause
+				videoEl.addEventListener('click', (ev) => {
+					ev.stopPropagation();
+					if (videoEl.paused) {
+						void videoEl.play();
+					} else {
+						videoEl.pause();
+					}
+				});
+				btnPlay.addEventListener('click', (ev) => {
+					ev.stopPropagation();
+					if (videoEl.paused) {
+						void videoEl.play();
+					} else {
+						videoEl.pause();
+					}
+				});
+				// Seek by clicking on the progress bar
+				bar.addEventListener('click', (ev) => {
+					ev.stopPropagation();
+					if (!isFinite(videoEl.duration) || 0 === videoEl.duration) {
+						return;
+					}
+					const rect = bar.getBoundingClientRect();
+					const pct = Math.max(
+						0,
+						Math.min(1, (ev.clientX - rect.left) / rect.width)
+					);
+					videoEl.currentTime = pct * videoEl.duration;
+					updateBar();
+				});
 			} else if ('image' === e.content.type) {
 				// Apply horizontal flip to images that were served mirrored by Google Drive
 				if ((e.content.data as Record<string, unknown>)['needsHFlip']) {
@@ -296,65 +440,90 @@ export class Shortcode {
 				onInit: (el, instance) => {
 					el.classList.add('avpvh-pswp-path');
 					el.title = 'Klik om pad te kopiëren';
+					const pathLine = document.createElement('div');
+					pathLine.className = 'avpvh-pswp-path-name';
+					const exifLine = document.createElement('div');
+					exifLine.className = 'avpvh-pswp-path-exif';
+					// EXIF Inspector link — only visible to wp-admin users
+					const exifInspectorLink = document.createElement('a');
+					exifInspectorLink.className = 'avpvh-pswp-exif-inspector-link';
+					exifInspectorLink.title = 'Open in EXIF Inspector';
+					exifInspectorLink.target = '_blank';
+					exifInspectorLink.rel = 'noopener';
+					exifInspectorLink.innerHTML =
+						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M11 2a9 9 0 1 0 6.32 15.32l4.18 4.18 1.42-1.42-4.18-4.18A9 9 0 0 0 11 2zm0 2a7 7 0 1 1 0 14A7 7 0 0 1 11 4zm-1 3v2H8v2h2v4h2v-4h2V9h-2V7h-2z"/></svg>';
+					exifInspectorLink.addEventListener('click', (e) => {
+						e.stopPropagation();
+					});
+					el.appendChild(pathLine);
+					el.appendChild(exifLine);
+					el.appendChild(exifInspectorLink);
 					const update = (): void => {
 						const slideEl = instance.currSlide?.data.element;
 						const fullPath =
 							slideEl instanceof HTMLElement
 								? (slideEl.dataset['avpvhFullpath'] ?? '')
 								: '';
-						el.textContent = fullPath;
+						let exifStr =
+							slideEl instanceof HTMLElement
+								? (slideEl.dataset['avpvhExif'] ?? '')
+								: '';
+						// Always append pixel dimensions when known and non-zero.
+						if (slideEl instanceof HTMLElement) {
+							const w = parseInt(
+								slideEl.dataset['pswpWidth'] ?? '0',
+								10
+							);
+							const h = parseInt(
+								slideEl.dataset['pswpHeight'] ?? '0',
+								10
+							);
+							if (w > 0 && h > 0) {
+								const dim = String(w) + ' × ' + String(h) + ' px';
+								exifStr =
+									exifStr !== '' ? exifStr + ' · ' + dim : dim;
+							}
+						}
+						pathLine.textContent = fullPath;
+						exifLine.textContent = exifStr;
+						exifLine.style.display = exifStr ? '' : 'none';
+						const fileId =
+							slideEl instanceof HTMLElement
+								? (slideEl.dataset['avpvhId'] ?? '')
+								: '';
+						if (
+							fullPath !== '' &&
+							avpvhShortcodeLocalize.is_admin === 'true'
+						) {
+							const adminBase =
+								avpvhShortcodeLocalize.ajax_url.replace(
+									'admin-ajax.php',
+									'admin.php'
+								);
+							localStorage.setItem(
+								'avpvh_exif_inspector_last_path',
+								fullPath
+							);
+							exifInspectorLink.href =
+								adminBase +
+								'?page=avpvh_exif_inspector' +
+								(fileId !== '' ? '&avpvh_file_id=' + fileId : '');
+							exifInspectorLink.style.display = '';
+						} else {
+							exifInspectorLink.style.display = 'none';
+						}
 					};
 					instance.on('change', update);
 					el.addEventListener('click', () => {
-						const text = el.textContent ?? '';
+						const text = pathLine.textContent ?? '';
 						void navigator.clipboard.writeText(text).then(() => {
-							const original = el.textContent;
-							el.textContent = 'Gekopieerd!';
+							const original = pathLine.textContent;
+							pathLine.textContent = 'Gekopieerd!';
 							setTimeout(() => {
-								el.textContent = original;
+								pathLine.textContent = original;
 							}, 1200);
 						});
 					});
-				},
-			});
-
-			// Register EXIF info button for the lightbox (photos and videos)
-			pswp.ui?.registerElement({
-				name: 'avpvh-lightbox-info',
-				order: 6,
-				isButton: true,
-				appendTo: 'root',
-				onInit: (el, instance) => {
-					el.classList.add('avpvh-lightbox-info-btn');
-					el.innerHTML = 'ℹ';
-					el.title = 'Informatie';
-					el.setAttribute('aria-label', 'Toggle informatie');
-					const exifOverlay = document.createElement('div');
-					exifOverlay.className = 'avpvh-lightbox-exif-overlay';
-					el.appendChild(exifOverlay);
-
-					const update = (): void => {
-						const slideEl = instance.currSlide?.data.element;
-						if (slideEl instanceof HTMLElement) {
-							const exifStr = slideEl.dataset['avpvhExif'] ?? '';
-							exifOverlay.innerHTML = exifStr;
-							el.style.display = exifStr ? 'block' : 'none';
-						}
-					};
-
-					el.addEventListener('click', () => {
-						const isVisible =
-							exifOverlay.classList.contains(
-								'avpvh-exif-visible'
-							);
-						if (isVisible) {
-							exifOverlay.classList.remove('avpvh-exif-visible');
-						} else {
-							exifOverlay.classList.add('avpvh-exif-visible');
-						}
-					});
-
-					instance.on('change', update);
 					update();
 				},
 			});
@@ -362,19 +531,134 @@ export class Shortcode {
 
 		lightbox.on('change', () => {
 			const pswp = lightbox.pswp;
-			if (pswp !== undefined) {
-				// Disable looping whenever more pages can be loaded so we can
-				// intercept the boundary and advance into newly loaded items instead.
-				pswp.options.loop = !this.hasMore;
+			if (pswp === undefined) {
+				return;
 			}
-			const slide = pswp?.currSlide;
-			const slideEl = slide?.data.element;
+			this.onLightboxNodeChange(pswp);
+			const slideEl = pswp.currSlide?.data.element;
 			if (slideEl instanceof HTMLAnchorElement) {
 				const id = slideEl.dataset['avpvhId'];
 				if (id !== undefined && '' !== id) {
 					history.replaceState(history.state, '', '#' + id);
 				}
-				this.onLightboxNavigation($(slideEl));
+				if (slideEl.isConnected) {
+					this.onLightboxNavigation($(slideEl));
+				}
+			}
+		});
+
+		// PhotoSwipe never emits 'open'; use 'afterInit' (fires at the end of
+		// pswp.init(), after the DOM and data source are ready but before the
+		// opening animation). The initial 'change' event fires during pswp.init()
+		// before 'afterInit', so we call onLightboxNodeChange explicitly here to
+		// trigger the preload check for the opening position.
+		lightbox.on('afterInit', () => {
+			const pswp = lightbox.pswp;
+			if (pswp !== undefined) {
+				this.initLightboxNode(pswp, pswp.currIndex);
+				this.onLightboxNodeChange(pswp);
+				// Register our counter override AFTER afterInit — by this point all
+				// UIElement onInit callbacks (including the built-in counter) have
+				// already added their 'change' listeners. Ours runs last and wins,
+				// showing the per-folder local index instead of the global position.
+				pswp.on('change', () => {
+					if (this.slideNodes.length === 0) {
+						return;
+					}
+					const { node, localIndex } = this.getNodeForIndex(pswp.currIndex);
+					Shortcode.updateNodeCounter(pswp, node, localIndex);
+					Shortcode.applySlideRotation(pswp);
+				});
+				pswp.on('loadComplete', ({ slide }) => {
+					if (slide === pswp.currSlide) {
+						Shortcode.applySlideRotation(pswp);
+					}
+				});
+				// With loop:false PhotoSwipe rubber-bands at boundaries — no 'change'
+				// event fires. Detect backward boundary swipes via touchstart/touchend.
+				const onTouchStart = (e: TouchEvent): void => {
+					if (e.touches.length === 1) {
+						this.lightboxTouchStartX = e.touches[0].clientX;
+						this.lightboxTouchStartIndex = pswp.currIndex;
+					}
+				};
+				const onTouchEnd = (e: TouchEvent): void => {
+					if (e.changedTouches.length !== 1 || !pswp.isOpen) {
+						return;
+					}
+					const dx =
+						e.changedTouches[0].clientX - this.lightboxTouchStartX;
+					if (dx > 50 && this.lightboxTouchStartIndex === 0) {
+						this.prevBoundary(pswp);
+					}
+				};
+				document.addEventListener('touchstart', onTouchStart, {
+					passive: true,
+				});
+				document.addEventListener('touchend', onTouchEnd, {
+					passive: true,
+				});
+				let slideshowWasRunning = false;
+				const onVisibilityChange = (): void => {
+					if (document.hidden) {
+						slideshowWasRunning = this.slideshowTimer !== null;
+						if (this.slideshowTimer !== null) {
+							clearTimeout(this.slideshowTimer);
+							this.slideshowTimer = null;
+						}
+					} else if (slideshowWasRunning && !this.slideshowPaused) {
+						slideshowWasRunning = false;
+						this.startSlideshow(pswp);
+					}
+				};
+				document.addEventListener('visibilitychange', onVisibilityChange);
+				pswp.on('close', () => {
+					document.removeEventListener('touchstart', onTouchStart);
+					document.removeEventListener('touchend', onTouchEnd);
+					document.removeEventListener('visibilitychange', onVisibilityChange);
+				});
+			}
+			const pswpEl = document.querySelector('.pswp');
+			if (
+				pswpEl instanceof HTMLElement &&
+				document.fullscreenEnabled &&
+				document.fullscreenElement === null
+			) {
+				void pswpEl
+					.requestFullscreen({ navigationUI: 'hide' })
+					.catch(() => {
+						/* ignore */
+					});
+			}
+			if (
+				pswpEl instanceof HTMLElement &&
+				avpvhShortcodeLocalize.is_admin === 'true'
+			) {
+				pswpEl.addEventListener('contextmenu', (e) => {
+					const fileId =
+						pswp.currSlide?.data.element?.dataset['avpvhId'];
+					if (!fileId) {
+						return;
+					}
+					e.preventDefault();
+					const adminBase =
+						avpvhShortcodeLocalize.ajax_url.replace(
+							'admin-ajax.php',
+							'admin.php'
+						);
+					Shortcode.showContextMenu(e.clientX, e.clientY, [
+						{
+							label: 'Open in EXIF Inspector',
+							href:
+								adminBase +
+								'?page=avpvh_exif_inspector&avpvh_file_id=' +
+								fileId,
+						},
+					]);
+				});
+				pswp.on('close', () => {
+					Shortcode.hideContextMenu();
+				});
 			}
 		});
 
@@ -390,12 +674,19 @@ export class Shortcode {
 			}
 			this.rateLimited = false;
 			this.slideshowPaused = false;
+			this.slideNodes = [];
+			this.currentNode = null;
 			if ('' !== window.location.hash) {
 				history.replaceState(
 					history.state,
 					'',
 					window.location.pathname + window.location.search
 				);
+			}
+			if (document.fullscreenElement !== null) {
+				void document.exitFullscreen().catch(() => {
+					/* ignore */
+				});
 			}
 		});
 
@@ -469,9 +760,10 @@ export class Shortcode {
 					if (btn === null) {
 						return;
 					}
-					// Hide PhotoSwipe's default arrow SVGs
-					btn.querySelectorAll('svg').forEach((s) => {
-						(s as SVGElement).style.display = 'none';
+					// Remove PhotoSwipe's default arrow SVGs (hiding via style.display
+					// is overridden by a CSS !important rule in some themes).
+					btn.querySelectorAll('.pswp__icn').forEach((s) => {
+						s.remove();
 					});
 					btn.querySelectorAll('.avpvh-trowel').forEach((n) => {
 						n.remove();
@@ -529,10 +821,13 @@ export class Shortcode {
 			this.startSlideshow(pswp);
 		};
 		const goIdle = (): void => {
-			el.classList.add('pswp--ui-idle');
-			if (isFullscreen() || !lastOverPhoto) {
-				resumeShow();
+			// In windowed mode, keep trowels visible while cursor rests on the photo
+			// (slideshow stays paused; arrows only hide when the cursor leaves the photo)
+			if (!isFullscreen() && lastOverPhoto) {
+				return;
 			}
+			el.classList.add('pswp--ui-idle');
+			resumeShow();
 		};
 		const onActivity = (overPhoto: boolean): void => {
 			lastOverPhoto = overPhoto;
@@ -584,7 +879,8 @@ export class Shortcode {
 		// slideshow would pause itself after a single frame.
 
 		// ── Boundary navigation ───────────────────────────────────────
-		// Capture click on arrow buttons before PhotoSwipe sees them
+		// Capture click on the prev arrow when at the start of the first node.
+		// Forward navigation is handled seamlessly via preloaded items.
 		el.addEventListener(
 			'click',
 			(e: MouseEvent) => {
@@ -593,13 +889,6 @@ export class Shortcode {
 					return;
 				}
 				if (
-					target.closest('.pswp__button--arrow--next') !== null &&
-					pswp.currIndex === pswp.getNumItems() - 1
-				) {
-					e.stopImmediatePropagation();
-					e.preventDefault();
-					this.nextBoundary(pswp);
-				} else if (
 					target.closest('.pswp__button--arrow--prev') !== null &&
 					pswp.currIndex === 0
 				) {
@@ -618,18 +907,9 @@ export class Shortcode {
 				return;
 			}
 			if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-				// Keyboard navigation counts as interaction (not "over photo"),
-				// so it pauses the slideshow and keeps the trowels visible.
 				onActivity(false);
 			}
-			if (
-				e.key === 'ArrowRight' &&
-				pswp.currIndex === pswp.getNumItems() - 1
-			) {
-				e.stopImmediatePropagation();
-				this.slideshowWasActive = true;
-				this.nextBoundary(pswp);
-			} else if (e.key === 'ArrowLeft' && pswp.currIndex === 0) {
+			if (e.key === 'ArrowLeft' && pswp.currIndex === 0) {
 				e.stopImmediatePropagation();
 				this.prevBoundary(pswp);
 			}
@@ -638,21 +918,6 @@ export class Shortcode {
 		pswp.on('close', () => {
 			document.removeEventListener('keydown', handleKeydown, true);
 		});
-	}
-
-	private nextBoundary(pswp: PhotoSwipe): void {
-		if (this.hasMore) {
-			// A load is already in progress (triggered by onLightboxNavigation
-			// when the user neared the end). Mark that we want to advance once
-			// the new items land in the DOM.
-			this.pendingLightboxAdvance = true;
-			if (!this.loading) {
-				this.add();
-			}
-		} else if (!this.folderNavigating) {
-			this.folderNavigating = true;
-			this.navigateToAdjacentFolder('next', pswp);
-		}
 	}
 
 	private prevBoundary(pswp: PhotoSwipe): void {
@@ -681,8 +946,21 @@ export class Shortcode {
 				return;
 			}
 			if (pswp.currIndex === pswp.getNumItems() - 1) {
-				// Reuse the same boundary traversal as the arrow / keyboard handlers
-				this.nextBoundary(pswp);
+				// At the absolute end of all currently loaded items.
+				// If next-folder preloading is in progress, do nothing — items will
+				// be appended soon and appendItemsToDatasource restarts the timer.
+				// If we've confirmed there is no next folder, close (if configured).
+				const lastNode = this.slideNodes[this.slideNodes.length - 1];
+					if (
+					lastNode !== undefined &&
+					lastNode.nextSearched &&
+					lastNode.next === null &&
+					lastNode.fullyLoaded
+				) {
+					if ('true' === avpvhShortcodeLocalize.preview_quitOnEnd) {
+						pswp.close();
+					}
+				}
 			} else {
 				pswp.next();
 				this.startSlideshow(pswp);
@@ -737,6 +1015,9 @@ export class Shortcode {
 			// Real playback began → cancel the "didn't start" fallback and just
 			// wait for the video to finish.
 			this.clearVideoFallback();
+			// If the next slide is a proxy video (no Drive thumbnail), start
+			// buffering it now so the black-screen delay is shorter when we get there.
+			this.preloadNextProxyVideo(pswp);
 		};
 		const cleanup = (): void => {
 			videoEl.removeEventListener('ended', onEnded);
@@ -767,8 +1048,10 @@ export class Shortcode {
 			} catch {
 				// ignore
 			}
-			// Stop downloading once the slide is off-screen again.
+			// preload='none' alone does not abort an in-flight download; load()
+			// cancels any active network request so the browser releases the connection.
 			videoEl.preload = 'none';
+			videoEl.load();
 		}
 		if (this.activeVideoCleanup !== null) {
 			this.activeVideoCleanup();
@@ -786,6 +1069,32 @@ export class Shortcode {
 			pswp.next();
 		}
 		// contentActivate for the new slide takes it from here.
+	}
+
+	private preloadNextProxyVideo(pswp: PhotoSwipe): void {
+		const nextIdx = pswp.currIndex + 1;
+		if (nextIdx >= pswp.getNumItems()) {
+			return;
+		}
+		// The next item's <a> tag is the gallery DOM element.
+		const nextEl = pswp.getItemData(nextIdx).element;
+		if (!(nextEl instanceof HTMLElement)) {
+			return;
+		}
+		// .avpvh-grid-img--no-thumb is only on tiles with no Drive thumbnail — those
+		// always go through the proxy and benefit from early buffering.
+		if (nextEl.querySelector('.avpvh-grid-img--no-thumb') === null) {
+			return;
+		}
+		// Find the already-rendered slide in PhotoSwipe's slide pool and start it fetching.
+		const nextSlide = pswp.slides?.find((s) => s.index === nextIdx);
+		const nextVideo = nextSlide?.content.element?.querySelector('video');
+		if (
+			nextVideo instanceof HTMLVideoElement &&
+			nextVideo.preload === 'none'
+		) {
+			nextVideo.preload = 'auto';
+		}
 	}
 
 	private armVideoFallback(
@@ -813,6 +1122,113 @@ export class Shortcode {
 		}
 	}
 
+	// Detect ArrowLeft/ArrowRight on the grid and walk the folder tree.
+	// Only fires when no lightbox is open, we are inside a subfolder, and no
+	// text input is focused.
+	private setupFolderKeyboard(): void {
+		document.addEventListener('keydown', (e: KeyboardEvent) => {
+			if (this.lightbox.pswp !== undefined) {
+				return;
+			}
+			if ('' === this.path || this.folderNavigating) {
+				return;
+			}
+			if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+				return;
+			}
+			const active = this.container[0].ownerDocument.activeElement;
+			if (
+				active instanceof HTMLInputElement ||
+				active instanceof HTMLTextAreaElement ||
+				active instanceof HTMLSelectElement
+			) {
+				return;
+			}
+			e.preventDefault();
+			this.folderNavigating = true;
+			this.findAdjacentFolder(
+				this.path,
+				e.key === 'ArrowLeft' ? 'prev' : 'next'
+			);
+		});
+	}
+
+	// Detect a horizontal swipe on the gallery grid and walk the folder tree.
+	// Only fires when no lightbox is open and we are inside a subfolder.
+	private setupFolderSwipe(): void {
+		const el = this.container[0];
+		let startX = 0;
+		let startY = 0;
+		// 'h' = horizontal dominant, 'v' = vertical dominant, null = undecided
+		let axis: 'h' | 'v' | null = null;
+
+		el.addEventListener(
+			'touchstart',
+			(e: TouchEvent) => {
+				if (this.lightbox.pswp !== undefined) {
+					return;
+				}
+				if (e.touches.length !== 1) {
+					return;
+				}
+				startX = e.touches[0].clientX;
+				startY = e.touches[0].clientY;
+				axis = null;
+			},
+			{ passive: true }
+		);
+
+		el.addEventListener(
+			'touchmove',
+			(e: TouchEvent) => {
+				if (this.lightbox.pswp !== undefined) {
+					return;
+				}
+				if (e.touches.length !== 1) {
+					return;
+				}
+				if (axis === 'v') {
+					return;
+				}
+
+				const dx = e.touches[0].clientX - startX;
+				const dy = e.touches[0].clientY - startY;
+
+				if (axis === null && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+					axis = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
+				}
+				if (axis === 'h') {
+					// Prevent vertical scroll while swiping horizontally
+					e.preventDefault();
+				}
+			},
+			{ passive: false }
+		);
+
+		el.addEventListener(
+			'touchend',
+			(e: TouchEvent) => {
+				if (axis !== 'h') {
+					return;
+				}
+				if (e.changedTouches.length !== 1) {
+					return;
+				}
+				const dx = e.changedTouches[0].clientX - startX;
+				if (Math.abs(dx) < 50) {
+					return;
+				}
+				if ('' === this.path || this.folderNavigating) {
+					return;
+				}
+
+				this.folderNavigating = true;
+				this.findAdjacentFolder(this.path, dx < 0 ? 'next' : 'prev');
+			},
+			{ passive: true }
+		);
+	}
+
 	private navigateToAdjacentFolder(
 		direction: 'next' | 'prev',
 		pswp: PhotoSwipe
@@ -829,7 +1245,8 @@ export class Shortcode {
 	private findAdjacentFolder(
 		currentPath: string,
 		direction: 'next' | 'prev',
-		pswp: PhotoSwipe
+		pswp?: PhotoSwipe,
+		searchPage = 1
 	): void {
 		const lastSlash = currentPath.lastIndexOf('/');
 		const parentPath =
@@ -843,7 +1260,7 @@ export class Shortcode {
 				action: 'gallery',
 				hash: this.hash,
 				path: parentPath,
-				page: 1,
+				page: searchPage,
 			},
 			(data: GalleryResponse) => {
 				if (isError(data)) {
@@ -852,24 +1269,47 @@ export class Shortcode {
 				}
 				const siblings = data.directories ?? [];
 				const currentIndex = siblings.findIndex(
-					(d) => d.id === currentFolderId
+					// Path segments can be Drive IDs OR human-readable folder names —
+					// match both so navigation works regardless of how the URL was formed.
+					(d) =>
+						d.id === currentFolderId || d.name === currentFolderId
 				);
+
+				// Current folder not in this page — try the next page if there are more
 				if (currentIndex < 0) {
-					this.folderNavigating = false;
+					if (data.more === true) {
+						this.findAdjacentFolder(
+							currentPath,
+							direction,
+							pswp,
+							searchPage + 1
+						);
+					} else {
+						this.folderNavigating = false;
+					}
 					return;
 				}
+
 				const targetIndex =
 					'next' === direction ? currentIndex + 1 : currentIndex - 1;
 
 				// Found adjacent folder at this level
 				if (targetIndex >= 0 && targetIndex < siblings.length) {
 					const targetDir = siblings[targetIndex];
+					// Canonicalise parent path to Drive IDs using the response's path
+					// breadcrumb — prevents the URL staying in mixed name/ID format.
+					const canonicalParent =
+						data.path !== undefined && data.path.length > 0
+							? data.path.map((p) => p.id).join('/')
+							: parentPath;
 					const newPath =
-						('' !== parentPath ? parentPath + '/' : '') +
+						('' !== canonicalParent ? canonicalParent + '/' : '') +
 						targetDir.id;
-					pswp.close();
-					this.pendingLightboxOpen =
-						'next' === direction ? 'first' : 'last';
+					if (pswp !== undefined) {
+						// Called from lightbox boundary: reopen in the new folder
+						this.pendingLightboxOpen =
+							'next' === direction ? 'first' : 'last';
+					}
 					history.pushState(
 						{},
 						'',
@@ -887,11 +1327,13 @@ export class Shortcode {
 					this.folderNavigating = false;
 					return;
 				}
-
 				// Go up one level and search there
 				this.findAdjacentFolder(parentPath, direction, pswp);
 			}
-		);
+		).fail(() => {
+			// Network or server error — release the lock so the user can retry
+			this.folderNavigating = false;
+		});
 	}
 
 	private static renderMoreButton(): string {
@@ -904,21 +1346,443 @@ export class Shortcode {
 		);
 	}
 
+	// ── Linked-list node management ───────────────────────────────────────────
+
+	private storeKnownTotals(dirs: Array<Directory> | undefined): void {
+		for (const dir of dirs ?? []) {
+			this.knownTotals.set(
+				dir.id,
+				(dir.imagecount ?? 0) + (dir.videocount ?? 0)
+			);
+		}
+	}
+
+	private initLightboxNode(pswp: PhotoSwipe, openIndex: number): void {
+		this.slideNodes = [];
+		const links = Array.from(
+			this.container[0].querySelectorAll<HTMLAnchorElement>(
+				'a.avpvh-grid-a[data-pswp-width]'
+			)
+		);
+		const pathId = this.path.split('/').pop() ?? this.path;
+		const knownTotal = this.knownTotals.get(pathId);
+		const total = knownTotal ?? (this.hasMore ? -1 : links.length);
+		const node: FolderNode = {
+			path: this.path,
+			pathNames: this.currentPathNames,
+			total,
+			items: [...links],
+			fullyLoaded: !this.hasMore,
+			hasMore: this.hasMore,
+			lastPage: this.lastPage,
+			loadingMore: false,
+			next: null,
+			prev: null,
+			nextSearched: false,
+			loadingNext: false,
+		};
+		this.slideNodes.push(node);
+		this.currentNode = node;
+		const ds = pswp.options.dataSource as Record<string, unknown>;
+		ds['items'] = [...node.items];
+		Shortcode.updateNodeCounter(pswp, node, openIndex);
+	}
+
+	private getNodeForIndex(index: number): {
+		node: FolderNode;
+		localIndex: number;
+	} {
+		let offset = 0;
+		for (const node of this.slideNodes) {
+			const end = offset + node.items.length;
+			if (index < end) {
+				return { node, localIndex: index - offset };
+			}
+			offset = end;
+		}
+		const last = this.slideNodes[this.slideNodes.length - 1];
+		return {
+			node: last,
+			localIndex: index - (offset - last.items.length),
+		};
+	}
+
+	// Google full-size images are NOT pre-rotated (unlike thumbnails). Always
+	// apply CSS rotation based on EXIF so the lightbox shows correct orientation.
+	private static applySlideRotation(pswp: PhotoSwipe): void {
+		const slideEl = pswp.currSlide?.data.element;
+		const rawRotation = slideEl instanceof HTMLElement
+			? parseInt(slideEl.dataset['avpvhRotation'] ?? '0', 10)
+			: 0;
+		// Only act on clean quarter-turn values (90/180/270).
+		const rotation = [90, 180, 270].includes(rawRotation) ? rawRotation : 0;
+		const imgEl = pswp.currSlide?.content?.element;
+		if (!(imgEl instanceof HTMLElement)) {
+			return;
+		}
+		if (rotation === 0) {
+			imgEl.style.transform = '';
+			return;
+		}
+		if (rotation === 180) {
+			imgEl.style.transform = 'rotate(180deg)';
+			return;
+		}
+		// 90 or 270: PhotoSwipe sized the slot using the post-rotation (portrait)
+		// dimensions. The raw image pixels are landscape, so after CSS rotate the
+		// image overflows. Scale it down so it fits the portrait slot correctly.
+		const slotW = pswp.currSlide?.data.w ?? 1;
+		const slotH = pswp.currSlide?.data.h ?? 1;
+		const vw = window.innerWidth;
+		const vh = window.innerHeight;
+		const pswpScale = Math.min(vw / slotW, vh / slotH);
+		const rotScale = Math.min(vw / slotH, vh / slotW);
+		const adj = pswpScale > 0 ? rotScale / pswpScale : 1;
+		imgEl.style.transform = `rotate(${String(rotation)}deg) scale(${String(adj)})`;
+	}
+
+	private static updateNodeCounter(
+		pswp: PhotoSwipe,
+		node: FolderNode,
+		localIndex: number
+	): void {
+		const counterEl = pswp.element?.querySelector('.pswp__counter');
+		if (!(counterEl instanceof HTMLElement)) {
+			return;
+		}
+		const sep =
+			(pswp.options.indexIndicatorSep as string | undefined) ?? ' / ';
+		const total = node.total >= 0 ? String(node.total) : '?';
+		counterEl.textContent = String(localIndex + 1) + sep + total;
+	}
+
+	private onLightboxNodeChange(pswp: PhotoSwipe): void {
+		if (this.slideNodes.length === 0) {
+			return;
+		}
+		const { node, localIndex } = this.getNodeForIndex(pswp.currIndex);
+		if (node !== this.currentNode && this.currentNode !== null) {
+			this.currentNode = node;
+			history.pushState({}, '', this.pathQueryParameter.add(node.path));
+			if ('' !== this.pageQueryParameter.get()) {
+				history.replaceState({}, '', this.pageQueryParameter.remove());
+			}
+			this.get();
+		} else {
+			this.currentNode = node;
+		}
+		this.checkAndPreloadNext(pswp, node, localIndex);
+	}
+
+	private checkAndPreloadNext(
+		pswp: PhotoSwipe,
+		node: FolderNode,
+		localIndex: number
+	): void {
+		const distFromEnd = node.items.length - 1 - localIndex;
+		if (distFromEnd > this.BOUNDARY_PRELOAD_THRESHOLD) {
+			return;
+		}
+		if (node.hasMore && !node.loadingMore) {
+			this.loadMoreForNode(node, pswp);
+		} else if (
+			node.fullyLoaded &&
+			!node.nextSearched &&
+			!node.loadingNext
+		) {
+			node.loadingNext = true;
+			this.findAndLoadNextNode(node, pswp);
+		}
+	}
+
+	private findAndLoadNextNode(node: FolderNode, pswp: PhotoSwipe): void {
+		this.findNextSiblingPath(
+			node.path,
+			(newPath, total) => {
+				const newNode: FolderNode = {
+					path: newPath,
+					pathNames: '',
+					total,
+					items: [],
+					fullyLoaded: false,
+					hasMore: true,
+					lastPage: 0,
+					loadingMore: false,
+					next: null,
+					prev: node,
+					nextSearched: false,
+					loadingNext: false,
+				};
+				node.next = newNode;
+				node.nextSearched = true;
+				node.loadingNext = false;
+				this.slideNodes.push(newNode);
+				this.loadFirstNodePage(newNode, pswp);
+			},
+			() => {
+				node.nextSearched = true;
+				node.loadingNext = false;
+			}
+		);
+	}
+
+	private findNextSiblingPath(
+		currentPath: string,
+		onFound: (path: string, total: number) => void,
+		onNotFound: () => void,
+		searchPage = 1
+	): void {
+		const lastSlash = currentPath.lastIndexOf('/');
+		const parentPath =
+			lastSlash >= 0 ? currentPath.substring(0, lastSlash) : '';
+		const currentId =
+			lastSlash >= 0 ? currentPath.substring(lastSlash + 1) : currentPath;
+
+		void $.get(
+			avpvhShortcodeLocalize.ajax_url,
+			{
+				action: 'gallery',
+				hash: this.hash,
+				path: parentPath,
+				page: searchPage,
+			},
+			(data: GalleryResponse) => {
+				if (isError(data)) {
+					onNotFound();
+					return;
+				}
+				const siblings = data.directories ?? [];
+				const idx = siblings.findIndex(
+					(d) => d.id === currentId || d.name === currentId
+				);
+				if (idx < 0) {
+					if (data.more === true) {
+						this.findNextSiblingPath(
+							currentPath,
+							onFound,
+							onNotFound,
+							searchPage + 1
+						);
+					} else {
+						onNotFound();
+					}
+					return;
+				}
+				if (idx + 1 < siblings.length) {
+					this.storeKnownTotals(siblings);
+					const nextDir = siblings[idx + 1];
+					const canonicalParent =
+						data.path !== undefined && data.path.length > 0
+							? data.path.map((p) => p.id).join('/')
+							: parentPath;
+					const newPath =
+						(canonicalParent !== '' ? canonicalParent + '/' : '') +
+						nextDir.id;
+					onFound(newPath, this.knownTotals.get(nextDir.id) ?? -1);
+				} else if (data.more === true) {
+					this.findNextSiblingPath(
+						currentPath,
+						onFound,
+						onNotFound,
+						searchPage + 1
+					);
+				} else if (parentPath !== '') {
+					this.findNextSiblingPath(parentPath, onFound, onNotFound);
+				} else {
+					onNotFound();
+				}
+			}
+		).fail(onNotFound);
+	}
+
+	private loadFirstNodePage(node: FolderNode, pswp: PhotoSwipe): void {
+		node.loadingMore = true;
+		node.lastPage = 1;
+
+		void $.get(
+			avpvhShortcodeLocalize.ajax_url,
+			{ action: 'gallery', hash: this.hash, path: node.path, page: 1 },
+			(data: GalleryResponse) => {
+				node.loadingMore = false;
+				if (isError(data)) {
+					return;
+				}
+				node.pathNames = (data.path ?? []).map((p) => p.name).join('/');
+				const newItems = Shortcode.pageResponseToSlideItems(
+					data,
+					node.pathNames
+				);
+				// If the folder has no direct items but has subdirectories, dive
+				// into the first subdirectory (mirrors subfolder-dive in
+				// openLightboxIfPending).
+				if (
+					newItems.length === 0 &&
+					data.directories !== undefined &&
+					data.directories.length > 0
+				) {
+					// Store imagecount/videocount for the subdirs so the counter
+					// can show the correct total once we dive in.
+					this.storeKnownTotals(data.directories);
+					const firstSub = data.directories[0];
+					const canonicalParent =
+						data.path !== undefined && data.path.length > 0
+							? data.path.map((p) => p.id).join('/')
+							: node.path;
+					node.path =
+						(canonicalParent !== '' ? canonicalParent + '/' : '') +
+						firstSub.id;
+					node.total = this.knownTotals.get(firstSub.id) ?? -1;
+					node.lastPage = 0;
+					this.loadFirstNodePage(node, pswp);
+					return;
+				}
+				node.items.push(...newItems);
+				node.hasMore = data.more ?? false;
+				node.fullyLoaded = !node.hasMore;
+				if (node.fullyLoaded && node.total < 0) {
+					node.total = node.items.length;
+				}
+				this.appendItemsToDatasource(newItems, pswp);
+			}
+		).fail(() => {
+			node.loadingMore = false;
+		});
+	}
+
+	private loadMoreForNode(node: FolderNode, pswp: PhotoSwipe): void {
+		if (node.loadingMore) {
+			return;
+		}
+		node.loadingMore = true;
+		node.lastPage++;
+
+		void $.get(
+			avpvhShortcodeLocalize.ajax_url,
+			{
+				action: 'page',
+				hash: this.hash,
+				path: node.path,
+				page: node.lastPage,
+			},
+			(data: PageResponse) => {
+				node.loadingMore = false;
+				if (isError(data)) {
+					return;
+				}
+				const newItems = Shortcode.pageResponseToSlideItems(
+					data,
+					node.pathNames
+				);
+				node.items.push(...newItems);
+				node.hasMore = data.more ?? false;
+				node.fullyLoaded = !node.hasMore;
+				if (node.fullyLoaded && node.total < 0) {
+					node.total = node.items.length;
+				}
+				this.appendItemsToDatasource(newItems, pswp);
+			}
+		).fail(() => {
+			node.loadingMore = false;
+		});
+	}
+
+	private appendItemsToDatasource(
+		newItems: Array<HTMLElement>,
+		pswp: PhotoSwipe
+	): void {
+		if (this.lightbox.pswp !== pswp || newItems.length === 0) {
+			return;
+		}
+		const ds = pswp.options.dataSource as Record<string, unknown>;
+		const existing = Array.isArray(ds['items'])
+			? (ds['items'] as Array<HTMLElement>)
+			: [];
+		ds['items'] = [...existing, ...newItems];
+		// Refresh the counter so the total updates if a node just became fully
+		// loaded (total was ? and now we know the exact count).
+		const { node, localIndex } = this.getNodeForIndex(pswp.currIndex);
+		Shortcode.updateNodeCounter(pswp, node, localIndex);
+		// If the slideshow was stalled waiting at the last item, restart it.
+		if (!this.slideshowPaused && this.slideshowTimer === null) {
+			this.startSlideshow(pswp);
+		}
+	}
+
+	private static pageResponseToSlideItems(
+		data: PageSuccessResponse,
+		pathNames: string
+	): Array<HTMLElement> {
+		const items: Array<HTMLElement> = [];
+		const prefix = pathNames !== '' ? pathNames + '/' : '';
+		for (const image of data.images ?? []) {
+			const el = document.createElement('a');
+			el.className = 'avpvh-grid-a';
+			el.dataset['pswpWidth'] = String(
+				image.width > 0 ? image.width : 2000
+			);
+			el.dataset['pswpHeight'] = String(
+				image.height > 0 ? image.height : 1500
+			);
+			el.dataset['avpvhId'] = image.id;
+			el.dataset['avpvhCaption'] = image.description;
+			el.dataset['avpvhFullpath'] = prefix + image.name;
+			el.dataset['avpvhExif'] = Shortcode.formatExifString(image.exif);
+			el.dataset['avpvhRotation'] = String(image.light_rotation ?? 0);
+			el.dataset['avpvhThumbRotation'] = String(image.thumb_rotation ?? 0);
+			el.href = image.image;
+			if (avpvhShortcodeLocalize.is_admin === 'true') {
+				const iconEl = document.createElement('button');
+				iconEl.className = 'avpvh-exif-icon';
+				iconEl.type = 'button';
+				iconEl.title = 'Open in EXIF Inspector';
+				iconEl.textContent = '⚙';
+				const iconHref =
+					avpvhShortcodeLocalize.exif_inspector_url +
+					'&avpvh_file_id=' +
+					image.id;
+				iconEl.addEventListener('click', (e) => {
+					e.stopPropagation();
+					window.open(iconHref, '_blank', 'noopener');
+				});
+				el.appendChild(iconEl);
+			}
+			items.push(el);
+		}
+		for (const video of data.videos ?? []) {
+			if (
+				'' ===
+				document.createElement('video').canPlayType(video.mimeType)
+			) {
+				continue;
+			}
+			const el = document.createElement('a');
+			el.className = 'avpvh-grid-a';
+			el.dataset['pswpWidth'] = String(
+				video.width > 0 ? video.width : 1920
+			);
+			el.dataset['pswpHeight'] = String(
+				video.height > 0 ? video.height : 1080
+			);
+			el.dataset['pswpType'] = 'video';
+			el.dataset['avpvhId'] = video.id;
+			el.dataset['avpvhVideoSrc'] = video.src;
+			el.dataset['avpvhVideoMime'] = video.mimeType;
+			el.dataset['avpvhFullpath'] = prefix + video.name;
+			el.href = video.src;
+			items.push(el);
+		}
+		return items;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+
 	public onLightboxNavigation(e: JQuery): void {
 		const page = $(e).data('avpvh-page') as string;
-		const children = $(e).parent().children().length;
 		history.replaceState(
 			history.state,
 			'',
 			this.pageQueryParameter.add(page)
 		);
-		if (
-			'true' === avpvhShortcodeLocalize.page_autoload &&
-			this.hasMore &&
-			$(e).index() >= Math.min(children - 2, Math.floor(0.9 * children))
-		) {
-			this.add();
-		}
 	}
 
 	public onLightboxQuit(): void {
@@ -1056,20 +1920,6 @@ export class Shortcode {
 		);
 	}
 
-	private getSubfolderItems(
-		directory: Directory,
-		parentPath: string
-	): JQuery.jqXHR<GalleryResponse> {
-		const subfolderPath =
-			(parentPath ? parentPath + '/' : '') + directory.id;
-		return $.get(avpvhShortcodeLocalize.ajax_url, {
-			action: 'gallery',
-			hash: this.hash,
-			path: subfolderPath,
-			page: 1,
-		});
-	}
-
 	private getSuccess(data: GallerySuccessResponse): void {
 		this.currentPathNames = (data.path ?? []).map((c) => c.name).join('/');
 		const pageLength =
@@ -1143,122 +1993,9 @@ export class Shortcode {
 		}
 		this.container.html(html);
 		this.hasMore = data.more ?? false;
-
-		// Load items from subfolders for breadth-first slideshow navigation
-		// Do this BEFORE postLoad so items are available for slideshow
-		this.loadSubfolderItemsForSlideshow(data, () => {
-			this.postLoad();
-			this.openLightboxIfPending();
-		});
-	}
-
-	private loadSubfolderItemsForSlideshow(
-		data: GallerySuccessResponse,
-		callback: () => void
-	): void {
-		// Don't load subfolder items if there are no directories
-		if (!data.directories || data.directories.length === 0) {
-			callback();
-			return;
-		}
-
-		// Fetch items from all subfolders for breadth-first slideshow navigation
-		const subfolderRequests = (data.directories ?? []).map((dir) =>
-			this.getSubfolderItems(dir, this.path)
-		);
-
-		if (subfolderRequests.length === 0) {
-			callback();
-			return;
-		}
-
-		// Wait for all subfolder requests, then add items to slideshow
-		void $.when(...subfolderRequests).done(
-			(...responses: Array<unknown>) => {
-				const pswp = this.lightbox.pswp;
-				if (pswp) {
-					// Get current PhotoSwipe items
-					let items = (
-						pswp.options.dataSource as Record<string, unknown>
-					)['items'];
-					if (!Array.isArray(items)) {
-						items = [];
-					}
-
-					// Add items from each subfolder
-					(responses as Array<GalleryResponse>).forEach(
-						(subResponse) => {
-							if (isError(subResponse)) {
-								return;
-							}
-							const subData = subResponse;
-							const images = subData.images ?? [];
-							const videos = subData.videos ?? [];
-
-							// Add images from subfolder
-							images.forEach((image) => {
-								const el = document.createElement('a');
-								el.className = 'avpvh-grid-a';
-								el.dataset['pswpWidth'] = String(
-									image.width > 0 ? image.width : 2000
-								);
-								el.dataset['pswpHeight'] = String(
-									image.height > 0 ? image.height : 1500
-								);
-								el.dataset['avpvhId'] = image.id;
-								el.dataset['avpvhCaption'] = image.description;
-								el.href = image.image;
-								(items as Array<Record<string, unknown>>).push({
-									element: el,
-								});
-							});
-
-							// Add videos from subfolder
-							videos.forEach((video) => {
-								if (
-									'' !==
-									document
-										.createElement('video')
-										.canPlayType(video.mimeType)
-								) {
-									const el = document.createElement('a');
-									el.className = 'avpvh-grid-a';
-									el.dataset['pswpWidth'] = String(
-										video.width > 0 ? video.width : 1920
-									);
-									el.dataset['pswpHeight'] = String(
-										video.height > 0 ? video.height : 1080
-									);
-									el.dataset['pswpType'] = 'video';
-									el.dataset['avpvhId'] = video.id;
-									el.dataset['avpvhVideoSrc'] = video.src;
-									el.dataset['avpvhVideoMime'] =
-										video.mimeType;
-									el.href = video.src;
-									(
-										items as Array<Record<string, unknown>>
-									).push({
-										element: el,
-									});
-								}
-							});
-						}
-					);
-
-					// Update PhotoSwipe datasource with combined items
-					const ds = pswp.options.dataSource as Record<
-						string,
-						unknown
-					>;
-					if (ds) {
-						ds['items'] = items;
-					}
-				}
-
-				// Call callback after items are loaded
-				callback();
-			}
-		);
+		this.storeKnownTotals(data.directories);
+		this.postLoad();
+		this.openLightboxIfPending();
 	}
 
 	private openLightboxIfPending(): void {
@@ -1270,9 +2007,57 @@ export class Shortcode {
 				.get();
 			if (0 < links.length) {
 				const index = 'first' === action ? 0 : links.length - 1;
-				this.lightbox.loadAndOpen(index);
+				const openPswp = this.lightbox.pswp;
+				if (openPswp !== undefined) {
+					// Backward boundary or subfolder dive: close and instantly reopen
+					// in the new folder. Zero animation durations make the transition
+					// feel like a seamless cut.
+					const origShow =
+						this.lightbox.options.showAnimationDuration ?? 333;
+					openPswp.options.hideAnimationDuration = 0;
+					openPswp.on('destroy', () => {
+						this.lightbox.options.showAnimationDuration = 0;
+						this.lightbox.loadAndOpen(index);
+						requestAnimationFrame(() => {
+							this.lightbox.options.showAnimationDuration =
+								origShow;
+							const p = this.lightbox.pswp;
+							if (p !== undefined) {
+								p.options.showAnimationDuration = origShow;
+							}
+						});
+					});
+					openPswp.close();
+				} else {
+					this.lightbox.loadAndOpen(index);
+				}
+			} else {
+				// No direct photos — folder contains only subfolders.
+				// Dive into the first (or last) subfolder and try again.
+				const subdirs = this.container
+					.find('a.avpvh-grid-a[data-avpvh-path]')
+					.get() as Array<HTMLAnchorElement>;
+				if (subdirs.length > 0) {
+					const target =
+						'first' === action
+							? subdirs[0]
+							: subdirs[subdirs.length - 1];
+					const subPath = $(target).data('avpvhPath') as string;
+					if (subPath) {
+						this.pendingLightboxOpen = action;
+						history.replaceState(
+							{},
+							'',
+							this.pathQueryParameter.add(subPath)
+						);
+						this.path = subPath;
+						this.get();
+					}
+				}
 			}
-		} else {
+		} else if (this.lightbox.pswp === undefined) {
+			// Only try to open from hash when the lightbox is not already open;
+			// a get() triggered by onLightboxNodeChange must not spawn a second instance.
 			this.openFromHash();
 		}
 	}
@@ -1358,46 +2143,6 @@ export class Shortcode {
 		}
 		this.container.find('.avpvh-loading').remove();
 		this.postLoad();
-
-		// Let PhotoSwipe re-query the DOM for newly added gallery items
-		const pswp = this.lightbox.pswp;
-		if (pswp !== undefined) {
-			// Check if a video is currently playing
-			const currentSlide = pswp.currSlide;
-			const currentElement = currentSlide?.data.element;
-			const isVideoPlaying =
-				currentElement instanceof HTMLElement &&
-				currentElement.dataset['pswpType'] === 'video' &&
-				currentElement.querySelector(
-					'video:not([style*="display: none"])'
-				) !== null;
-
-			// Only clear the items cache if not playing a video
-			// (clearing while video plays can interrupt playback)
-			if (!isVideoPlaying) {
-				const ds = pswp.options.dataSource as
-					| Record<string, unknown>
-					| undefined;
-				if (ds !== undefined) {
-					delete ds['items'];
-				}
-			}
-
-			// Keep loop disabled while more items remain; re-enable when fully loaded
-			pswp.options.loop = !this.hasMore;
-
-			// Only auto-advance if not playing a video
-			if (this.pendingLightboxAdvance && !isVideoPlaying) {
-				this.pendingLightboxAdvance = false;
-				setTimeout(() => {
-					pswp.next();
-					this.startSlideshow(pswp);
-				}, 50);
-			} else if (this.pendingLightboxAdvance) {
-				// Video is playing, just clear the pending flag
-				this.pendingLightboxAdvance = false;
-			}
-		}
 	}
 
 	private fixPhotoSwipeDimensions(): void {
@@ -1451,6 +2196,21 @@ export class Shortcode {
 				this.get();
 				return false;
 			});
+		this.container
+			.find('.avpvh-breadcrumb-sibling')
+			.off('click.avpvh')
+			.on('click.avpvh', (e) => {
+				if ('' === this.path || this.folderNavigating) {
+					return false;
+				}
+				const dir = $(e.currentTarget).data('avpvhDir') as string;
+				if (dir !== 'prev' && dir !== 'next') {
+					return false;
+				}
+				this.folderNavigating = true;
+				this.findAdjacentFolder(this.path, dir);
+				return false;
+			});
 		this.container.find('.avpvh-more-button').on('click', () => {
 			this.add();
 			return false;
@@ -1488,6 +2248,7 @@ export class Shortcode {
 				ShortcodeRegistry.reflowAll();
 			});
 		this.reflowTimer();
+		this.prefetchNextPage();
 
 		if ('true' === avpvhShortcodeLocalize.page_autoload) {
 			$(window)
@@ -1516,6 +2277,31 @@ export class Shortcode {
 		}
 	}
 
+	private prefetchNextPage(): void {
+		if (!this.hasMore) {
+			return;
+		}
+		const nextPage = this.lastPage + 1;
+		const cacheKey = `page-${this.hash}-${this.pathQueryParameter.get()}-${String(nextPage)}`;
+		if (Shortcode.cache.has(cacheKey)) {
+			return;
+		}
+		void $.get(
+			avpvhShortcodeLocalize.ajax_url,
+			{
+				action: 'page',
+				hash: this.hash,
+				path: this.pathQueryParameter.get(),
+				page: nextPage,
+			},
+			(data: PageResponse) => {
+				if (!isError(data)) {
+					Shortcode.cache.set(cacheKey, data);
+				}
+			}
+		);
+	}
+
 	private renderBreadcrumbs(path: Array<PartialDirectory>): string {
 		const faviconUrl = this.faviconUrl;
 		// Parent path = all but last segment, joined with /
@@ -1529,8 +2315,25 @@ export class Shortcode {
 					faviconUrl +
 					'" alt="Up" style="height:1.5em;width:1.5em;vertical-align:middle;border-radius:2px;object-fit:contain;transform:rotate(-45deg)">'
 				: '&#8679;';
+		const siblingIcon = (dir: 'prev' | 'next'): string =>
+			'' !== faviconUrl
+				? '<img src="' +
+					faviconUrl +
+					'" alt="' +
+					(dir === 'prev' ? 'Previous' : 'Next') +
+					' folder" style="height:1.5em;width:1.5em;vertical-align:middle;border-radius:2px;object-fit:contain;transform:' +
+					(dir === 'prev'
+						? 'scaleX(-1) rotate(45deg)'
+						: 'rotate(45deg)') +
+					'">'
+				: dir === 'prev'
+				  ? '&#8678;'
+				  : '&#8680;';
 		let html =
 			'<div class="avpvh-breadcrumbs">' +
+			'<a class="avpvh-breadcrumb-sibling avpvh-breadcrumb-prev" href="#" data-avpvh-dir="prev" aria-label="Previous folder">' +
+			siblingIcon('prev') +
+			'</a>' +
 			'<a class="avpvh-breadcrumb-up" data-avpvh-path="' +
 			parentPath +
 			'" href="' +
@@ -1552,7 +2355,11 @@ export class Shortcode {
 				'</a>';
 			field += '/';
 		});
-		html += '</div>';
+		html +=
+			'<a class="avpvh-breadcrumb-sibling avpvh-breadcrumb-next" href="#" data-avpvh-dir="next" aria-label="Next folder">' +
+			siblingIcon('next') +
+			'</a>' +
+			'</div>';
 		return html;
 	}
 
@@ -1696,6 +2503,125 @@ export class Shortcode {
 		return width + 'x' + height;
 	}
 
+	// Combine make + model but drop the make when the model already starts with
+	// it (e.g. "NIKON CORPORATION" + "NIKON D70" → "NIKON D70").
+	private static formatCamera(
+		make: string | undefined,
+		model: string | undefined
+	): string {
+		if (model === undefined || model === '') {
+			return (make ?? '').trim();
+		}
+		if (make === undefined || make === '') {
+			return model.trim();
+		}
+		const brand = make.split(/\s+/)[0] ?? '';
+		const redundant =
+			brand !== '' &&
+			model.toUpperCase().startsWith(brand.toUpperCase());
+		return (redundant ? model : make + ' ' + model)
+			.replace(/\s+/g, ' ')
+			.trim();
+	}
+
+	private static formatExifString(exif: ImageExif | undefined): string {
+		if (exif === undefined) {
+			return '';
+		}
+		const parts: Array<string> = [];
+		if (exif.time !== undefined) {
+			const d = Shortcode.formatExifDate(exif.time);
+			if (d !== '') {
+				parts.push(d);
+			}
+		}
+		const camera = Shortcode.formatCamera(exif.make, exif.model);
+		if (camera !== '') {
+			parts.push(camera);
+		}
+		if (exif.focal !== undefined) {
+			parts.push(String(exif.focal) + 'mm');
+		}
+		if (exif.aperture !== undefined) {
+			parts.push('f/' + String(exif.aperture));
+		}
+		if (exif.exposure !== undefined) {
+			parts.push(Shortcode.formatExposure(exif.exposure));
+		}
+		if (exif.iso !== undefined) {
+			parts.push('ISO ' + String(exif.iso));
+		}
+		if (exif.orientation !== undefined && exif.orientation > 0) {
+			const orientationLabels: Partial<Record<number, string>> = {
+				90: '90° rechtsom',
+				180: '180° gedraaid',
+				270: '90° linksom',
+			};
+			parts.push(
+				orientationLabels[exif.orientation] ??
+					String(exif.orientation) + '° gedraaid'
+			);
+		}
+		return parts.join(' · ');
+	}
+
+	private static contextMenuEl: HTMLElement | null = null;
+
+	private static showContextMenu(
+		x: number,
+		y: number,
+		items: Array<{ label: string; href: string }>
+	): void {
+		let menu = this.contextMenuEl;
+		if (menu === null) {
+			menu = document.createElement('div');
+			menu.className = 'avpvh-context-menu';
+			document.body.appendChild(menu);
+			document.addEventListener('click', () => {
+				if (this.contextMenuEl !== null) {
+					this.contextMenuEl.style.display = 'none';
+				}
+			});
+			document.addEventListener('keydown', (e) => {
+				if (e.key === 'Escape' && this.contextMenuEl !== null) {
+					this.contextMenuEl.style.display = 'none';
+				}
+			});
+			this.contextMenuEl = menu;
+		}
+		menu.innerHTML = '';
+		for (const item of items) {
+			const a = document.createElement('a');
+			a.className = 'avpvh-context-menu-item';
+			a.href = item.href;
+			a.target = '_blank';
+			a.rel = 'noopener';
+			a.textContent = item.label;
+			a.addEventListener('click', () => {
+				if (this.contextMenuEl !== null) {
+					this.contextMenuEl.style.display = 'none';
+				}
+			});
+			menu.appendChild(a);
+		}
+		menu.style.display = 'block';
+		menu.style.left = String(x) + 'px';
+		menu.style.top = String(y) + 'px';
+		const rect = menu.getBoundingClientRect();
+		if (rect.right > window.innerWidth) {
+			menu.style.left = String(x - rect.width) + 'px';
+		}
+		if (rect.bottom > window.innerHeight) {
+			menu.style.top = String(y - rect.height) + 'px';
+		}
+	}
+
+	private static hideContextMenu(): void {
+		if (this.contextMenuEl !== null) {
+			this.contextMenuEl.style.display = 'none';
+		}
+	}
+
 	private static formatExifDate(time: string): string {
 		// EXIF time format: "YYYY:MM:DD HH:MM:SS"
 		const match =
@@ -1746,8 +2672,16 @@ export class Shortcode {
 				parts.push('ISO ' + String(exif.iso));
 			}
 
-			if (exif.orientation !== undefined && 0 !== exif.orientation) {
-				parts.push('Rotation ' + String(exif.orientation) + '°');
+			if (exif.orientation !== undefined && exif.orientation > 0) {
+				const orientationLabels: Partial<Record<number, string>> = {
+					90: '90° rechtsom',
+					180: '180° gedraaid',
+					270: '90° linksom',
+				};
+				const label =
+					orientationLabels[exif.orientation] ??
+					String(exif.orientation) + '° gedraaid';
+				parts.push(label);
 			}
 		}
 		if ('' === fullPath && 0 === parts.length) {
@@ -1769,9 +2703,8 @@ export class Shortcode {
 	private renderImage(page: number, image: Image): string {
 		const width = 0 < image.width ? image.width : 2000;
 		const height = 0 < image.height ? image.height : 1500;
-		const orientationAttr = image.exif?.orientation
-			? ' data-exif-orientation="' + image.exif.orientation + '"'
-			: '';
+		const thumbRotation = image.thumb_rotation ?? 0;
+		const lightRotation = image.light_rotation ?? 0;
 
 		// Format EXIF data for data attribute (used by lightbox)
 		const exifParts: Array<string> = [];
@@ -1782,11 +2715,7 @@ export class Shortcode {
 					exifParts.push(d);
 				}
 			}
-			const camera = [image.exif.make, image.exif.model]
-				.filter((x) => x !== undefined)
-				.join(' ')
-				.replace(/\s+/g, ' ')
-				.trim();
+			const camera = Shortcode.formatCamera(image.exif.make, image.exif.model);
 			if ('' !== camera) {
 				exifParts.push(camera);
 			}
@@ -1802,18 +2731,21 @@ export class Shortcode {
 			if (image.exif.iso !== undefined) {
 				exifParts.push('ISO ' + String(image.exif.iso));
 			}
-			if (
-				image.exif.orientation !== undefined &&
-				0 !== image.exif.orientation
-			) {
-				exifParts.push(
-					'Rotation ' + String(image.exif.orientation) + '°'
-				);
-			}
 		}
 		const exifAttr =
 			0 < exifParts.length
 				? ' data-avpvh-exif="' + exifParts.join(' · ') + '"'
+				: '';
+
+		const exifIconHtml =
+			avpvhShortcodeLocalize.is_admin === 'true'
+				? '<button class="avpvh-exif-icon" type="button" ' +
+					'data-exif-href="' +
+					avpvhShortcodeLocalize.exif_inspector_url +
+					'&amp;avpvh_file_id=' +
+					image.id +
+					'" title="Open in EXIF Inspector" ' +
+					'onclick="window.open(this.dataset.exifHref,\'_blank\',\'noopener\');event.stopPropagation()">&#9881;</button>'
 				: '';
 
 		return (
@@ -1833,18 +2765,24 @@ export class Shortcode {
 			'data-avpvh-page="' +
 			page.toString() +
 			'" ' +
+			'data-avpvh-rotation="' +
+			String(lightRotation) +
+			'" ' +
+			'data-avpvh-thumb-rotation="' +
+			String(thumbRotation) +
+			'" ' +
 			'href="' +
 			image.image +
 			'" data-avpvh-fullpath="' +
 			('' !== this.currentPathNames ? this.currentPathNames + '/' : '') +
 			image.name +
 			'"' +
-			orientationAttr +
 			exifAttr +
 			'>' +
 			'<img class="avpvh-grid-img" src="' +
 			image.thumbnail +
 			'">' +
+			exifIconHtml +
 			Shortcode.renderExifOverlay(
 				('' !== this.currentPathNames
 					? this.currentPathNames + '/'
@@ -1893,20 +2831,20 @@ export class Shortcode {
 			video.src +
 			'" data-avpvh-fullpath="' +
 			('' !== this.currentPathNames ? this.currentPathNames + '/' : '') +
-			video.id +
+			video.name +
 			'"' +
 			exifAttr +
 			'>' +
-			'<img class="avpvh-grid-img" src="' +
-			video.thumbnail +
-			'">' +
+			(video.thumbnail !== null
+				? '<img class="avpvh-grid-img" src="' + video.thumbnail + '">'
+				: '<div class="avpvh-grid-img avpvh-grid-img--no-thumb"></div>') +
 			'<div class="avpvh-video-play-btn">' +
 			Shortcode.SVG_VIDEO +
 			'</div>' +
 			Shortcode.renderExifOverlay(
 				('' !== this.currentPathNames
 					? this.currentPathNames + '/'
-					: '') + video.id,
+					: '') + video.name,
 				undefined
 			) +
 			'</a>'

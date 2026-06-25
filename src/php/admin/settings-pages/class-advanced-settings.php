@@ -59,9 +59,7 @@ final class Advanced_Settings {
 			return;
 		}
 
-		$help_link = 'https://napoveda.skaut.cz/dobryweb/' .
-			substr( get_locale(), 0, 2 ) .
-			'-avpvh-gallery';
+		$help_link = 'https://github.com/grmt/avpvh-gallery';
 		add_settings_error(
 			'general',
 			'help',
