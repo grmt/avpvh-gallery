@@ -29,8 +29,10 @@ final class Main {
 	 */
 	public function __construct() {
 		register_activation_hook( __FILE__, array( self::class, 'activate' ) );
-		add_action( 'plugins_loaded', array( '\\Avpvh\\Options', 'init' ) );
+		add_action( 'init', array( self::class, 'load_textdomain' ), 0 );
+		add_action( 'init', array( '\\Avpvh\\Options', 'init' ), 1 );
 		add_action( 'admin_notices', array( self::class, 'activation_notice' ) );
+		add_action( 'admin_init', array( '\\Avpvh\\Photo_Corrections_DB', 'maybe_migrate' ) );
 		new Shortcode();
 		new Block();
 		new Page();
@@ -40,6 +42,13 @@ final class Main {
 		new Members_API();
 		new Settings_Pages();
 		new TinyMCE_Plugin();
+	}
+
+	/**
+	 * Loads the plugin textdomain on the init hook.
+	 */
+	public static function load_textdomain(): void {
+		load_plugin_textdomain( 'avpvh-gallery', false, dirname( plugin_basename( __FILE__ ) ) . '/languages/' );
 	}
 
 	/**
