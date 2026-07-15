@@ -2,19 +2,20 @@
 /**
  * Contains the Options class
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg;
+namespace Avpvh;
 
-use Sgdg\Admin\Readonly_String_Option;
-use Sgdg\Frontend\Boolean_Option;
-use Sgdg\Frontend\Bounded_Integer_Option;
-use Sgdg\Frontend\Code_String_Option;
-use Sgdg\Frontend\Integer_Option;
-use Sgdg\Frontend\Ordering_Option;
-use Sgdg\Frontend\Root_Path_Option;
-use Sgdg\Frontend\String_Option;
+use Avpvh\Admin\Asset_Set_Option;
+use Avpvh\Admin\Readonly_String_Option;
+use Avpvh\Frontend\Boolean_Option;
+use Avpvh\Frontend\Bounded_Integer_Option;
+use Avpvh\Frontend\Code_String_Option;
+use Avpvh\Frontend\Integer_Option;
+use Avpvh\Frontend\Ordering_Option;
+use Avpvh\Frontend\Root_Path_Option;
+use Avpvh\Frontend\String_Option;
 
 require_once __DIR__ . '/frontend/class-boolean-option.php';
 require_once __DIR__ . '/frontend/class-integer-option.php';
@@ -25,6 +26,7 @@ require_once __DIR__ . '/frontend/class-array-option.php';
 require_once __DIR__ . '/frontend/class-ordering-option.php';
 require_once __DIR__ . '/frontend/class-root-path-option.php';
 require_once __DIR__ . '/admin/class-readonly-string-option.php';
+require_once __DIR__ . '/admin/class-asset-set-option.php';
 
 /**
  * A container for all the configuration of the plugin.
@@ -38,6 +40,13 @@ require_once __DIR__ . '/admin/class-readonly-string-option.php';
  * phpcs:disable SlevomatCodingStandard.Classes.ForbiddenPublicProperty.ForbiddenPublicProperty
  */
 final class Options {
+
+	/**
+	 * Gallery icon and branding set: auto, branded or neutral.
+	 *
+	 * @var Asset_Set_Option $asset_set
+	 */
+	public static $asset_set;
 
 	/**
 	 * Shows the authorized domain which the user needs for registering the Google app.
@@ -203,41 +212,49 @@ final class Options {
 	 * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
 	 */
 	public static function init() {
+		self::$asset_set         = new Asset_Set_Option(
+			'asset_set',
+			'auto',
+			'advanced',
+			'appearance',
+			esc_html__( 'Icon set', 'avpvh-gallery' )
+		);
 		$url                     = wp_parse_url( get_site_url() );
 		self::$authorized_domain = new Readonly_String_Option(
 			'authorized_domain',
 			$url['host'],
 			'basic',
 			'auth',
-			esc_html__( 'Authorised domain', 'skaut-google-drive-gallery' )
+			esc_html__( 'Authorised domain', 'avpvh-gallery' )
 		);
 		self::$authorized_origin = new Readonly_String_Option(
 			'origin',
 			$url['scheme'] . '://' . $url['host'],
 			'basic',
 			'auth',
-			esc_html__( 'Authorised JavaScript origin', 'skaut-google-drive-gallery' )
+			esc_html__( 'Authorised JavaScript origin', 'avpvh-gallery' )
 		);
 		self::$redirect_uri      = new Readonly_String_Option(
 			'redirect_uri',
-			esc_url_raw( admin_url( 'admin.php?page=sgdg_basic&action=oauth_redirect' ) ),
+			esc_url_raw( admin_url( 'admin.php?page=avpvh_basic&action=oauth_redirect' ) ),
 			'basic',
 			'auth',
-			esc_html__( 'Authorised redirect URI', 'skaut-google-drive-gallery' )
+			esc_html__( 'Authorised redirect URI', 'avpvh-gallery' )
 		);
 		self::$client_id         = new Code_String_Option(
 			'client_id',
 			'',
 			'basic',
 			'auth',
-			esc_html__( 'Client ID', 'skaut-google-drive-gallery' )
+			esc_html__( 'Client ID', 'avpvh-gallery' )
 		);
 		self::$client_secret     = new Code_String_Option(
 			'client_secret',
 			'',
 			'basic',
 			'auth',
-			esc_html__( 'Client secret', 'skaut-google-drive-gallery' )
+			esc_html__( 'Client secret', 'avpvh-gallery' ),
+			true
 		);
 
 		self::$root_path = new Root_Path_Option( 'root_path', array( 'root' ), 'basic', 'root_selection', '' );
@@ -248,28 +265,28 @@ final class Options {
 			1,
 			'advanced',
 			'grid',
-			esc_html__( 'Row height', 'skaut-google-drive-gallery' )
+			esc_html__( 'Row height', 'avpvh-gallery' )
 		);
 		self::$grid_spacing   = new Integer_Option(
 			'grid_spacing',
 			10,
 			'advanced',
 			'grid',
-			esc_html__( 'Item spacing', 'skaut-google-drive-gallery' )
+			esc_html__( 'Item spacing', 'avpvh-gallery' )
 		);
 		self::$dir_title_size = new String_Option(
 			'dir_title_size',
 			'1.2em',
 			'advanced',
 			'grid',
-			esc_html__( 'Directory title size', 'skaut-google-drive-gallery' )
+			esc_html__( 'Directory title size', 'avpvh-gallery' )
 		);
 		self::$dir_counts     = new Boolean_Option(
 			'dir_counts',
 			true,
 			'advanced',
 			'grid',
-			esc_html__( 'Directory item counts', 'skaut-google-drive-gallery' )
+			esc_html__( 'Directory item counts', 'avpvh-gallery' )
 		);
 		self::$page_size      = new Bounded_Integer_Option(
 			'page_size',
@@ -277,14 +294,14 @@ final class Options {
 			1,
 			'advanced',
 			'grid',
-			esc_html__( 'Items per page', 'skaut-google-drive-gallery' )
+			esc_html__( 'Items per page', 'avpvh-gallery' )
 		);
 		self::$page_autoload  = new Boolean_Option(
 			'page_autoload',
 			true,
 			'advanced',
 			'grid',
-			esc_html__( 'Autoload new images', 'skaut-google-drive-gallery' )
+			esc_html__( 'Autoload new images', 'avpvh-gallery' )
 		);
 		self::$image_ordering = new Ordering_Option(
 			'image_ordering',
@@ -292,7 +309,7 @@ final class Options {
 			'ascending',
 			'advanced',
 			'grid',
-			esc_html__( 'Image and video ordering', 'skaut-google-drive-gallery' )
+			esc_html__( 'Image and video ordering', 'avpvh-gallery' )
 		);
 		self::$dir_ordering   = new Ordering_Option(
 			'dir_ordering',
@@ -300,14 +317,14 @@ final class Options {
 			'descending',
 			'advanced',
 			'grid',
-			esc_html__( 'Directory ordering', 'skaut-google-drive-gallery' )
+			esc_html__( 'Directory ordering', 'avpvh-gallery' )
 		);
 		self::$dir_prefix     = new String_Option(
 			'dir_prefix',
 			'',
 			'advanced',
 			'grid',
-			esc_html__( 'In folder names, hide everything before the first occurence of', 'skaut-google-drive-gallery' )
+			esc_html__( 'In folder names, hide everything before the first occurence of', 'avpvh-gallery' )
 		);
 
 		self::$preview_size               = new Bounded_Integer_Option(
@@ -316,7 +333,7 @@ final class Options {
 			1,
 			'advanced',
 			'lightbox',
-			esc_html__( 'Image size', 'skaut-google-drive-gallery' )
+			esc_html__( 'Image size', 'avpvh-gallery' )
 		);
 		self::$preview_speed              = new Bounded_Integer_Option(
 			'preview_speed',
@@ -324,42 +341,42 @@ final class Options {
 			0,
 			'advanced',
 			'lightbox',
-			esc_html__( 'Animation speed (ms)', 'skaut-google-drive-gallery' )
+			esc_html__( 'Animation speed (ms)', 'avpvh-gallery' )
 		);
 		self::$preview_arrows             = new Boolean_Option(
 			'preview_arrows',
 			true,
 			'advanced',
 			'lightbox',
-			esc_html__( 'Navigation arrows', 'skaut-google-drive-gallery' )
+			esc_html__( 'Navigation arrows', 'avpvh-gallery' )
 		);
 		self::$preview_close_button       = new Boolean_Option(
 			'preview_closebutton',
 			true,
 			'advanced',
 			'lightbox',
-			esc_html__( 'Close button', 'skaut-google-drive-gallery' )
+			esc_html__( 'Close button', 'avpvh-gallery' )
 		);
 		self::$preview_loop               = new Boolean_Option(
 			'preview_loop',
 			false,
 			'advanced',
 			'lightbox',
-			esc_html__( 'Loop images', 'skaut-google-drive-gallery' )
+			esc_html__( 'Loop images', 'avpvh-gallery' )
 		);
 		self::$preview_activity_indicator = new Boolean_Option(
 			'preview_activity',
 			true,
 			'advanced',
 			'lightbox',
-			esc_html__( 'Activity indicator', 'skaut-google-drive-gallery' )
+			esc_html__( 'Activity indicator', 'avpvh-gallery' )
 		);
 		self::$preview_captions           = new Boolean_Option(
 			'preview_captions',
 			true,
 			'advanced',
 			'lightbox',
-			esc_html__( 'Show captions', 'skaut-google-drive-gallery' )
+			esc_html__( 'Show captions', 'avpvh-gallery' )
 		);
 	}
 }

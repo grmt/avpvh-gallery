@@ -2,29 +2,29 @@
 /**
  * Contains the List_Ajax_Endpoint class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Admin\Settings_Pages\Basic\Root_Selection;
+namespace Avpvh\Admin\Settings_Pages\Basic\Root_Selection;
 
-use Sgdg\API_Client;
-use Sgdg\API_Facade;
-use Sgdg\Exceptions\API_Exception;
-use Sgdg\Exceptions\API_Rate_Limit_Exception;
-use Sgdg\Exceptions\Cant_Manage_Exception;
-use Sgdg\Exceptions\Drive_Not_Found_Exception;
-use Sgdg\Exceptions\File_Not_Found_Exception;
-use Sgdg\Exceptions\Internal_Exception;
-use Sgdg\Exceptions\Not_Found_Exception;
-use Sgdg\Exceptions\Plugin_Not_Authorized_Exception;
-use Sgdg\Frontend\API_Fields;
-use Sgdg\Frontend\Single_Page_Pagination_Helper;
-use Sgdg\GET_Helpers;
-use Sgdg\Helpers;
-use Sgdg\Vendor\GuzzleHttp\Promise\FulfilledPromise;
-use Sgdg\Vendor\GuzzleHttp\Promise\PromiseInterface;
-use Sgdg\Vendor\GuzzleHttp\Promise\RejectedPromise;
-use Sgdg\Vendor\GuzzleHttp\Promise\Utils;
+use Avpvh\API_Client;
+use Avpvh\API_Facade;
+use Avpvh\Exceptions\API_Exception;
+use Avpvh\Exceptions\API_Rate_Limit_Exception;
+use Avpvh\Exceptions\Cant_Manage_Exception;
+use Avpvh\Exceptions\Drive_Not_Found_Exception;
+use Avpvh\Exceptions\File_Not_Found_Exception;
+use Avpvh\Exceptions\Internal_Exception;
+use Avpvh\Exceptions\Not_Found_Exception;
+use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
+use Avpvh\Frontend\API_Fields;
+use Avpvh\Frontend\Single_Page_Pagination_Helper;
+use Avpvh\GET_Helpers;
+use Avpvh\Helpers;
+use Avpvh\Vendor\GuzzleHttp\Promise\FulfilledPromise;
+use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
+use Avpvh\Vendor\GuzzleHttp\Promise\RejectedPromise;
+use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
 
 /**
  * Handles the list_gdrive_dir ajax endpoint.
@@ -73,7 +73,7 @@ final class List_Ajax_Endpoint {
 	 * @throws Plugin_Not_Authorized_Exception Not authorized.
 	 */
 	public static function ajax_handler_body() {
-		check_ajax_referer( 'sgdg_root_selection' );
+		check_ajax_referer( 'avpvh_root_selection' );
 
 		if ( ! current_user_can( 'manage_options' ) ) {
 			throw new Cant_Manage_Exception();
@@ -94,7 +94,7 @@ final class List_Ajax_Endpoint {
 						'path_ids'  => array(),
 						'resetWarn' => esc_html__(
 							'Root directory wasn\'t found. The plugin may be broken until a new one is chosen.',
-							'skaut-google-drive-gallery'
+							'avpvh-gallery'
 						),
 					);
 				}
@@ -137,7 +137,7 @@ final class List_Ajax_Endpoint {
 		if ( count( $path ) > 0 ) {
 			$promises[] = 'root' === $path[0]
 				? new FulfilledPromise(
-					esc_html__( 'My Drive', 'skaut-google-drive-gallery' )
+					esc_html__( 'My Drive', 'avpvh-gallery' )
 				)
 				: API_Facade::get_drive_name( $path[0] );
 		}
@@ -168,7 +168,7 @@ final class List_Ajax_Endpoint {
 					$drives,
 					array(
 						'id'   => 'root',
-						'name' => esc_html__( 'My Drive', 'skaut-google-drive-gallery' ),
+						'name' => esc_html__( 'My Drive', 'avpvh-gallery' ),
 					)
 				);
 

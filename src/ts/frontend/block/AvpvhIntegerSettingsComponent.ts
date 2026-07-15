@@ -1,19 +1,19 @@
 import { createElement } from '@wordpress/element';
 
-import { SgdgSettingsComponent } from './SgdgSettingsComponent';
+import { AvpvhSettingsComponent } from './AvpvhSettingsComponent';
 
-export class SgdgIntegerSettingsComponent extends SgdgSettingsComponent {
+export class AvpvhIntegerSettingsComponent extends AvpvhSettingsComponent {
 	protected renderInput(): React.ReactNode {
 		const disabled =
 			undefined === this.props.editor.getAttribute(this.props.name);
 		return createElement('input', {
 			className:
-				'sgdg-block-settings-integer components-range-control__number',
+				'avpvh-block-settings-integer components-range-control__number',
 			disabled,
 			onChange: (e: React.FormEvent) => {
 				this.change(e);
 			},
-			placeholder: sgdgBlockLocalize[this.props.name].default,
+			placeholder: avpvhBlockLocalize[this.props.name].default,
 			type: 'number',
 			value: this.state.value,
 		});

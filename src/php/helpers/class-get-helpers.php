@@ -2,10 +2,10 @@
 /**
  * Contains the GET_Helpers class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg;
+namespace Avpvh;
 
 /**
  * Contains helper functions for working with GET variables.

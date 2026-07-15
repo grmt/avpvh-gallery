@@ -1,4 +1,4 @@
-declare const sgdgRootpathLocalize: {
+declare const avpvhRootpathLocalize: {
 	ajax_url: string;
 	nonce: string;
 	root_dir: Array< string >;

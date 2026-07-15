@@ -2,17 +2,17 @@
 /**
  * Contains the Cant_Edit_Exception class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Exceptions;
+namespace Avpvh\Exceptions;
 
-use Sgdg\Exceptions\Exception as Sgdg_Exception;
+use Avpvh\Exceptions\Exception as Avpvh_Exception;
 
 /**
  * Can't edit posts and pages
  */
-final class Cant_Edit_Exception extends Sgdg_Exception {
+final class Cant_Edit_Exception extends Avpvh_Exception {
 
 	/**
 	 * Cant_Edit_Exception class constructor
@@ -21,7 +21,7 @@ final class Cant_Edit_Exception extends Sgdg_Exception {
 		parent::__construct(
 			esc_html__(
 				'Insufficient role for this action - you have to be able to edit posts and pages.',
-				'skaut-google-drive-gallery'
+				'avpvh-gallery'
 			)
 		);
 	}

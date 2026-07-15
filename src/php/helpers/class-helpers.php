@@ -2,13 +2,13 @@
 /**
  * Contains the Helpers class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg;
+namespace Avpvh;
 
+use Avpvh\Exceptions\Exception as Avpvh_Exception;
 use Exception as Base_Exception;
-use Sgdg\Exceptions\Exception as Sgdg_Exception;
 use const WP_DEBUG;
 use const WP_DEBUG_DISPLAY;
 
@@ -40,7 +40,7 @@ final class Helpers {
 	public static function ajax_wrapper( $handler ) {
 		try {
 			$handler();
-		} catch ( Sgdg_Exception $e ) {
+		} catch ( Avpvh_Exception $e ) {
 			if ( self::is_debug_display() ) {
 				wp_send_json(
 					array(
@@ -61,7 +61,7 @@ final class Helpers {
 				);
 			}
 
-			wp_send_json( array( 'error' => esc_html__( 'Unknown error.', 'skaut-google-drive-gallery' ) ) );
+			wp_send_json( array( 'error' => esc_html__( 'Unknown error.', 'avpvh-gallery' ) ) );
 		}
 	}
 }

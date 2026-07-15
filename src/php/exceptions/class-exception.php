@@ -2,10 +2,10 @@
 /**
  * Contains the Exception class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Exceptions;
+namespace Avpvh\Exceptions;
 
 use Exception as Base_Exception;
 

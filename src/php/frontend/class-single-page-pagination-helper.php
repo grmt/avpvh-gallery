@@ -2,10 +2,10 @@
 /**
  * Contains the Single_Page_Pagination_Helper class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
 /**
  * Loads exactly one page worth of data.

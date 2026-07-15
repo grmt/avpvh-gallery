@@ -7,42 +7,44 @@ import { printError } from '../printError';
 let path: Array<string> = [];
 
 function tinymceSubmit(): void {
-	if ($('#sgdg-tinymce-insert').attr('disabled') !== undefined) {
+	if ($('#avpvh-tinymce-insert').attr('disabled') !== undefined) {
 		return;
 	}
-	tinymce.activeEditor?.insertContent('[sgdg path="' + path.join('/') + '"]');
+	tinymce.activeEditor?.insertContent(
+		'[avpvh path="' + path.join('/') + '"]'
+	);
 	tb_remove();
 }
 
 function tinymceHtml(): void {
 	const html =
-		'<div id="sgdg-tinymce-overflow">' +
-		'<table id="sgdg-tinymce-table" class="widefat">' +
+		'<div id="avpvh-tinymce-overflow">' +
+		'<table id="avpvh-tinymce-table" class="widefat">' +
 		'<thead>' +
 		'<tr>' +
-		'<th class="sgdg-tinymce-path">' +
-		sgdgTinymceLocalize.root_name +
+		'<th class="avpvh-tinymce-path">' +
+		avpvhTinymceLocalize.root_name +
 		'</th>' +
 		'</tr>' +
 		'</thead>' +
-		'<tbody id="sgdg-tinymce-list">' +
+		'<tbody id="avpvh-tinymce-list">' +
 		'</tbody>' +
 		'<tfoot>' +
 		'<tr>' +
-		'<td class="sgdg-tinymce-path">' +
-		sgdgTinymceLocalize.root_name +
+		'<td class="avpvh-tinymce-path">' +
+		avpvhTinymceLocalize.root_name +
 		'</td>' +
 		'</tr>' +
 		'</tfoot>' +
 		'</table>' +
 		'</div>' +
-		'<div class="sgdg-tinymce-footer">' +
-		'<a id="sgdg-tinymce-insert" class="button button-primary">' +
-		sgdgTinymceLocalize.insert_button +
+		'<div class="avpvh-tinymce-footer">' +
+		'<a id="avpvh-tinymce-insert" class="button button-primary">' +
+		avpvhTinymceLocalize.insert_button +
 		'</a>' +
 		'</div>';
-	$('#sgdg-tinymce-modal').html(html);
-	$('#sgdg-tinymce-insert').on('click', () => {
+	$('#avpvh-tinymce-modal').html(html);
+	$('#avpvh-tinymce-insert').on('click', () => {
 		tinymceSubmit();
 	});
 }
@@ -66,7 +68,7 @@ function tableClick(this: HTMLElement): void {
 
 function success(data: Array<string>): void {
 	let html = '';
-	$('#sgdg-tinymce-insert').removeAttr('disabled');
+	$('#avpvh-tinymce-insert').removeAttr('disabled');
 	if (0 < path.length) {
 		html +=
 			'<tr>' +
@@ -94,31 +96,31 @@ function success(data: Array<string>): void {
 			'</td>' +
 			'</tr>';
 	}
-	$('#sgdg-tinymce-list').html(html);
+	$('#avpvh-tinymce-list').html(html);
 
-	html = '<a>' + sgdgTinymceLocalize.root_name + '</a>';
+	html = '<a>' + avpvhTinymceLocalize.root_name + '</a>';
 	for (const segment of path) {
 		html += ' > <a data-name="' + segment + '">' + segment + '</a>';
 	}
-	$('.sgdg-tinymce-path').html(html);
-	$('.sgdg-tinymce-path a').on('click', pathClick);
-	$('#sgdg-tinymce-list label').on('click', tableClick);
+	$('.avpvh-tinymce-path').html(html);
+	$('.avpvh-tinymce-path a').on('click', pathClick);
+	$('#avpvh-tinymce-list label').on('click', tableClick);
 }
 
 function ajaxQuery(): void {
-	$('#sgdg-tinymce-list').html('');
-	$('#sgdg-tinymce-insert').attr('disabled', 'disabled');
+	$('#avpvh-tinymce-list').html('');
+	$('#avpvh-tinymce-insert').attr('disabled', 'disabled');
 	void $.get(
-		sgdgTinymceLocalize.ajax_url,
+		avpvhTinymceLocalize.ajax_url,
 		{
-			_ajax_nonce: sgdgTinymceLocalize.nonce,
+			_ajax_nonce: avpvhTinymceLocalize.nonce,
 			action: 'list_gallery_dir',
 			path,
 		},
 		(data: ListGalleryDirResponse) => {
 			if (isError(data)) {
 				$('#TB_ajaxContent').html(
-					printError(data, sgdgTinymceLocalize)
+					printError(data, avpvhTinymceLocalize)
 				);
 			} else {
 				success(data.directories);
@@ -130,17 +132,17 @@ function ajaxQuery(): void {
 function tinymceOnclick(): void {
 	tinymceHtml();
 	tb_show(
-		sgdgTinymceLocalize.dialog_title,
-		'#TB_inline?inlineId=sgdg-tinymce-modal'
+		avpvhTinymceLocalize.dialog_title,
+		'#TB_inline?inlineId=avpvh-tinymce-modal'
 	);
 	path = [];
 	ajaxQuery();
 }
 
 function init(): void {
-	const html = '<div id="sgdg-tinymce-modal"></div>';
+	const html = '<div id="avpvh-tinymce-modal"></div>';
 
-	$('#sgdg-tinymce-button').on('click', tinymceOnclick);
+	$('#avpvh-tinymce-button').on('click', tinymceOnclick);
 	$('body').append(html);
 }
 init();

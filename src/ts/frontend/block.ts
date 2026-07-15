@@ -1,7 +1,7 @@
 import { registerBlockType } from '@wordpress/blocks';
 
-import { SgdgBlockIconComponent } from './block/SgdgBlockIconComponent';
-import { SgdgEditorComponent } from './block/SgdgEditorComponent';
+import { AvpvhBlockIconComponent } from './block/AvpvhBlockIconComponent';
+import { AvpvhEditorComponent } from './block/AvpvhEditorComponent';
 
 function renderFrontend(): null {
 	return null;
@@ -16,11 +16,11 @@ function extractFromShortcode(
 	return attributes.named['path'].replace(/^\/+|\/+$/g, '').split('/');
 }
 
-registerBlockType('skaut-google-drive-gallery/gallery', {
-	title: sgdgBlockLocalize.block_name,
-	description: sgdgBlockLocalize.block_description,
+registerBlockType('avpvh-gallery/gallery', {
+	title: avpvhBlockLocalize.block_name,
+	description: avpvhBlockLocalize.block_description,
 	category: 'media',
-	icon: SgdgBlockIconComponent,
+	icon: AvpvhBlockIconComponent,
 	attributes: {
 		path: {
 			type: 'array',
@@ -60,13 +60,13 @@ registerBlockType('skaut-google-drive-gallery/gallery', {
 			type: 'string',
 		},
 	},
-	edit: SgdgEditorComponent,
+	edit: AvpvhEditorComponent,
 	save: renderFrontend,
 	transforms: {
 		from: [
 			{
 				type: 'shortcode',
-				tag: 'sgdg',
+				tag: 'avpvh',
 				priority: 15,
 				attributes: {
 					path: {

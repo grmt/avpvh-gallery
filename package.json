@@ -1,38 +1,43 @@
 {
-  "name": "skaut-google-drive-gallery",
-  "version": "2.13.14",
+  "name": "avpvh-gallery",
+  "version": "2.13.14.29",
   "description": "A WordPress gallery using Google Drive as file storage",
   "keywords": [
     "wordpress",
-    "skaut",
     "google",
     "drive",
     "gallery"
   ],
-  "homepage": "https://wordpress.org/plugins/skaut-google-drive-gallery",
+  "homepage": "https://github.com/grmt/avpvh-gallery",
   "bugs": {
-    "url": "https://github.com/skaut/skaut-google-drive-gallery/issues"
+    "url": "https://github.com/grmt/avpvh-gallery/issues"
   },
   "license": "MIT",
-  "author": "Marek Dědič",
+  "author": "Garmt Boekholt <info@avphilipsvanhorne.nl>",
+  "contributors": [
+    "Marek Dědič (original author, Junák - český skaut)"
+  ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/skaut/skaut-google-drive-gallery.git"
+    "url": "git+https://github.com/grmt/avpvh-gallery.git"
   },
   "type": "module",
   "scripts": {
-    "clean": "rimraf dist/*",
+    "clean": "rimraf --glob dist/*",
     "prebuild": "npm run clean",
     "build:gulp": "gulp --gulpfile config/gulpfile.js --cwd . --color build",
     "build:js:block": "FORCE_COLOR=1 vite build --config config/vite/block.config.ts",
+    "build:js:camera-model-index": "FORCE_COLOR=1 vite build --config config/vite/camera-model-index.config.ts",
+    "build:js:folder-authors": "FORCE_COLOR=1 vite build --config config/vite/folder-authors.config.ts",
     "build:js:root_selection": "FORCE_COLOR=1 vite build --config config/vite/root_selection.config.ts",
     "build:js:shortcode": "FORCE_COLOR=1 vite build --config config/vite/shortcode.config.ts",
     "build:js:tinymce": "FORCE_COLOR=1 vite build --config config/vite/tinymce.config.ts",
+    "build:js:exif-inspector": "FORCE_COLOR=1 vite build --config config/vite/exif-inspector.config.ts",
     "build:js": "run-p -c --aggregate-output build:js:*",
     "build": "run-p -c --aggregate-output build:*",
     "lint:css:stylelint": "stylelint --config config/stylelint.config.js --color 'src/**/*.css'",
     "lint:css": "run-p -c --aggregate-output lint:css:*",
-    "lint:php:phan": "export PHAN_DISABLE_XDEBUG_WARN=1; vendor/bin/phan",
+    "lint:php:phan": "export PHAN_DISABLE_XDEBUG_WARN=1; vendor/bin/phan --allow-polyfill-parser",
     "lint:php:phpcs": "vendor/bin/phpcs --standard=config/phpcs.xml",
     "lint:php:phpmd": "vendor/bin/phpmd src,tests,.phan/config.php,config/scoper.inc.php text config/phpmd.xml",
     "lint:php:phpstan": "vendor/bin/phpstan --configuration=config/phpstan.neon",
@@ -45,37 +50,39 @@
     "test:php:phpunit": "vendor/bin/phpunit --configuration config/phpunit.xml",
     "posttest:php:phpunit": "composer install",
     "test:php": "run-p -c --aggregate-output test:php:*",
-    "test": "run-p -c --aggregate-output test:*"
+    "test": "run-p -c --aggregate-output test:*",
+    "plugin-check": "wp-env start && wp-env run cli wp plugin check skaut-google-drive-gallery --ignore-codes=missing_composer_json_file; CODE=$?; wp-env stop; exit $CODE"
   },
   "engines": {
     "npm": "^8.0.0"
   },
   "dependencies": {
-    "imagelightbox": "^3.1.0",
     "imagesloaded": "^5.0.0",
-    "justified-layout": "github:skaut/justified-layout"
+    "justified-layout": "github:skaut/justified-layout",
+    "photoswipe": "^5.4.4"
   },
   "devDependencies": {
-    "@eslint-community/eslint-plugin-eslint-comments": "^4.5.0",
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.7.1",
     "@types/imagesloaded": "^4.1.7",
     "@types/jquery": "^3.5.32",
     "@types/react": "^18.0.0 <19",
     "@types/wordpress__block-editor": "^11.5.16",
-    "@types/wordpress__blocks": "^12.5.17",
     "@typescript-eslint/eslint-plugin": "^7.17.0",
     "@typescript-eslint/parser": "^7.18.0",
     "@wordpress/browserslist-config": "^6.22.0",
-    "@wordpress/editor": "^14.24.0",
-    "@wordpress/element": "^6.22.0",
+    "@wordpress/editor": "^14.46.0",
+    "@wordpress/element": "^6.46.0",
+    "@wordpress/env": "^11.8.1",
     "@wordpress/eslint-plugin": "^22.9.0",
     "@wordpress/stylelint-config": "^23.16.0",
     "eslint": "^8.57.1",
+    "eslint-import-resolver-typescript": "^3.10.1",
     "eslint-plugin-compat": "^6.0.2",
     "eslint-plugin-deprecation": "^3.0.0",
     "eslint-plugin-prefer-arrow-functions": "^3.4.2",
     "eslint-plugin-prettier": "^5.4.0",
     "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "eslint-plugin-simple-import-sort": "^13.0.0",
     "gulp": "^5.0.0",
     "gulp-clean-css": "^4.3.0",
     "gulp-rename": "^2.0.0",
@@ -84,13 +91,14 @@
     "jquery": "^3.7.1",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.5.3",
+    "puppeteer": "^25.1.0",
     "rimraf": "^6.0.1",
     "stylelint": "^16.19.1",
     "stylelint-config-standard": "^38.0.0",
     "stylelint-no-unsupported-browser-features": "^8.0.4",
-    "tinymce": "^7.8.0",
+    "tinymce": "^7.9.3",
     "typescript": "^5.8.3",
-    "vite": "^6.4.2"
+    "vite": "^8.0.16"
   },
   "browserslist": [
     "extends @wordpress/browserslist-config"

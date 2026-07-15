@@ -2,34 +2,34 @@
 /**
  * Contains the API_Client class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg;
+namespace Avpvh;
 
 use ArrayAccess;
+use Avpvh\Exceptions\API_Exception;
+use Avpvh\Exceptions\API_Rate_Limit_Exception;
+use Avpvh\Exceptions\Exception as Avpvh_Exception;
+use Avpvh\Exceptions\Internal_Exception;
+use Avpvh\Exceptions\Not_Found_Exception;
+use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
+use Avpvh\Frontend\Pagination_Helper;
+use Avpvh\Options;
+use Avpvh\Vendor\Google\Client;
+use Avpvh\Vendor\Google\Collection;
+use Avpvh\Vendor\Google\Http\Batch;
+use Avpvh\Vendor\Google\Model;
+use Avpvh\Vendor\Google\Service\Drive;
+use Avpvh\Vendor\Google\Service\Drive\FileList;
+use Avpvh\Vendor\Google\Service\Exception as Google_Service_Exception;
+use Avpvh\Vendor\Google\Task\Runner;
+use Avpvh\Vendor\GuzzleHttp\Promise\Promise;
+use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
+use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
+use Avpvh\Vendor\GuzzleHttp\Psr7\Request;
 use Countable;
 use Iterator;
-use Sgdg\Exceptions\API_Exception;
-use Sgdg\Exceptions\API_Rate_Limit_Exception;
-use Sgdg\Exceptions\Exception as Sgdg_Exception;
-use Sgdg\Exceptions\Internal_Exception;
-use Sgdg\Exceptions\Not_Found_Exception;
-use Sgdg\Exceptions\Plugin_Not_Authorized_Exception;
-use Sgdg\Frontend\Pagination_Helper;
-use Sgdg\Options;
-use Sgdg\Vendor\Google\Client;
-use Sgdg\Vendor\Google\Collection;
-use Sgdg\Vendor\Google\Http\Batch;
-use Sgdg\Vendor\Google\Model;
-use Sgdg\Vendor\Google\Service\Drive;
-use Sgdg\Vendor\Google\Service\Drive\FileList;
-use Sgdg\Vendor\Google\Service\Exception as Google_Service_Exception;
-use Sgdg\Vendor\Google\Task\Runner;
-use Sgdg\Vendor\GuzzleHttp\Promise\Promise;
-use Sgdg\Vendor\GuzzleHttp\Promise\PromiseInterface;
-use Sgdg\Vendor\GuzzleHttp\Promise\Utils;
-use Sgdg\Vendor\GuzzleHttp\Psr7\Request;
 use Traversable;
 
 /**
@@ -82,7 +82,7 @@ final class API_Client {
 					'client_id'     => Options::$client_id->get(),
 					'client_secret' => Options::$client_secret->get(),
 					'redirect_uris' => array(
-						esc_url_raw( admin_url( 'admin.php?page=sgdg_basic&action=oauth_redirect' ) ),
+						esc_url_raw( admin_url( 'admin.php?page=avpvh_basic&action=oauth_redirect' ) ),
 					),
 				)
 			);
@@ -104,7 +104,7 @@ final class API_Client {
 	 */
 	public static function get_authorized_raw_client() {
 		$raw_client   = self::get_unauthorized_raw_client();
-		$access_token = get_option( 'sgdg_access_token', false );
+		$access_token = get_option( 'avpvh_access_token', false );
 
 		if ( false === $access_token ) {
 			throw new Plugin_Not_Authorized_Exception();
@@ -116,7 +116,7 @@ final class API_Client {
 			$raw_client->fetchAccessTokenWithRefreshToken( $raw_client->getRefreshToken() );
 			$new_access_token    = $raw_client->getAccessToken();
 			$merged_access_token = array_merge( $access_token, $new_access_token );
-			update_option( 'sgdg_access_token', $merged_access_token );
+			update_option( 'avpvh_access_token', $merged_access_token );
 		}
 
 		return $raw_client;
@@ -169,7 +169,7 @@ final class API_Client {
 			try {
 				self::check_response( $response );
 				$promise->resolve( $transform( $response ) );
-			} catch ( Sgdg_Exception $e ) {
+			} catch ( Avpvh_Exception $e ) {
 				$promise->reject( $e );
 			}
 		};
@@ -243,7 +243,7 @@ final class API_Client {
 					}
 
 					$page( $new_page_token, $promise, $output );
-				} catch ( Sgdg_Exception $e ) {
+				} catch ( Avpvh_Exception $e ) {
 					$promise->reject( $e );
 				}
 			};
@@ -262,7 +262,7 @@ final class API_Client {
 	 *
 	 * @return array<int|string, mixed> A list of results from the promises. Is in the same format as the parameter `$promises`, i.e. if an associative array of promises is passed, an associative array of results will be returned.
 	 *
-	 * @throws Sgdg_Exception Any exception thrown in promises or callbacks.
+	 * @throws Avpvh_Exception Any exception thrown in promises or callbacks.
 	 */
 	public static function execute( $promises = array() ) {
 		self::execute_current_batch();
@@ -300,7 +300,7 @@ final class API_Client {
 	 *
 	 * @return void
 	 *
-	 * @throws Sgdg_Exception Any exception thrown in promises or callbacks.
+	 * @throws Avpvh_Exception Any exception thrown in promises or callbacks.
 	 */
 	private static function execute_current_batch() {
 		$batch = self::$current_batch;
@@ -315,11 +315,16 @@ final class API_Client {
 		 *
 		 * @throws Google_Service_Exception Rate limit excepted.
 		 */
-		$task      = new Runner(
+		$task = new Runner(
 			array(
 				'retries' => 100,
 			),
 			'Batch Drive call',
+			/**
+			 * Task runner callback.
+			 *
+			 * @throws Google_Service_Exception API exception.
+			 */
 			static function () use ( $batch ) {
 				$ret = $batch->execute();
 

@@ -3,36 +3,35 @@ on:
   push:
     branches: "*"
   pull_request:
-env:
-  php-version: 8.3
-  cache-version: 1
 jobs:
   platform-check:
-    name: "PHP 5.6 compatibility"
+    name: "PHP 8.3 compatibility"
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: "Setup PHP"
-        uses: shivammathur/setup-php@2.37.1
+        uses: shivammathur/setup-php@2.37.2
         with:
-          php-version: 5.6
+          php-version: 8.3
           coverage: none
 
       - name: "Check dependency compatibility"
         run: |
           composer check-platform-reqs --no-dev
+<<<<<<< HEAD
+=======
 
   build:
     name: "Build"
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: "Setup PHP"
-        uses: shivammathur/setup-php@2.37.1
+        uses: shivammathur/setup-php@2.37.2
         with:
           php-version: ${{ env.php-version }}
           coverage: none
@@ -81,11 +80,11 @@ jobs:
       php-extensions: ast
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: "Setup PHP extension caching"
         id: extcache
-        uses: shivammathur/cache-extensions@1.14.5
+        uses: shivammathur/cache-extensions@1.14.6
         with:
           php-version: ${{ env.php-version }}
           extensions: ${{ env.php-extensions }}
@@ -99,7 +98,7 @@ jobs:
           restore-keys: ${{ steps.extcache.outputs.key }}
 
       - name: "Setup PHP"
-        uses: shivammathur/setup-php@2.37.1
+        uses: shivammathur/setup-php@2.37.2
         with:
           php-version: ${{ env.php-version }}
           extensions: ${{ env.php-extensions }}
@@ -157,16 +156,16 @@ jobs:
           MYSQL_ALLOW_EMPTY_PASSWORD: yes
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: "Install SVN"
-        uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.1
         with:
           packages: subversion
           version: ${{ env.cache-version }}
 
       - name: "Setup PHP"
-        uses: shivammathur/setup-php@2.37.1
+        uses: shivammathur/setup-php@2.37.2
         with:
           php-version: ${{ matrix.versions.php }}
           coverage: pcov
@@ -220,7 +219,7 @@ jobs:
           npm run test
 
       - name: "Upload coverage results"
-        uses: codecov/codecov-action@v6.0.1
+        uses: codecov/codecov-action@v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
@@ -242,4 +241,4 @@ jobs:
           build-dir: skaut-google-drive-gallery
           ignore-codes: |
             missing_composer_json_file
-            missing_direct_file_access_protection
+>>>>>>> upstream/master

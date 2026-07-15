@@ -2,21 +2,21 @@
 /**
  * Contains the OAuth_Helpers class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Admin;
+namespace Avpvh\Admin;
 
-use Sgdg\API_Client;
-use Sgdg\GET_Helpers;
-use Sgdg\Vendor\Google\Service\Drive;
-use Sgdg\Vendor\Google\Service\Exception as Google_Service_Exception;
-use Sgdg\Vendor\GuzzleHttp\Exception\TransferException;
+use Avpvh\API_Client;
+use Avpvh\GET_Helpers;
+use Avpvh\Vendor\Google\Service\Drive;
+use Avpvh\Vendor\Google\Service\Exception as Google_Service_Exception;
+use Avpvh\Vendor\GuzzleHttp\Exception\TransferException;
 
 /**
- * Contains all the OAuth redirect handling functions, called by \Sgdg\Admin\AdminPages\action_handler()
+ * Contains all the OAuth redirect handling functions, called by \Avpvh\Admin\AdminPages\action_handler()
  *
- * @see \Sgdg\Admin\AdminPages\action_handler()
+ * @see \Avpvh\Admin\AdminPages\action_handler()
  */
 final class OAuth_Helpers {
 
@@ -52,13 +52,13 @@ final class OAuth_Helpers {
 				'oauth_failed',
 				esc_html__(
 					'Google API hasn\'t returned an authentication code. Please try again.',
-					'skaut-google-drive-gallery'
+					'avpvh-gallery'
 				),
 				'error'
 			);
 		}
 
-		if ( 0 === count( get_settings_errors() ) && false === get_option( 'sgdg_access_token', false ) ) {
+		if ( 0 === count( get_settings_errors() ) && false === get_option( 'avpvh_access_token', false ) ) {
 			self::fetch_and_check_access_token();
 		}
 
@@ -66,13 +66,13 @@ final class OAuth_Helpers {
 			add_settings_error(
 				'general',
 				'oauth_updated',
-				esc_html__( 'Permission granted.', 'skaut-google-drive-gallery' ),
+				esc_html__( 'Permission granted.', 'avpvh-gallery' ),
 				'updated'
 			);
 		}
 
 		set_transient( 'settings_errors', get_settings_errors(), 30 );
-		header( 'Location: ' . esc_url_raw( admin_url( 'admin.php?page=sgdg_basic&settings-updated=true' ) ) );
+		header( 'Location: ' . esc_url_raw( admin_url( 'admin.php?page=avpvh_basic&settings-updated=true' ) ) );
 	}
 
 	/**
@@ -89,12 +89,12 @@ final class OAuth_Helpers {
 
 		try {
 			$client->revokeToken();
-			delete_option( 'sgdg_access_token' );
+			delete_option( 'avpvh_access_token' );
 		} catch ( TransferException $e ) {
 			add_settings_error(
 				'general',
 				'oauth_failed',
-				esc_html__( 'An unknown error has been encountered:', 'skaut-google-drive-gallery' ) .
+				esc_html__( 'An unknown error has been encountered:', 'avpvh-gallery' ) .
 					' ' .
 					$e->getMessage(),
 				'error'
@@ -105,13 +105,13 @@ final class OAuth_Helpers {
 			add_settings_error(
 				'general',
 				'oauth_updated',
-				__( 'Permission revoked.', 'skaut-google-drive-gallery' ),
+				__( 'Permission revoked.', 'avpvh-gallery' ),
 				'updated'
 			);
 		}
 
 		set_transient( 'settings_errors', get_settings_errors(), 30 );
-		header( 'Location: ' . esc_url_raw( admin_url( 'admin.php?page=sgdg_basic&settings-updated=true' ) ) );
+		header( 'Location: ' . esc_url_raw( admin_url( 'admin.php?page=avpvh_basic&settings-updated=true' ) ) );
 	}
 
 	/**
@@ -132,7 +132,7 @@ final class OAuth_Helpers {
 					'oauth_failed',
 					esc_html__(
 						"The Google authorization API didn't provide a refresh token.",
-						'skaut-google-drive-gallery'
+						'avpvh-gallery'
 					),
 					'error'
 				);
@@ -148,7 +148,7 @@ final class OAuth_Helpers {
 					'pageSize' => 1,
 				)
 			);
-			update_option( 'sgdg_access_token', $access_token );
+			update_option( 'avpvh_access_token', $access_token );
 		} catch ( Google_Service_Exception $e ) {
 			$errors = $e->getErrors();
 
@@ -156,7 +156,7 @@ final class OAuth_Helpers {
 				add_settings_error(
 					'general',
 					'oauth_failed',
-					esc_html__( 'An unknown error has been encountered.', 'skaut-google-drive-gallery' ),
+					esc_html__( 'An unknown error has been encountered.', 'avpvh-gallery' ),
 					'error'
 				);
 
@@ -171,7 +171,7 @@ final class OAuth_Helpers {
 						/* translators: %s: Link to the Google developers console */
 						esc_html__(
 							'Google Drive API is not enabled. Please enable it at %s and try again after a while.',
-							'skaut-google-drive-gallery'
+							'avpvh-gallery'
 						),
 						'<a href="https://console.developers.google.com/apis/library/drive.googleapis.com" ' .
 						'target="_blank">' .
@@ -183,7 +183,7 @@ final class OAuth_Helpers {
 				add_settings_error(
 					'general',
 					'oauth_failed',
-					esc_html__( 'An unknown error has been encountered:', 'skaut-google-drive-gallery' ) .
+					esc_html__( 'An unknown error has been encountered:', 'avpvh-gallery' ) .
 						' ' .
 						$errors[0]['message'],
 					'error'
@@ -193,7 +193,7 @@ final class OAuth_Helpers {
 			add_settings_error(
 				'general',
 				'oauth_failed',
-				esc_html__( 'An unknown error has been encountered:', 'skaut-google-drive-gallery' ) .
+				esc_html__( 'An unknown error has been encountered:', 'avpvh-gallery' ) .
 					' ' .
 					$e->getMessage(),
 				'error'

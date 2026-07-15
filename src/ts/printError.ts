@@ -6,7 +6,7 @@ export function printError(
 	}
 ): string {
 	let html =
-		'<div class="sgdg-notice-error">' +
+		'<div class="avpvh-notice-error">' +
 		'<p>' +
 		'<strong>' +
 		localize.error_header +

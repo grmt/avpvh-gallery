@@ -2,12 +2,12 @@
 /**
  * Contains the Lightbox class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Admin\Settings_Pages\Advanced;
+namespace Avpvh\Admin\Settings_Pages\Advanced;
 
-use Sgdg\Options;
+use Avpvh\Options;
 
 /**
  * Registers and renders the lightbox settings section.
@@ -34,10 +34,10 @@ final class Lightbox {
 	 */
 	public static function add_section() {
 		add_settings_section(
-			'sgdg_lightbox',
-			esc_html__( 'Image popup', 'skaut-google-drive-gallery' ),
+			'avpvh_lightbox',
+			esc_html__( 'Image popup', 'avpvh-gallery' ),
 			array( self::class, 'html' ),
-			'sgdg_advanced'
+			'avpvh_advanced'
 		);
 		Options::$preview_size->add_field();
 		Options::$preview_speed->add_field();

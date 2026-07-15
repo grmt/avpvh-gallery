@@ -2,10 +2,10 @@
 /**
  * Contains the Pagination_Helper interface.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
 /**
  * Stores pagination info and provides methods to access and use it easily.

@@ -2,18 +2,18 @@
 /**
  * Contains the Unsupported_Value_Exception class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Exceptions;
+namespace Avpvh\Exceptions;
 
-use Sgdg\Exceptions\Exception as Sgdg_Exception;
-use Sgdg\Frontend\API_Fields;
+use Avpvh\Exceptions\Exception as Avpvh_Exception;
+use Avpvh\Frontend\API_Fields;
 
 /**
  * A value that is not supported was passed.
  */
-final class Unsupported_Value_Exception extends Sgdg_Exception {
+final class Unsupported_Value_Exception extends Avpvh_Exception {
 
 	/**
 	 * Unsupported_Value_Exception class constructor
@@ -35,7 +35,7 @@ final class Unsupported_Value_Exception extends Sgdg_Exception {
 				/* translators: 1: The name of the value that isn't supported 2: The name of the function the value was passed to */
 				esc_html__(
 					'The value "%1$s" has been passed to the function "%2$s" but is not supported by it.',
-					'skaut-google-drive-gallery'
+					'avpvh-gallery'
 				),
 				$value,
 				$fn_name

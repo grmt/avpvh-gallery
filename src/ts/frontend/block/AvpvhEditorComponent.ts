@@ -6,16 +6,16 @@ import $ from 'jquery';
 
 import { isError } from '../../isError';
 import type { Attributes } from '../interfaces/Attributes';
-import { SgdgSettingsOverrideComponent } from './SgdgSettingsOverrideComponent';
+import { AvpvhSettingsOverrideComponent } from './AvpvhSettingsOverrideComponent';
 
-interface SgdgEditorComponentState {
+interface AvpvhEditorComponentState {
 	error: string | undefined;
 	list: Array<string> | undefined;
 }
 
-export class SgdgEditorComponent extends Component<
+export class AvpvhEditorComponent extends Component<
 	BlockEditProps<Attributes>,
-	SgdgEditorComponentState
+	AvpvhEditorComponentState
 > {
 	public constructor(props: BlockEditProps<Attributes>) {
 		super(props);
@@ -48,7 +48,7 @@ export class SgdgEditorComponent extends Component<
 						this.pathClick(e);
 					},
 				},
-				sgdgBlockLocalize.root_name
+				avpvhBlockLocalize.root_name
 			),
 		];
 		if (list) {
@@ -119,7 +119,7 @@ export class SgdgEditorComponent extends Component<
 			createElement(
 				InspectorControls,
 				null,
-				createElement(SgdgSettingsOverrideComponent, { editor: this })
+				createElement(AvpvhSettingsOverrideComponent, { editor: this })
 			),
 			createElement('table', { class: 'widefat' }, [
 				createElement(
@@ -130,7 +130,7 @@ export class SgdgEditorComponent extends Component<
 						null,
 						createElement(
 							'th',
-							{ class: 'sgdg-block-editor-path' },
+							{ class: 'avpvh-block-editor-path' },
 							pathElements
 						)
 					)
@@ -144,7 +144,7 @@ export class SgdgEditorComponent extends Component<
 						null,
 						createElement(
 							'th',
-							{ class: 'sgdg-block-editor-path' },
+							{ class: 'avpvh-block-editor-path' },
 							pathElements
 						)
 					)
@@ -172,9 +172,9 @@ export class SgdgEditorComponent extends Component<
 
 	private ajax(): void {
 		void $.get(
-			sgdgBlockLocalize.ajax_url,
+			avpvhBlockLocalize.ajax_url,
 			{
-				_ajax_nonce: sgdgBlockLocalize.nonce,
+				_ajax_nonce: avpvhBlockLocalize.nonce,
 				action: 'list_gallery_dir',
 				path: this.getAttribute('path'),
 			},

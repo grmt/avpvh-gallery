@@ -2,17 +2,17 @@
 /**
  * Contains the Options_Proxy class
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
-use Sgdg\Frontend\Boolean_Option;
-use Sgdg\Frontend\Bounded_Integer_Option;
-use Sgdg\Frontend\Integer_Option;
-use Sgdg\Frontend\Ordering_Option;
-use Sgdg\Frontend\String_Option;
-use Sgdg\Options;
+use Avpvh\Frontend\Boolean_Option;
+use Avpvh\Frontend\Bounded_Integer_Option;
+use Avpvh\Frontend\Integer_Option;
+use Avpvh\Frontend\Ordering_Option;
+use Avpvh\Frontend\String_Option;
+use Avpvh\Options;
 
 /**
  * A proxy for overridable options
@@ -147,7 +147,7 @@ final class Options_Proxy {
 	 *
 	 * Returns the overriden value if it exists, otherwise returns the global value.
 	 *
-	 * @see \Sgdg\Frontend\Option::get()
+	 * @see \Avpvh\Frontend\Option::get()
 	 *
 	 * @param string $name The name of the requested option.
 	 * @param mixed  $default_value A default value to return if the option isn't overriden and has no value. If null, the default value from the option will be used. Default null.
@@ -183,7 +183,7 @@ final class Options_Proxy {
 	 *
 	 * Returns a human-readable name of the option.
 	 *
-	 * @see \Sgdg\Frontend\Option::get_title()
+	 * @see \Avpvh\Frontend\Option::get_title()
 	 *
 	 * @param string $name The name of the requested option.
 	 *

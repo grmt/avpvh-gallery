@@ -2,17 +2,17 @@
 /**
  * Contains the Path_Not_Found_Exception class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Exceptions;
+namespace Avpvh\Exceptions;
 
-use Sgdg\Exceptions\Exception as Sgdg_Exception;
+use Avpvh\Exceptions\Exception as Avpvh_Exception;
 
 /**
  * The requested path doesn't exist in this gallery.
  */
-final class Path_Not_Found_Exception extends Sgdg_Exception {
+final class Path_Not_Found_Exception extends Avpvh_Exception {
 
 	/**
 	 * Path_Not_Found_Exception class constructor
@@ -21,7 +21,7 @@ final class Path_Not_Found_Exception extends Sgdg_Exception {
 		parent::__construct(
 			esc_html__(
 				'No such directory found in this gallery - it may have been deleted or renamed.',
-				'skaut-google-drive-gallery'
+				'avpvh-gallery'
 			)
 		);
 	}

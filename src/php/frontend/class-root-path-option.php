@@ -2,10 +2,10 @@
 /**
  * Contains the Root_Path_Option class
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
 /**
  * An option representing the root path of the plugin

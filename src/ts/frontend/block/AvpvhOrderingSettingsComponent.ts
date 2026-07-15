@@ -1,23 +1,23 @@
 import { ToggleControl } from '@wordpress/components';
 import { Component, createElement } from '@wordpress/element';
 
-import type { SgdgEditorComponent } from './SgdgEditorComponent';
+import type { AvpvhEditorComponent } from './AvpvhEditorComponent';
 
-interface SgdgOrderingSettingsComponentProps {
-	readonly editor: SgdgEditorComponent;
+interface AvpvhOrderingSettingsComponentProps {
+	readonly editor: AvpvhEditorComponent;
 	readonly name: BlockOrderingOptions;
 }
 
-interface SgdgOrderingSettingsComponentState {
+interface AvpvhOrderingSettingsComponentState {
 	valueBy: string;
 	valueOrder: string;
 }
 
-export class SgdgOrderingSettingsComponent extends Component<
-	SgdgOrderingSettingsComponentProps,
-	SgdgOrderingSettingsComponentState
+export class AvpvhOrderingSettingsComponent extends Component<
+	AvpvhOrderingSettingsComponentProps,
+	AvpvhOrderingSettingsComponentState
 > {
-	public constructor(props: SgdgOrderingSettingsComponentProps) {
+	public constructor(props: AvpvhOrderingSettingsComponentProps) {
 		super(props);
 		const { editor, name } = this.props;
 		let valueBy = editor.getAttribute(name + '_by') as string | undefined;
@@ -25,10 +25,10 @@ export class SgdgOrderingSettingsComponent extends Component<
 			| string
 			| undefined;
 		if (undefined === valueBy) {
-			valueBy = sgdgBlockLocalize[name].default_by;
+			valueBy = avpvhBlockLocalize[name].default_by;
 		}
 		if (undefined === valueOrder) {
-			valueOrder = sgdgBlockLocalize[name].default_order;
+			valueOrder = avpvhBlockLocalize[name].default_order;
 		}
 		this.state = { valueBy, valueOrder };
 	}
@@ -39,14 +39,14 @@ export class SgdgOrderingSettingsComponent extends Component<
 		const disabledBy = undefined === editor.getAttribute(name + '_by');
 		const disabledOrder =
 			undefined === editor.getAttribute(name + '_order');
-		return createElement('div', { className: 'sgdg-block-settings-row' }, [
+		return createElement('div', { className: 'avpvh-block-settings-row' }, [
 			createElement(ToggleControl, {
 				checked: !disabledBy && !disabledOrder,
-				className: 'sgdg-block-settings-checkbox',
+				className: 'avpvh-block-settings-checkbox',
 				label: createElement(
 					'span',
-					{ className: 'sgdg-block-settings-description' },
-					[sgdgBlockLocalize[name].name, ':']
+					{ className: 'avpvh-block-settings-description' },
+					[avpvhBlockLocalize[name].name, ':']
 				),
 				onChange: () => {
 					this.toggle();
@@ -55,12 +55,12 @@ export class SgdgOrderingSettingsComponent extends Component<
 			createElement(
 				'select',
 				{
-					className: 'sgdg-block-settings-select',
+					className: 'avpvh-block-settings-select',
 					disabled: disabledOrder,
 					onChange: (e: React.FormEvent) => {
 						this.changeOrder(e);
 					},
-					placeholder: sgdgBlockLocalize[name].default_order,
+					placeholder: avpvhBlockLocalize[name].default_order,
 					type: 'number',
 					value: valueOrder,
 				},
@@ -71,7 +71,7 @@ export class SgdgOrderingSettingsComponent extends Component<
 							selected: 'ascending' === valueOrder,
 							value: 'ascending',
 						},
-						sgdgBlockLocalize.ordering_option_ascending
+						avpvhBlockLocalize.ordering_option_ascending
 					),
 					createElement(
 						'option',
@@ -79,14 +79,14 @@ export class SgdgOrderingSettingsComponent extends Component<
 							selected: 'descending' === valueOrder,
 							value: 'descending',
 						},
-						sgdgBlockLocalize.ordering_option_descending
+						avpvhBlockLocalize.ordering_option_descending
 					),
 				]
 			),
 			createElement(
 				'label',
 				{
-					className: 'sgdg-block-settings-radio',
+					className: 'avpvh-block-settings-radio',
 					for: name + '_by_time',
 				},
 				[
@@ -101,13 +101,13 @@ export class SgdgOrderingSettingsComponent extends Component<
 						type: 'radio',
 						value: 'time',
 					}),
-					sgdgBlockLocalize.ordering_option_by_time,
+					avpvhBlockLocalize.ordering_option_by_time,
 				]
 			),
 			createElement(
 				'label',
 				{
-					className: 'sgdg-block-settings-radio',
+					className: 'avpvh-block-settings-radio',
 					for: name + '_by_name',
 				},
 				[
@@ -122,7 +122,7 @@ export class SgdgOrderingSettingsComponent extends Component<
 						type: 'radio',
 						value: 'name',
 					}),
-					sgdgBlockLocalize.ordering_option_by_name,
+					avpvhBlockLocalize.ordering_option_by_name,
 				]
 			),
 		]);

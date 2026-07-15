@@ -2,7 +2,7 @@
 /**
  * Contains Isolated\Symfony\Component\Finder\Finder class stub for phan
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  *
  * @phan-file-suppress PhanPluginAlwaysReturnMethod
  * @phan-file-suppress PhanPluginPossiblyStaticPublicMethod

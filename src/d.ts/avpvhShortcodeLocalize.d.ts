@@ -1,7 +1,8 @@
-declare const sgdgShortcodeLocalize: {
+declare const avpvhShortcodeLocalize: {
 	ajax_url: string;
 	error_header: string;
 	error_trace_header: string;
+	server_error: string;
 	grid_height: string;
 	grid_spacing: string;
 	page_autoload: string;
@@ -14,4 +15,13 @@ declare const sgdgShortcodeLocalize: {
 	breadcrumbs_top: string;
 	load_more: string;
 	empty_gallery: string;
+	navigation_icon_url: string;
+	branded_assets: string;
+	tag_nonce: string;
+	rest_nonce: string;
+	transform_nonce: string;
+	image_transforms: Record<string, { r: number; h: boolean; v: boolean }>;
+	is_admin: string;
+	exif_inspector_url: string;
+	exif_orientation_url: string;
 };

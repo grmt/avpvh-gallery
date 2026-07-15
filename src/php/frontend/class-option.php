@@ -2,10 +2,10 @@
 /**
  * Contains the Option iterface
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
 /**
  * An interface for all plugin options
@@ -70,17 +70,17 @@ abstract class Option {
 	 *
 	 * This constructor is intended to be used by sub-classes as the Option class is abstract.
 	 *
-	 * @param string $name The name of the option to be used as the key to reference it. The prefix `sgdg_` will be added automatically.
+	 * @param string $name The name of the option to be used as the key to reference it. The prefix `avpvh_` will be added automatically.
 	 * @param mixed  $default_value The default value of the option to be returned if the option is not set.
-	 * @param string $page The page in which the option will be accessible to the user. The prefix `sgdg_` will be added automatically.
-	 * @param string $section The section (within the selected page) in which the option will be accessible to the user. The prefix `sgdg_` will be added automatically.
+	 * @param string $page The page in which the option will be accessible to the user. The prefix `avpvh_` will be added automatically.
+	 * @param string $section The section (within the selected page) in which the option will be accessible to the user. The prefix `avpvh_` will be added automatically.
 	 * @param string $title A human-readable name of the option to be displayed to the user.
 	 */
 	public function __construct( $name, $default_value, $page, $section, $title ) {
-		$this->name          = 'sgdg_' . $name;
+		$this->name          = 'avpvh_' . $name;
 		$this->default_value = $default_value;
-		$this->page          = 'sgdg_' . $page;
-		$this->section       = 'sgdg_' . $section;
+		$this->page          = 'avpvh_' . $page;
+		$this->section       = 'avpvh_' . $section;
 		$this->title         = $title;
 	}
 

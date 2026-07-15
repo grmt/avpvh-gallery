@@ -1,6 +1,6 @@
 import { Component, createElement } from '@wordpress/element';
 
-export class SgdgBlockIconComponent extends Component {
+export class AvpvhBlockIconComponent extends Component {
 	public override render(): React.ReactNode {
 		return createElement('svg', { viewBox: '0 0 128 128' }, [
 			createElement('path', {

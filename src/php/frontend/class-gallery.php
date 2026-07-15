@@ -2,30 +2,30 @@
 /**
  * Contains the Gallery class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
-use Sgdg\API_Client;
-use Sgdg\API_Facade;
-use Sgdg\Exceptions\API_Exception;
-use Sgdg\Exceptions\API_Rate_Limit_Exception;
-use Sgdg\Exceptions\File_Not_Found_Exception;
-use Sgdg\Exceptions\Gallery_Expired_Exception;
-use Sgdg\Exceptions\Internal_Exception;
-use Sgdg\Exceptions\Not_Found_Exception;
-use Sgdg\Exceptions\Path_Not_Found_Exception;
-use Sgdg\Exceptions\Plugin_Not_Authorized_Exception;
-use Sgdg\Exceptions\Unsupported_Value_Exception;
-use Sgdg\Frontend\Gallery_Context;
-use Sgdg\Frontend\Options_Proxy;
-use Sgdg\Frontend\Page;
-use Sgdg\Frontend\Paging_Pagination_Helper;
-use Sgdg\GET_Helpers;
-use Sgdg\Helpers;
-use Sgdg\Vendor\GuzzleHttp\Promise\PromiseInterface;
-use Sgdg\Vendor\GuzzleHttp\Promise\Utils;
+use Avpvh\API_Client;
+use Avpvh\API_Facade;
+use Avpvh\Exceptions\API_Exception;
+use Avpvh\Exceptions\API_Rate_Limit_Exception;
+use Avpvh\Exceptions\File_Not_Found_Exception;
+use Avpvh\Exceptions\Gallery_Expired_Exception;
+use Avpvh\Exceptions\Internal_Exception;
+use Avpvh\Exceptions\Not_Found_Exception;
+use Avpvh\Exceptions\Path_Not_Found_Exception;
+use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
+use Avpvh\Exceptions\Unsupported_Value_Exception;
+use Avpvh\Frontend\Gallery_Context;
+use Avpvh\Frontend\Options_Proxy;
+use Avpvh\Frontend\Page;
+use Avpvh\Frontend\Paging_Pagination_Helper;
+use Avpvh\GET_Helpers;
+use Avpvh\Helpers;
+use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
+use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
 
 /**
  * Contains all the functions used to handle the "gallery" AJAX endpoint.
@@ -77,15 +77,17 @@ final class Gallery {
 		$pagination_helper                               = (
 			new Paging_Pagination_Helper()
 		)->withOptions( $options, true );
-		$raw_path                                        = GET_Helpers::get_string_variable( 'path' );
-		$path_name_promise                               = self::path_names(
+		$raw_path          = GET_Helpers::get_string_variable( 'path' );
+
+		$path_name_promise = self::path_names(
 			'' !== $raw_path ? explode( '/', $raw_path ) : array(),
 			$options
 		);
-		list($page, $path_names)                         = API_Client::execute(
+		list($page, $path_names) = API_Client::execute(
 			array( Page::get( $parent_id, $pagination_helper, $options ), $path_name_promise, $path_verification )
 		);
-		$page['path']                                    = $path_names;
+		$page['path']            = $path_names;
+
 		wp_send_json( $page );
 	}
 

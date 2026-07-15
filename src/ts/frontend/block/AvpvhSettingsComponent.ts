@@ -1,27 +1,27 @@
 import { ToggleControl } from '@wordpress/components';
 import { Component, createElement } from '@wordpress/element';
 
-import type { SgdgEditorComponent } from './SgdgEditorComponent';
+import type { AvpvhEditorComponent } from './AvpvhEditorComponent';
 
-interface SgdgSettingsComponentProps {
-	readonly editor: SgdgEditorComponent;
+interface AvpvhSettingsComponentProps {
+	readonly editor: AvpvhEditorComponent;
 	readonly name: BlockOptions;
 }
 
-interface SgdgSettingsComponentState {
+interface AvpvhSettingsComponentState {
 	value: number | string | undefined;
 }
 
-export abstract class SgdgSettingsComponent extends Component<
-	SgdgSettingsComponentProps,
-	SgdgSettingsComponentState
+export abstract class AvpvhSettingsComponent extends Component<
+	AvpvhSettingsComponentProps,
+	AvpvhSettingsComponentState
 > {
-	public constructor(props: SgdgSettingsComponentProps) {
+	public constructor(props: AvpvhSettingsComponentProps) {
 		super(props);
 		const { editor, name } = this.props;
 		let value = editor.getAttribute(name) as string | undefined;
 		if (undefined === value) {
-			value = sgdgBlockLocalize[name].default;
+			value = avpvhBlockLocalize[name].default;
 		}
 		this.state = { value };
 	}
@@ -29,28 +29,32 @@ export abstract class SgdgSettingsComponent extends Component<
 	public override render(): React.ReactNode {
 		const { editor, name } = this.props;
 		const disabled = undefined === editor.getAttribute(name);
-		return createElement('div', { className: 'sgdg-block-settings-row ' }, [
-			createElement(ToggleControl, {
-				checked: !disabled,
-				label: createElement(
-					'span',
-					{ className: 'sgdg-block-settings-description' },
-					[sgdgBlockLocalize[name].name, ':']
-				),
-				className: 'sgdg-block-settings-checkbox',
-				onChange: () => {
-					this.toggle();
-				},
-			}),
-			this.renderInput(),
-		]);
+		return createElement(
+			'div',
+			{ className: 'avpvh-block-settings-row ' },
+			[
+				createElement(ToggleControl, {
+					checked: !disabled,
+					label: createElement(
+						'span',
+						{ className: 'avpvh-block-settings-description' },
+						[avpvhBlockLocalize[name].name, ':']
+					),
+					className: 'avpvh-block-settings-checkbox',
+					onChange: () => {
+						this.toggle();
+					},
+				}),
+				this.renderInput(),
+			]
+		);
 	}
 
 	protected change(e: React.FormEvent): void {
 		const { editor, name } = this.props;
 		const value = this.getValue(e.target);
 		this.setState({ value });
-		editor.setAttribute(name, value ?? sgdgBlockLocalize[name].default);
+		editor.setAttribute(name, value ?? avpvhBlockLocalize[name].default);
 	}
 
 	private toggle(): void {

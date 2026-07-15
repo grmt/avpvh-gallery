@@ -1,17 +1,16 @@
-# Google Drive Gallery
+# AVPVH Gallery
 
-[![WordPress Plugin Version](https://img.shields.io/wordpress/plugin/v/skaut-google-drive-gallery?logo=wordpress)](https://wordpress.org/plugins/skaut-google-drive-gallery/)
-[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/skaut/skaut-google-drive-gallery/CI.yml?branch=master&logo=github)](https://github.com/skaut/skaut-google-drive-gallery/actions)
-[![Codecov (with branch)](https://img.shields.io/codecov/c/github/skaut/skaut-google-drive-gallery/master?logo=codecov)](https://app.codecov.io/gh/skaut/skaut-google-drive-gallery)
-[![WordPress Plugin Active Installs](https://img.shields.io/wordpress/plugin/installs/skaut-google-drive-gallery?logo=wordpress)](https://wordpress.org/plugins/skaut-google-drive-gallery/)
-[![WordPress Plugin Rating](https://img.shields.io/wordpress/plugin/rating/skaut-google-drive-gallery?logo=wordpress)](https://wordpress.org/plugins/skaut-google-drive-gallery/)
-[![GitHub License](https://img.shields.io/github/license/skaut/skaut-google-drive-gallery)](https://github.com/skaut/skaut-google-drive-gallery/blob/master/LICENSE)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/grmt/avpvh-gallery/CI.yml?branch=master&logo=github)](https://github.com/grmt/avpvh-gallery/actions)
+[![GitHub License](https://img.shields.io/github/license/grmt/avpvh-gallery)](https://github.com/grmt/avpvh-gallery/blob/master/LICENSE)
 
-![WordPress Plugin Required PHP Version](https://img.shields.io/wordpress/plugin/required-php/skaut-google-drive-gallery?logo=php)
-![WordPress Plugin: Tested WP Version](https://img.shields.io/wordpress/plugin/tested/skaut-google-drive-gallery?logo=wordpress)
+A WordPress gallery plugin for AVP Philips van Horne, displaying images and videos from Google Drive.
 
-A WordPress gallery using Google Drive as file storage.
+Based on [skaut/skaut-google-drive-gallery](https://github.com/skaut/skaut-google-drive-gallery).
 
-Download the plugin from the WordPress.org [plugin directory](https://wordpress.org/plugins/skaut-google-drive-gallery/) or directly from [Github](https://github.com/skaut/skaut-google-drive-gallery/releases).
+## Installation
 
-For more information, see the documentation [English](https://napoveda.skaut.cz/dobryweb/en-skaut-google-drive-gallery)/[Czech](https://napoveda.skaut.cz/dobryweb/cs-skaut-google-drive-gallery) or the [demo page](https://demo-skaut-google-drive-gallery.skauting.cz/).
+Download the latest release from [GitHub](https://github.com/grmt/avpvh-gallery/releases) and install it as a WordPress plugin.
+
+## Development
+
+See [CLAUDE.md](CLAUDE.md) for build, lint, and test instructions.

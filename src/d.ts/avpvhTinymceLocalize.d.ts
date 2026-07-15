@@ -1,4 +1,4 @@
-declare const sgdgTinymceLocalize: {
+declare const avpvhTinymceLocalize: {
 	dialog_title: string;
 	error_header: string;
 	error_trace_header: string;

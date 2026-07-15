@@ -2,12 +2,12 @@
 /**
  * Contains the API_Fields class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
-use Sgdg\Vendor\Google\Service\Drive\DriveFile;
+use Avpvh\Vendor\Google\Service\Drive\DriveFile;
 
 /**
  * API file fields

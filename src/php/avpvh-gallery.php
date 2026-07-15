@@ -4,21 +4,21 @@
  *
  * Contains plugin init function, activation logic and some helpers for script/style enqueueing.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
 /*
-Plugin Name:       Image and video gallery from Google Drive
-Plugin URI:        https://github.com/skaut/skaut-google-drive-gallery/
+Plugin Name:       AVPVH Gallery
+Plugin URI:        https://github.com/grmt/avpvh-gallery
 Description:       A WordPress gallery using Google Drive as file storage
-Version:           2.13.14
-Requires at least: 4.9.6
-Requires PHP:      5.6
-Author:            Junák - český skaut
-Author URI:        https://github.com/skaut
+Version:           2.13.14.29
+Requires at least: 6.5
+Requires PHP:      8.1
+Author:            Garmt Boekholt (info@avphilipsvanhorne.nl), based on work by Junák - český skaut
+Author URI:        https://github.com/grmt/avpvh-gallery
 License:           MIT
-License URI:       https://github.com/skaut/skaut-google-drive-gallery/blob/master/LICENSE
-Text Domain:       skaut-google-drive-gallery
+License URI:       https://github.com/grmt/avpvh-gallery/blob/master/LICENSE
+Text Domain:       avpvh-gallery
 
 MIT License
 
@@ -43,7 +43,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-namespace Sgdg;
+namespace Avpvh;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
@@ -54,6 +54,9 @@ require_once __DIR__ . '/vendor/scoper-autoload.php';
 require_once __DIR__ . '/class-options.php';
 require_once __DIR__ . '/class-api-client.php';
 require_once __DIR__ . '/class-api-facade.php';
+require_once __DIR__ . '/class-photo-tags-db.php';
+require_once __DIR__ . '/class-photo-corrections-db.php';
+require_once __DIR__ . '/class-folder-authors-db.php';
 
 require_once __DIR__ . '/exceptions/class-exception.php';
 require_once __DIR__ . '/exceptions/class-api-exception.php';
@@ -90,6 +93,8 @@ require_once __DIR__ . '/frontend/class-page.php';
 require_once __DIR__ . '/frontend/class-shortcode.php';
 require_once __DIR__ . '/frontend/class-single-page-pagination-helper.php';
 require_once __DIR__ . '/frontend/class-video-proxy.php';
+require_once __DIR__ . '/frontend/class-photo-tags.php';
+require_once __DIR__ . '/frontend/class-members-api.php';
 
 require_once __DIR__ . '/admin/class-oauth-helpers.php';
 require_once __DIR__ . '/admin/class-settings-pages.php';

@@ -4,48 +4,62 @@
  *
  * Deletes all the plugin options so that the database is clean after uninstall.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
+
+use Avpvh\Folder_Authors_DB;
+use Avpvh\Photo_Corrections_DB;
 
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	die( 'Die, die, die!' );
 }
 
-delete_option( 'sgdg_client_id' );
-delete_option( 'sgdg_client_secret' );
-delete_option( 'sgdg_access_token' );
+require_once __DIR__ . '/class-photo-corrections-db.php';
+Photo_Corrections_DB::drop_tables();
 
-delete_option( 'sgdg_root_path' );
+require_once __DIR__ . '/class-folder-authors-db.php';
+Folder_Authors_DB::drop_tables();
 
-delete_option( 'sgdg_grid_height' );
-delete_option( 'sgdg_grid_spacing' );
-delete_option( 'sgdg_dir_title_size' );
-delete_option( 'sgdg_dir_counts' );
-delete_option( 'sgdg_page_size' );
-delete_option( 'sgdg_page_autoload' );
-delete_option( 'sgdg_image_ordering_order' );
-delete_option( 'sgdg_image_ordering_by' );
-delete_option( 'sgdg_dir_ordering_order' );
-delete_option( 'sgdg_dir_ordering_by' );
-delete_option( 'sgdg_dir_prefix' );
+delete_option( 'avpvh_client_id' );
+delete_option( 'avpvh_client_secret' );
+delete_option( 'avpvh_access_token' );
 
-delete_option( 'sgdg_preview_size' );
-delete_option( 'sgdg_preview_speed' );
-delete_option( 'sgdg_preview_arrows' );
-delete_option( 'sgdg_preview_closebutton' );
-delete_option( 'sgdg_preview_loop' );
-delete_option( 'sgdg_preview_activity' );
-delete_option( 'sgdg_preview_captions' );
+delete_option( 'avpvh_root_path' );
+
+delete_option( 'avpvh_grid_height' );
+delete_option( 'avpvh_grid_spacing' );
+delete_option( 'avpvh_dir_title_size' );
+delete_option( 'avpvh_dir_counts' );
+delete_option( 'avpvh_page_size' );
+delete_option( 'avpvh_page_autoload' );
+delete_option( 'avpvh_image_ordering_order' );
+delete_option( 'avpvh_image_ordering_by' );
+delete_option( 'avpvh_dir_ordering_order' );
+delete_option( 'avpvh_dir_ordering_by' );
+delete_option( 'avpvh_dir_prefix' );
+
+delete_option( 'avpvh_preview_size' );
+delete_option( 'avpvh_preview_speed' );
+delete_option( 'avpvh_preview_arrows' );
+delete_option( 'avpvh_preview_closebutton' );
+delete_option( 'avpvh_preview_loop' );
+delete_option( 'avpvh_preview_activity' );
+delete_option( 'avpvh_preview_captions' );
+
+delete_option( 'avpvh_exif_inspector_last_path' );
+delete_option( 'avpvh_folder_authors_schema' );
 
 // Deprecated.
-delete_option( 'sgdg_image_ordering' );
-delete_option( 'sgdg_thumbnail_size' );
-delete_option( 'sgdg_thumbnail_size_value' );
-delete_option( 'sgdg_thumbnail_size_unit' );
-delete_option( 'sgdg_thumbnail_spacing' );
-delete_option( 'sgdg_date_ordering_order' );
-delete_option( 'sgdg_date_ordering_by' );
-delete_option( 'sgdg_grid_mode' );
-delete_option( 'sgdg_grid_width' );
-delete_option( 'sgdg_grid_columns' );
-delete_option( 'sgdg_grid_min_width' );
+delete_option( 'avpvh_image_ordering' );
+delete_option( 'avpvh_thumbnail_size' );
+delete_option( 'avpvh_thumbnail_size_value' );
+delete_option( 'avpvh_thumbnail_size_unit' );
+delete_option( 'avpvh_thumbnail_spacing' );
+delete_option( 'avpvh_camera_model_index' );
+delete_option( 'avpvh_camera_model_scan' );
+delete_option( 'avpvh_date_ordering_order' );
+delete_option( 'avpvh_date_ordering_by' );
+delete_option( 'avpvh_grid_mode' );
+delete_option( 'avpvh_grid_width' );
+delete_option( 'avpvh_grid_columns' );
+delete_option( 'avpvh_grid_min_width' );

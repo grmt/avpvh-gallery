@@ -187,6 +187,8 @@ tags
 
 # End of https://www.toptal.com/developers/gitignore/api/vim,node,composer,phpunit
 
-dist/
 
 clover.xml
+
+.claude/worktrees/
+.wp-env/

@@ -2,13 +2,13 @@
 /**
  * Contains the Paging_Pagination_Helper class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
-use Sgdg\Frontend\Options_Proxy;
-use Sgdg\GET_Helpers;
+use Avpvh\Frontend\Options_Proxy;
+use Avpvh\GET_Helpers;
 
 /**
  * Stores pagination info and provides methods to access and use it easily.

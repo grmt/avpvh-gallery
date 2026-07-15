@@ -2,17 +2,17 @@
 /**
  * Contains the Root_Not_Found_Exception class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Exceptions;
+namespace Avpvh\Exceptions;
 
-use Sgdg\Exceptions\Exception as Sgdg_Exception;
+use Avpvh\Exceptions\Exception as Avpvh_Exception;
 
 /**
  * The root directory of the gallery doesn't exist.
  */
-final class Root_Not_Found_Exception extends Sgdg_Exception {
+final class Root_Not_Found_Exception extends Avpvh_Exception {
 
 	/**
 	 * Root_Not_Found_Exception class constructor
@@ -21,7 +21,7 @@ final class Root_Not_Found_Exception extends Sgdg_Exception {
 		parent::__construct(
 			esc_html__(
 				"The root directory of the gallery couldn't be found - it may have been deleted or renamed.",
-				'skaut-google-drive-gallery'
+				'avpvh-gallery'
 			)
 		);
 	}

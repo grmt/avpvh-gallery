@@ -2,23 +2,23 @@
 /**
  * Contains the Gallery_Context class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
-use Sgdg\API_Facade;
-use Sgdg\Exceptions\Directory_Not_Found_Exception;
-use Sgdg\Exceptions\Gallery_Expired_Exception;
-use Sgdg\Exceptions\Internal_Exception;
-use Sgdg\Exceptions\Path_Not_Found_Exception;
-use Sgdg\Exceptions\Plugin_Not_Authorized_Exception;
-use Sgdg\Exceptions\Unsupported_Value_Exception;
-use Sgdg\Frontend\Options_Proxy;
-use Sgdg\GET_Helpers;
-use Sgdg\Vendor\GuzzleHttp\Promise\FulfilledPromise;
-use Sgdg\Vendor\GuzzleHttp\Promise\PromiseInterface;
-use Sgdg\Vendor\GuzzleHttp\Promise\RejectedPromise;
+use Avpvh\API_Facade;
+use Avpvh\Exceptions\Directory_Not_Found_Exception;
+use Avpvh\Exceptions\Gallery_Expired_Exception;
+use Avpvh\Exceptions\Internal_Exception;
+use Avpvh\Exceptions\Path_Not_Found_Exception;
+use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
+use Avpvh\Exceptions\Unsupported_Value_Exception;
+use Avpvh\Frontend\Options_Proxy;
+use Avpvh\GET_Helpers;
+use Avpvh\Vendor\GuzzleHttp\Promise\FulfilledPromise;
+use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
+use Avpvh\Vendor\GuzzleHttp\Promise\RejectedPromise;
 
 /**
  * Handles the gallery context.
@@ -45,7 +45,7 @@ final class Gallery_Context {
 			throw new Gallery_Expired_Exception();
 		}
 
-		$transient = get_transient( 'sgdg_hash_' . GET_Helpers::get_string_variable( 'hash' ) );
+		$transient = get_transient( 'avpvh_hash_' . GET_Helpers::get_string_variable( 'hash' ) );
 
 		if ( false === $transient ) {
 			throw new Gallery_Expired_Exception();

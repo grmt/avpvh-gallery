@@ -3,7 +3,7 @@ import $ from 'jquery';
 import { isError } from '../isError';
 import { printError } from '../printError';
 
-let path: Array<string> = sgdgRootpathLocalize.root_dir;
+let path: Array<string> = avpvhRootpathLocalize.root_dir;
 
 function resetWarn(message: string): void {
 	const html =
@@ -12,7 +12,7 @@ function resetWarn(message: string): void {
 		message +
 		'</p>' +
 		'</div>';
-	$(html).insertBefore('.sgdg_root_selection');
+	$(html).insertBefore('.avpvh_root_selection');
 }
 
 function pathClick(el: HTMLElement): void {
@@ -64,11 +64,11 @@ function success(data: ListGdriveDirSuccessResponse): void {
 			'</td>' +
 			'</tr>';
 	}
-	$('#sgdg_root_selection_body').html(html);
+	$('#avpvh_root_selection_body').html(html);
 
 	html = '';
 	if (0 === path.length) {
-		html = sgdgRootpathLocalize.drive_list;
+		html = avpvhRootpathLocalize.drive_list;
 	} else {
 		$('#submit').removeAttr('disabled');
 	}
@@ -78,30 +78,30 @@ function success(data: ListGdriveDirSuccessResponse): void {
 		}
 		html += '<a data-id="' + path[i] + '">' + data.path[i] + '</a>';
 	}
-	$('.sgdg-root-selection-path').html(html);
-	$('.sgdg-root-selection-path a').on('click', function () {
+	$('.avpvh-root-selection-path').html(html);
+	$('.avpvh-root-selection-path a').on('click', function () {
 		pathClick(this);
 	});
-	$('#sgdg_root_selection_body label').on('click', function () {
+	$('#avpvh_root_selection_body label').on('click', function () {
 		click(this);
 	});
-	$('#sgdg_root_path').val(JSON.stringify(path));
+	$('#avpvh_root_path').val(JSON.stringify(path));
 }
 
 function listGdriveDir(): void {
-	$('#sgdg_root_selection_body').html('');
+	$('#avpvh_root_selection_body').html('');
 	$('#submit').attr('disabled', 'disabled');
 	void $.get(
-		sgdgRootpathLocalize.ajax_url,
+		avpvhRootpathLocalize.ajax_url,
 		{
-			_ajax_nonce: sgdgRootpathLocalize.nonce,
+			_ajax_nonce: avpvhRootpathLocalize.nonce,
 			action: 'list_gdrive_dir',
 			path,
 		},
 		(data: ListGdriveDirResponse) => {
 			if (isError(data)) {
-				$('.sgdg_root_selection').replaceWith(
-					printError(data, sgdgRootpathLocalize)
+				$('.avpvh_root_selection').replaceWith(
+					printError(data, avpvhRootpathLocalize)
 				);
 				return;
 			}

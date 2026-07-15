@@ -2,10 +2,10 @@
 /**
  * Contains the Ordering_Option class
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
 require_once __DIR__ . '/class-option.php';
 
@@ -19,11 +19,11 @@ final class Ordering_Option extends Option {
 	/**
 	 * Ordering_Option class constructor.
 	 *
-	 * @param string $name The name of the option to be used as the key to reference it. The prefix `sgdg_` will be added automatically.
+	 * @param string $name The name of the option to be used as the key to reference it. The prefix `avpvh_` will be added automatically.
 	 * @param string $default_by What to order by by default. Accepts `name` or `time`.
 	 * @param string $default_order Which way to order by default. Accepts `ascending` or `descending`.
-	 * @param string $page The page in which the option will be accessible to the user. The prefix `sgdg_` will be added automatically.
-	 * @param string $section The section (within the selected page) in which the option will be accessible to the user. The prefix `sgdg_` will be added automatically.
+	 * @param string $page The page in which the option will be accessible to the user. The prefix `avpvh_` will be added automatically.
+	 * @param string $section The section (within the selected page) in which the option will be accessible to the user. The prefix `avpvh_` will be added automatically.
 	 * @param string $title A human-readable name of the option to be displayed to the user.
 	 */
 	public function __construct( $name, $default_by, $default_order, $page, $section, $title ) {
@@ -144,12 +144,12 @@ final class Ordering_Option extends Option {
 		echo '<option value="ascending"' .
 			( 'ascending' === $this->get_order() ? ' selected' : '' ) .
 			'>' .
-			esc_html__( 'Ascending', 'skaut-google-drive-gallery' ) .
+			esc_html__( 'Ascending', 'avpvh-gallery' ) .
 			'</option>';
 		echo '<option value="descending"' .
 			( 'descending' === $this->get_order() ? ' selected' : '' ) .
 			'>' .
-			esc_html__( 'Descending', 'skaut-google-drive-gallery' ) .
+			esc_html__( 'Descending', 'avpvh-gallery' ) .
 			'</option>';
 		echo '</select>';
 	}
@@ -162,27 +162,27 @@ final class Ordering_Option extends Option {
 	 * @return void
 	 */
 	public function html() {
-		echo '<label for="sgdg-' .
+		echo '<label for="avpvh-' .
 			esc_attr( $this->name ) .
-			'-by-time"><input type="radio" id="sgdg-' .
+			'-by-time"><input type="radio" id="avpvh-' .
 			esc_attr( $this->name ) .
 			'-by-time" name="' .
 			esc_attr( $this->name ) .
 			'_by" value="time"' .
 			( 'time' === $this->get_by() ? ' checked' : '' ) .
 			'>' .
-			esc_html__( 'By time', 'skaut-google-drive-gallery' ) .
+			esc_html__( 'By time', 'avpvh-gallery' ) .
 			'</label><br>';
-		echo '<label for="sgdg-' .
+		echo '<label for="avpvh-' .
 			esc_attr( $this->name ) .
-			'-by-name"><input type="radio" id="sgdg-' .
+			'-by-name"><input type="radio" id="avpvh-' .
 			esc_attr( $this->name ) .
 			'-by-name" name="' .
 			esc_attr( $this->name ) .
 			'_by" value="name"' .
 			( 'name' === $this->get_by() ? ' checked' : '' ) .
 			'>' .
-			esc_html__( 'By name', 'skaut-google-drive-gallery' ) .
+			esc_html__( 'By name', 'avpvh-gallery' ) .
 			'</label>';
 	}
 

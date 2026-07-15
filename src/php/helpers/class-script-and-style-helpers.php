@@ -2,10 +2,10 @@
 /**
  * Contains the Script_And_Style_Helpers class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg;
+namespace Avpvh;
 
 /**
  * Contains helper functions for registering and enqueueing scripts and styles.

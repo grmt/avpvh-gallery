@@ -2,17 +2,17 @@
 /**
  * Contains the Directory_Not_Found_Exception class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Exceptions;
+namespace Avpvh\Exceptions;
 
-use Sgdg\Exceptions\Exception as Sgdg_Exception;
+use Avpvh\Exceptions\Exception as Avpvh_Exception;
 
 /**
  * Directory not found
  */
-final class Directory_Not_Found_Exception extends Sgdg_Exception {
+final class Directory_Not_Found_Exception extends Avpvh_Exception {
 
 	/**
 	 * Directory_Not_Found_Exception class constructor
@@ -26,14 +26,14 @@ final class Directory_Not_Found_Exception extends Sgdg_Exception {
 					/* translators: 1: The name of the directory that wasn't found */
 					esc_html__(
 						'Directory "%1$s" couldn\'t be found - it may have been deleted or renamed.',
-						'skaut-google-drive-gallery'
+						'avpvh-gallery'
 					),
 					$directory_name
 				)
 			);
 		} else {
 			parent::__construct(
-				esc_html__( 'The requested directory couldn\'t be found.', 'skaut-google-drive-gallery' )
+				esc_html__( 'The requested directory couldn\'t be found.', 'avpvh-gallery' )
 			);
 		}
 	}

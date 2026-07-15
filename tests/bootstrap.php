@@ -2,7 +2,7 @@
 /**
  * PHPUnit bootstrap file
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals
@@ -30,7 +30,7 @@ require_once $_tests_dir . '/includes/functions.php';
  * @return void
  */
 $_manually_load_plugin = static function () {
-	require dirname( __DIR__ ) . '/dist/skaut-google-drive-gallery.php';
+	require dirname( __DIR__ ) . '/dist/avpvh-gallery.php';
 };
 tests_add_filter( 'muplugins_loaded', $_manually_load_plugin );
 

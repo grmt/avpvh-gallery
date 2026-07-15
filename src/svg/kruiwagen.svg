@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" width="26.5px" height="24px" viewBox="-100 -960 1060 960" fill="none" stroke="#1f1f1f" stroke-width="40" stroke-linecap="round" stroke-linejoin="round">
+	<title>Kruiwagen</title>
+	<metadata>
+		<rdf:RDF>
+			<cc:Work rdf:about="">
+				<dc:title>Kruiwagen</dc:title>
+				<dc:creator><cc:Agent><dc:title>AVPvH</dc:title></cc:Agent></dc:creator>
+				<dc:rights><cc:Agent><dc:title>Copyleft AVPvH</dc:title></cc:Agent></dc:rights>
+			</cc:Work>
+		</rdf:RDF>
+	</metadata>
+	<path d="M-61.534-603.813h355" />
+	<path d="M293.466-603.813c90.983-.143 144.968-2.012 274.746 0H715.83l195.629-.699c12.558 12.375-40.031 50.28-124.769 122.2-95.92 86.344-69.361 100.861-177.56 96.33-149.72-6.269-126.244-4.454-186.845-6.582Z" />
+	<path d="m420.657-376.078-100 160c-11.333 18.667-27.072 30.621-40.405 27.954-18.667-3.333-34.684-22.657-24.595-42.954l118.66-238.704" />
+	<path d="m788.436-268.956-74.289-80.706-26.346-34.25" stroke-width="38.315" />
+	<ellipse cx="791.46" cy="-263.07" rx="78.714" ry="73.179" stroke-width="50.598" />
+	<path d="m-56.923-605.833 74.676.134" stroke-width="55.138" stroke-linecap="square" />
+</svg>

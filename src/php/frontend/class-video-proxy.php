@@ -2,15 +2,15 @@
 /**
  * Contains the Video_Proxy class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
-use Sgdg\API_Client;
-use Sgdg\Exceptions\Plugin_Not_Authorized_Exception;
-use Sgdg\GET_Helpers;
-use Sgdg\Helpers;
+use Avpvh\API_Client;
+use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
+use Avpvh\GET_Helpers;
+use Avpvh\Helpers;
 
 /**
  * Contains all the functions used to handle the "video_proxy" AJAX endpoint.
@@ -53,7 +53,7 @@ final class Video_Proxy {
 	 */
 	public static function ajax_handler_body() {
 		$video_hash = GET_Helpers::get_string_variable( 'video_hash' );
-		$transient  = get_transient( 'sgdg_video_proxy_' . $video_hash );
+		$transient  = get_transient( 'avpvh_video_proxy_' . $video_hash );
 
 		if ( false === $transient ) {
 			http_response_code( 404 );
@@ -150,7 +150,7 @@ final class Video_Proxy {
 	 * @SuppressWarnings("PHPMD.ExitExpression")
 	 */
 	private static function check_range_header( $header ) {
-		if ( ! str_starts_with( $header, 'bytes=' ) ) {
+		if ( 'bytes=' !== substr( $header, 0, 6 ) ) {
 			http_response_code( 416 );
 			die;
 		}
@@ -158,7 +158,7 @@ final class Video_Proxy {
 		$header = substr( $header, 6 );
 
 		// Multipart range requests are not supported.
-		if ( str_contains( $header, ',' ) ) {
+		if ( false !== strpos( $header, ',' ) ) {
 			http_response_code( 416 );
 			die;
 		}

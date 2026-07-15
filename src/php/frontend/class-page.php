@@ -2,29 +2,30 @@
 /**
  * Contains the Page class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
-use Sgdg\API_Client;
-use Sgdg\Exceptions\API_Exception;
-use Sgdg\Exceptions\API_Rate_Limit_Exception;
-use Sgdg\Exceptions\Gallery_Expired_Exception;
-use Sgdg\Exceptions\Internal_Exception;
-use Sgdg\Exceptions\Not_Found_Exception;
-use Sgdg\Exceptions\Path_Not_Found_Exception;
-use Sgdg\Exceptions\Plugin_Not_Authorized_Exception;
-use Sgdg\Exceptions\Unsupported_Value_Exception;
-use Sgdg\Frontend\Gallery_Context;
-use Sgdg\Frontend\Options_Proxy;
-use Sgdg\Frontend\Page\Directories;
-use Sgdg\Frontend\Page\Images;
-use Sgdg\Frontend\Page\Videos;
-use Sgdg\Frontend\Paging_Pagination_Helper;
-use Sgdg\Helpers;
-use Sgdg\Vendor\GuzzleHttp\Promise\PromiseInterface;
-use Sgdg\Vendor\GuzzleHttp\Promise\Utils;
+use Avpvh\API_Client;
+use Avpvh\Exceptions\API_Exception;
+use Avpvh\Exceptions\API_Rate_Limit_Exception;
+use Avpvh\Exceptions\Gallery_Expired_Exception;
+use Avpvh\Exceptions\Internal_Exception;
+use Avpvh\Exceptions\Not_Found_Exception;
+use Avpvh\Exceptions\Path_Not_Found_Exception;
+use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
+use Avpvh\Exceptions\Unsupported_Value_Exception;
+use Avpvh\Frontend\Gallery_Context;
+use Avpvh\Frontend\Options_Proxy;
+use Avpvh\Frontend\Page\Directories;
+use Avpvh\Frontend\Page\Images;
+use Avpvh\Frontend\Page\Videos;
+use Avpvh\Frontend\Paging_Pagination_Helper;
+use Avpvh\GET_Helpers;
+use Avpvh\Helpers;
+use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
+use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
 
 /**
  * Contains all the functions used to handle the "page" AJAX endpoint.
@@ -78,8 +79,11 @@ final class Page {
 			new Paging_Pagination_Helper()
 		)->withOptions( $options, false );
 
+		$raw_path = GET_Helpers::get_string_variable( 'path' );
+
 		$page_promise = self::get( $parent_id, $pagination_helper, $options );
 		list( $page ) = API_Client::execute( array( $page_promise, $path_verification ) );
+
 		wp_send_json( $page );
 	}
 

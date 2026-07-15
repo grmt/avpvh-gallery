@@ -2,24 +2,24 @@
 /**
  * Contains the Videos class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend\Page;
+namespace Avpvh\Frontend\Page;
 
-use Sgdg\API_Facade;
-use Sgdg\Exceptions\Internal_Exception;
-use Sgdg\Exceptions\Plugin_Not_Authorized_Exception;
-use Sgdg\Exceptions\Unsupported_Value_Exception;
-use Sgdg\Frontend\API_Fields;
-use Sgdg\Frontend\Options_Proxy;
-use Sgdg\Frontend\Pagination_Helper;
-use Sgdg\GET_Helpers;
-use Sgdg\Vendor\GuzzleHttp\Client;
-use Sgdg\Vendor\GuzzleHttp\Cookie\CookieJar;
-use Sgdg\Vendor\GuzzleHttp\Promise\FulfilledPromise;
-use Sgdg\Vendor\GuzzleHttp\Promise\PromiseInterface;
-use Sgdg\Vendor\GuzzleHttp\Promise\Utils;
+use Avpvh\API_Facade;
+use Avpvh\Exceptions\Internal_Exception;
+use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
+use Avpvh\Exceptions\Unsupported_Value_Exception;
+use Avpvh\Frontend\API_Fields;
+use Avpvh\Frontend\Options_Proxy;
+use Avpvh\Frontend\Pagination_Helper;
+use Avpvh\GET_Helpers;
+use Avpvh\Vendor\GuzzleHttp\Client;
+use Avpvh\Vendor\GuzzleHttp\Cookie\CookieJar;
+use Avpvh\Vendor\GuzzleHttp\Promise\FulfilledPromise;
+use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
+use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
 use const DAY_IN_SECONDS;
 
 /**
@@ -46,12 +46,13 @@ final class Videos {
 			new API_Fields(
 				array(
 					'id',
+					'name',
 					'mimeType',
 					'size',
 					'webContentLink',
 					'webViewLink',
 					'thumbnailLink',
-					'videoMediaMetadata' => array( 'width', 'height' ),
+					'videoMediaMetadata' => array( 'width', 'height', 'durationMillis' ),
 					'copyRequiresWriterPermission',
 					'permissions'        => array( 'type', 'role' ),
 				)
@@ -60,31 +61,10 @@ final class Videos {
 			$options->get( 'image_ordering' )
 		)->then(
 			static function ( $raw_videos ) use ( $options ) {
-				$raw_videos         = array_values(
-					array_filter(
-						$raw_videos,
-						static function ( $video ) {
-							return ! is_null( $video['thumbnailLink'] );
-						}
-					)
-				);
+				$raw_videos         = self::filter_excluded( $raw_videos );
 				$videos             = array_map(
 					static function ( $video ) use ( $options ) {
-						return array(
-							'height'    => array_key_exists( 'videoMediaMetadata', $video ) &&
-								array_key_exists( 'height', $video['videoMediaMetadata'] )
-								? $video['videoMediaMetadata']['height']
-								: '0',
-							'id'        => $video['id'],
-							'mimeType'  => $video['mimeType'],
-							'thumbnail' => substr( $video['thumbnailLink'], 0, -4 ) .
-								'h' .
-								floor( 1.25 * $options->get( 'grid_height' ) ),
-							'width'     => array_key_exists( 'videoMediaMetadata', $video ) &&
-								array_key_exists( 'width', $video['videoMediaMetadata'] )
-								? $video['videoMediaMetadata']['width']
-								: '0',
-						);
+						return self::format_video( $video, $options );
 					},
 					$raw_videos
 				);
@@ -118,6 +98,71 @@ final class Videos {
 
 				return $videos;
 			}
+		);
+	}
+
+	/**
+	 * Normalizes a raw Google Drive video record into the gallery's video shape.
+	 *
+	 * @param array<string, mixed> $video The raw Google Drive video record.
+	 * @param Options_Proxy        $options The configuration of the gallery.
+	 *
+	 * @return array<string, mixed> The normalized video record (without a resolved `src`).
+	 */
+	private static function format_video( $video, $options ) {
+		$metadata  = array_key_exists( 'videoMediaMetadata', $video ) ? $video['videoMediaMetadata'] : array();
+		$thumbnail = ! is_null( $video['thumbnailLink'] )
+			? substr( $video['thumbnailLink'], 0, -4 ) . 'h' . floor(
+				1.25 * $options->get( 'grid_height' )
+			)
+			: null;
+
+		return array(
+			'duration'  => array_key_exists( 'durationMillis', $metadata )
+				? (int) round( ( (int) $metadata['durationMillis'] ) / 1000 )
+				: 0,
+			'height'    => array_key_exists( 'height', $metadata ) ? $metadata['height'] : '0',
+			'id'        => $video['id'],
+			'mimeType'  => $video['mimeType'],
+			'name'      => $video['name'],
+			'thumbnail' => $thumbnail,
+			'width'     => array_key_exists( 'width', $metadata ) ? $metadata['width'] : '0',
+		);
+	}
+
+	/**
+	 * Removes administrator-excluded videos before URLs are resolved.
+	 *
+	 * @param array<array<string, mixed>> $videos Raw Google Drive video records.
+	 * @return array<array<string, mixed>> Visible video records.
+	 */
+	private static function filter_excluded( array $videos ) {
+		if ( array() === $videos ) {
+			return $videos;
+		}
+
+		global $wpdb;
+		$ids          = array_column( $videos, 'id' );
+		$table        = $wpdb->prefix . 'agallery_photo_exclusions';
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%s' ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
+		$excluded_col = $wpdb->get_col(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholder count is dynamic, built above via array_fill().
+				"SELECT image_id FROM {$table} WHERE image_id IN ({$placeholders})",
+				$ids
+			)
+		);
+		$excluded = is_array( $excluded_col ) ? $excluded_col : array();
+		$lookup   = array_fill_keys( $excluded, true );
+
+		return array_values(
+			array_filter(
+				$videos,
+				static function ( $video ) use ( $lookup ) {
+					return ! isset( $lookup[ $video['id'] ] );
+				}
+			)
 		);
 	}
 
@@ -251,7 +296,7 @@ final class Videos {
 		$gallery_hash = GET_Helpers::get_string_variable( 'hash' );
 		$video_hash   = hash( 'sha256', $gallery_hash . $video_id );
 		set_transient(
-			'sgdg_video_proxy_' . $video_hash,
+			'avpvh_video_proxy_' . $video_hash,
 			array(
 				'id'       => $video_id,
 				'mimeType' => $mime_type,

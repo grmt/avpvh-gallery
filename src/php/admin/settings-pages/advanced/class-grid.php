@@ -2,13 +2,13 @@
 /**
  * Contains the Grid class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Admin\Settings_Pages\Advanced;
+namespace Avpvh\Admin\Settings_Pages\Advanced;
 
-use Sgdg\Options;
-use Sgdg\Script_And_Style_Helpers;
+use Avpvh\Options;
+use Avpvh\Script_And_Style_Helpers;
 
 /**
  * Registers and renders the grid settings section.
@@ -36,10 +36,10 @@ final class Grid {
 	 */
 	public static function add_section() {
 		add_settings_section(
-			'sgdg_grid',
-			esc_html__( 'Image grid', 'skaut-google-drive-gallery' ),
+			'avpvh_grid',
+			esc_html__( 'Image grid', 'avpvh-gallery' ),
 			array( self::class, 'html' ),
-			'sgdg_advanced'
+			'avpvh_advanced'
 		);
 		Options::$grid_height->add_field();
 		Options::$grid_spacing->add_field();
@@ -58,7 +58,7 @@ final class Grid {
 	 * @return void
 	 */
 	public static function register_scripts_styles() {
-		Script_And_Style_Helpers::register_and_enqueue_style( 'sgdg_options_grid', 'admin/css/options-grid.min.css' );
+		Script_And_Style_Helpers::register_and_enqueue_style( 'avpvh_options_grid', 'admin/css/options-grid.min.css' );
 	}
 
 	/**

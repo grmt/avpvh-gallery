@@ -2,10 +2,10 @@
 /**
  * Contains the Array_Option class
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Frontend;
+namespace Avpvh\Frontend;
 
 use const JSON_UNESCAPED_UNICODE;
 

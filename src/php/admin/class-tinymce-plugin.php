@@ -2,28 +2,28 @@
 /**
  * Contains the TinyMCE_Plugin class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Admin;
+namespace Avpvh\Admin;
 
-use Sgdg\API_Client;
-use Sgdg\API_Facade;
-use Sgdg\Exceptions\API_Exception;
-use Sgdg\Exceptions\API_Rate_Limit_Exception;
-use Sgdg\Exceptions\Cant_Edit_Exception;
-use Sgdg\Exceptions\Directory_Not_Found_Exception;
-use Sgdg\Exceptions\Internal_Exception;
-use Sgdg\Exceptions\Not_Found_Exception;
-use Sgdg\Exceptions\Plugin_Not_Authorized_Exception;
-use Sgdg\Exceptions\Unsupported_Value_Exception;
-use Sgdg\Frontend\API_Fields;
-use Sgdg\Frontend\Single_Page_Pagination_Helper;
-use Sgdg\GET_Helpers;
-use Sgdg\Helpers;
-use Sgdg\Options;
-use Sgdg\Script_And_Style_Helpers;
-use Sgdg\Vendor\GuzzleHttp\Promise\PromiseInterface;
+use Avpvh\API_Client;
+use Avpvh\API_Facade;
+use Avpvh\Exceptions\API_Exception;
+use Avpvh\Exceptions\API_Rate_Limit_Exception;
+use Avpvh\Exceptions\Cant_Edit_Exception;
+use Avpvh\Exceptions\Directory_Not_Found_Exception;
+use Avpvh\Exceptions\Internal_Exception;
+use Avpvh\Exceptions\Not_Found_Exception;
+use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
+use Avpvh\Exceptions\Unsupported_Value_Exception;
+use Avpvh\Frontend\API_Fields;
+use Avpvh\Frontend\Single_Page_Pagination_Helper;
+use Avpvh\GET_Helpers;
+use Avpvh\Helpers;
+use Avpvh\Options;
+use Avpvh\Script_And_Style_Helpers;
+use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
 
 /**
  * Adds a gallery button to the TinyMCE editor.
@@ -59,10 +59,10 @@ final class TinyMCE_Plugin {
 		}
 
 		// phpcs:ignore PluginCheck.CodeAnalysis.ImageFunctions.NonEnqueuedImage
-		echo '<a href="#" id="sgdg-tinymce-button" class="button"><img class="sgdg-tinymce-button-icon" src="' .
-			esc_attr( plugins_url( '/skaut-google-drive-gallery/admin/icon.png' ) ) .
+		echo '<a href="#" id="avpvh-tinymce-button" class="button"><img class="avpvh-tinymce-button-icon" src="' .
+			esc_attr( plugins_url( '/avpvh-gallery/admin/icon.png' ) ) .
 			'">' .
-			esc_html__( 'Google Drive gallery', 'skaut-google-drive-gallery' ) .
+			esc_html__( 'Google Drive gallery', 'avpvh-gallery' ) .
 			'</a>';
 		add_thickbox();
 	}
@@ -80,26 +80,26 @@ final class TinyMCE_Plugin {
 			return;
 		}
 
-		Script_And_Style_Helpers::register_and_enqueue_style( 'sgdg_tinymce', 'admin/css/tinymce.min.css' );
+		Script_And_Style_Helpers::register_and_enqueue_style( 'avpvh_tinymce', 'admin/css/tinymce.min.css' );
 		Script_And_Style_Helpers::register_and_enqueue_script(
-			'sgdg_tinymce',
+			'avpvh_tinymce',
 			'admin/js/tinymce.min.js',
 			array( 'wp-tinymce' )
 		);
 		Script_And_Style_Helpers::add_script_configuration(
-			'sgdg_tinymce',
-			'sgdgTinymceLocalize',
+			'avpvh_tinymce',
+			'avpvhTinymceLocalize',
 			array(
 				'ajax_url'           => admin_url( 'admin-ajax.php' ),
-				'dialog_title'       => esc_html__( 'Google Drive gallery', 'skaut-google-drive-gallery' ),
+				'dialog_title'       => esc_html__( 'Google Drive gallery', 'avpvh-gallery' ),
 				'error_header'       => esc_html__(
-					'The Image and video gallery from Google Drive plugin has encountered an error. Error message:',
-					'skaut-google-drive-gallery'
+					'The AVPVH Gallery plugin has encountered an error. Error message:',
+					'avpvh-gallery'
 				),
-				'error_trace_header' => esc_html__( 'Stack trace:', 'skaut-google-drive-gallery' ),
-				'insert_button'      => esc_html__( 'Insert', 'skaut-google-drive-gallery' ),
-				'nonce'              => wp_create_nonce( 'sgdg_editor_plugin' ),
-				'root_name'          => esc_html__( 'Google Drive gallery', 'skaut-google-drive-gallery' ),
+				'error_trace_header' => esc_html__( 'Stack trace:', 'avpvh-gallery' ),
+				'insert_button'      => esc_html__( 'Insert', 'avpvh-gallery' ),
+				'nonce'              => wp_create_nonce( 'avpvh_editor_plugin' ),
+				'root_name'          => esc_html__( 'Google Drive gallery', 'avpvh-gallery' ),
 			)
 		);
 	}
@@ -132,13 +132,13 @@ final class TinyMCE_Plugin {
 	 * @throws Unsupported_Value_Exception A field that is not supported was passed in `$fields`.
 	 */
 	public static function ajax_handler_body() {
-		check_ajax_referer( 'sgdg_editor_plugin' );
+		check_ajax_referer( 'avpvh_editor_plugin' );
 
 		if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'edit_pages' ) ) {
 			throw new Cant_Edit_Exception();
 		}
 
-		if ( false === get_option( 'sgdg_access_token', false ) ) {
+		if ( false === get_option( 'avpvh_access_token', false ) ) {
 			throw new Plugin_Not_Authorized_Exception();
 		}
 

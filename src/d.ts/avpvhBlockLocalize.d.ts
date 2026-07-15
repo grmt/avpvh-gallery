@@ -20,7 +20,7 @@ declare interface BlockOrderingOption {
 	name: string;
 }
 
-interface SgdgBlockLocalize {
+interface AvpvhBlockLocalize {
 	ajax_url: string;
 	nonce: string;
 	block_name: string;
@@ -35,6 +35,6 @@ interface SgdgBlockLocalize {
 	ordering_option_by_name: string;
 }
 
-declare const sgdgBlockLocalize: SgdgBlockLocalize &
+declare const avpvhBlockLocalize: AvpvhBlockLocalize &
 	Record< BlockOptions, BlockOption > &
 	Record< BlockOrderingOptions, BlockOrderingOption >;

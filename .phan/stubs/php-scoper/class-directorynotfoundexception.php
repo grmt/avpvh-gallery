@@ -2,7 +2,7 @@
 /**
  * Contains Isolated\Symfony\Component\Finder\Exception\DirectoryNotFoundException class stub for phan
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  *
  * phpcs:disable Generic.Commenting.DocComment.Empty
  * phpcs:disable SlevomatCodingStandard.Classes.RequireAbstractOrFinal.ClassNeitherAbstractNorFinal

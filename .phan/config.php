@@ -2,7 +2,7 @@
 /**
  * PHAN configuration
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
 return array(
@@ -23,7 +23,7 @@ return array(
 	'file_list'                                 => array(
 		'config/scoper.inc.php',
 	),
-	'minimum_target_php_version'                => '5.6',
+	'minimum_target_php_version'                => '8.1',
 	'plugins'                                   => array(
 		'AlwaysReturnPlugin',
 		'DollarDollarPlugin',

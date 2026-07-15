@@ -2,18 +2,18 @@
 /**
  * Contains the API_Exception class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Exceptions;
+namespace Avpvh\Exceptions;
 
-use Sgdg\Exceptions\Exception as Sgdg_Exception;
-use Sgdg\Vendor\Google\Service\Exception as Google_Service_Exception;
+use Avpvh\Exceptions\Exception as Avpvh_Exception;
+use Avpvh\Vendor\Google\Service\Exception as Google_Service_Exception;
 
 /**
  * A wrapper for an exception with the API
  */
-final class API_Exception extends Sgdg_Exception {
+final class API_Exception extends Avpvh_Exception {
 
 	/**
 	 * API_Exception class constructor
@@ -25,7 +25,7 @@ final class API_Exception extends Sgdg_Exception {
 
 		if ( null === $errors ) {
 			parent::__construct(
-				esc_html__( 'The Google Drive API returned an unknown error.', 'skaut-google-drive-gallery' ),
+				esc_html__( 'The Google Drive API returned an unknown error.', 'avpvh-gallery' ),
 				$api_exception->getCode(),
 				$api_exception
 			);
@@ -41,7 +41,7 @@ final class API_Exception extends Sgdg_Exception {
 					'The Google Drive API returned the following error: ',
 					'The Google Drive API returned the following errors: ',
 					count( $error_messages ),
-					'skaut-google-drive-gallery'
+					'avpvh-gallery'
 				)
 			) . implode( "\n", $error_messages ),
 			$api_exception->getCode(),

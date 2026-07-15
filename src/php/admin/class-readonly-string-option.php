@@ -2,10 +2,10 @@
 /**
  * Contains the Readonly_String_Option class
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Admin;
+namespace Avpvh\Admin;
 
 /**
  * An option representing a string value which is never changed, just read. The value isn't actually stored in the database, it just follows the UI of other options.
@@ -52,10 +52,10 @@ final class Readonly_String_Option {
 	/**
 	 * Readonly_String_Option class constructor.
 	 *
-	 * @param string $name The name of the option to be used as the key to reference it. The prefix `sgdg_` will be added automatically.
+	 * @param string $name The name of the option to be used as the key to reference it. The prefix `avpvh_` will be added automatically.
 	 * @param string $value The value of the option.
-	 * @param string $page The page in which the option will be accessible to the user. The prefix `sgdg_` will be added automatically.
-	 * @param string $section The section (within the selected page) in which the option will be accessible to the user. The prefix `sgdg_` will be added automatically.
+	 * @param string $page The page in which the option will be accessible to the user. The prefix `avpvh_` will be added automatically.
+	 * @param string $section The section (within the selected page) in which the option will be accessible to the user. The prefix `avpvh_` will be added automatically.
 	 * @param string $title A human-readable name of the option to be displayed to the user.
 	 */
 	public function __construct( $name, $value, $page, $section, $title ) {
@@ -63,10 +63,10 @@ final class Readonly_String_Option {
 			return;
 		}
 
-		$this->name    = 'sgdg_' . $name;
+		$this->name    = 'avpvh_' . $name;
 		$this->value   = $value;
-		$this->page    = 'sgdg_' . $page;
-		$this->section = 'sgdg_' . $section;
+		$this->page    = 'avpvh_' . $page;
+		$this->section = 'avpvh_' . $section;
 		$this->title   = $title;
 	}
 

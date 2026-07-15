@@ -2,18 +2,18 @@
 /**
  * Contains the API_Rate_Limit_Exception class.
  *
- * @package skaut-google-drive-gallery
+ * @package avpvh-gallery
  */
 
-namespace Sgdg\Exceptions;
+namespace Avpvh\Exceptions;
 
-use Sgdg\Exceptions\Exception as Sgdg_Exception;
-use Sgdg\Vendor\Google\Service\Exception as Google_Service_Exception;
+use Avpvh\Exceptions\Exception as Avpvh_Exception;
+use Avpvh\Vendor\Google\Service\Exception as Google_Service_Exception;
 
 /**
  * A wrapper for a rate limit exception with the API
  */
-final class API_Rate_Limit_Exception extends Sgdg_Exception {
+final class API_Rate_Limit_Exception extends Avpvh_Exception {
 
 	/**
 	 * API_Rate_Limit_Exception class constructor
@@ -24,7 +24,7 @@ final class API_Rate_Limit_Exception extends Sgdg_Exception {
 		parent::__construct(
 			esc_html__(
 				'The maximum number of requests has been exceeded. Please try again in a minute.',
-				'skaut-google-drive-gallery'
+				'avpvh-gallery'
 			),
 			$api_exception->getCode(),
 			$api_exception

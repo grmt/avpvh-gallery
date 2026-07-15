@@ -1,14 +1,14 @@
 import { createElement } from '@wordpress/element';
 
-import { SgdgSettingsComponent } from './SgdgSettingsComponent';
+import { AvpvhSettingsComponent } from './AvpvhSettingsComponent';
 
-export class SgdgBooleanSettingsComponent extends SgdgSettingsComponent {
+export class AvpvhBooleanSettingsComponent extends AvpvhSettingsComponent {
 	protected renderInput(): React.ReactNode {
 		const disabled =
 			undefined === this.props.editor.getAttribute(this.props.name);
 		return createElement('input', {
 			checked: 'true' === this.state.value,
-			className: 'sgdg-block-settings-boolean',
+			className: 'avpvh-block-settings-boolean',
 			disabled,
 			onChange: (e: React.FormEvent) => {
 				this.change(e);
