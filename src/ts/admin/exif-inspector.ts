@@ -430,6 +430,19 @@ class ExifInspector {
 	private photoExcluded = false;
 	private excludedPhotoIds = new Set<string>();
 	private folderStack: Array<{ id: string; name: string }> = [];
+	private fullscreenViewerEl: HTMLDivElement | null = null;
+	private fullscreenImageEl: HTMLImageElement | null = null;
+	private fullscreenRotation = 0;
+	private fullscreenFlipH = false;
+	private fullscreenFlipV = false;
+	private fullscreenZoom = 1;
+	private fullscreenPanX = 0;
+	private fullscreenPanY = 0;
+	private fullscreenDragging = false;
+	private fullscreenDragStartX = 0;
+	private fullscreenDragStartY = 0;
+	private fullscreenPanStartX = 0;
+	private fullscreenPanStartY = 0;
 
 	public constructor() {
 		this.rootId = avpvhExifInspector.root_id;
@@ -973,6 +986,7 @@ class ExifInspector {
 						</summary>
 						<div class="original-actions">
 							<a id="original-download-link" target="_blank" class="download-link" style="display:none;font-size:13px;">Origineel downloaden</a>
+							<button id="original-fullscreen-btn" type="button" class="fullscreen-btn" style="display:none;font-size:13px;">Volledig scherm (1920px)</button>
 							<p id="original-size"></p>
 						</div>
 						<div class="previews-section">
@@ -1479,6 +1493,81 @@ class ExifInspector {
 
 					.original-actions .download-link {
 						margin-bottom: 0;
+					}
+
+					.fullscreen-btn {
+						display: inline-block;
+						padding: 10px 20px;
+						background-color: #fff;
+						color: #0073aa;
+						border: 1px solid #0073aa;
+						border-radius: 4px;
+						font-weight: 500;
+						margin-bottom: 15px;
+						cursor: pointer;
+					}
+
+					.fullscreen-btn:hover {
+						background-color: #f0f6fa;
+					}
+
+					.original-actions .fullscreen-btn {
+						margin-bottom: 0;
+					}
+
+					.inspector-fullscreen-viewer {
+						position: fixed;
+						top: 0;
+						left: 0;
+						width: 1px;
+						height: 1px;
+						overflow: hidden;
+						opacity: 0;
+						pointer-events: none;
+						background: #000;
+					}
+
+					.inspector-fullscreen-viewer:fullscreen {
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						width: 100%;
+						height: 100%;
+						opacity: 1;
+						pointer-events: auto;
+					}
+
+					.inspector-fullscreen-image {
+						max-width: 100%;
+						max-height: 100%;
+						cursor: grab;
+						touch-action: none;
+					}
+
+					.inspector-fullscreen-toolbar {
+						position: absolute;
+						bottom: 24px;
+						left: 50%;
+						display: flex;
+						gap: 8px;
+						padding: 8px 12px;
+						background: rgba(0, 0, 0, 0.6);
+						border-radius: 8px;
+						transform: translateX(-50%);
+					}
+
+					.inspector-fullscreen-toolbar button {
+						padding: 6px 12px;
+						font-size: 16px;
+						color: #fff;
+						cursor: pointer;
+						background: rgba(255, 255, 255, 0.15);
+						border: none;
+						border-radius: 4px;
+					}
+
+					.inspector-fullscreen-toolbar button:hover {
+						background: rgba(255, 255, 255, 0.3);
 					}
 
 					#original-size {
@@ -4421,6 +4510,28 @@ class ExifInspector {
 			downloadLink.style.display = 'none';
 		}
 
+		const fullscreenBtn = document.getElementById(
+			'original-fullscreen-btn'
+		) as HTMLButtonElement | null;
+
+		if (fullscreenBtn) {
+			const thumbLink = this.currentFile.thumbnailLink;
+			if (
+				!this.isVideo() &&
+				thumbLink !== undefined &&
+				thumbLink !== ''
+			) {
+				const url = ExifInspector.buildPreviewUrl(thumbLink, 1920);
+				fullscreenBtn.style.display = 'inline-block';
+				fullscreenBtn.onclick = (): void => {
+					this.openFullscreenImage(url);
+				};
+			} else {
+				fullscreenBtn.style.display = 'none';
+				fullscreenBtn.onclick = null;
+			}
+		}
+
 		if (
 			sizeInfo &&
 			this.currentFile.size !== undefined &&
@@ -4435,6 +4546,164 @@ class ExifInspector {
 			const heightLabel = String(metadata?.height ?? '?');
 			sizeInfo.textContent = `(${sizeInMB} MB — ${widthLabel}×${heightLabel}px)`;
 		}
+	}
+
+	private ensureFullscreenViewer(): {
+		viewer: HTMLDivElement;
+		img: HTMLImageElement;
+	} {
+		if (this.fullscreenViewerEl && this.fullscreenImageEl) {
+			return {
+				viewer: this.fullscreenViewerEl,
+				img: this.fullscreenImageEl,
+			};
+		}
+
+		const viewer = document.createElement('div');
+		viewer.id = 'inspector-fullscreen-viewer';
+		viewer.className = 'inspector-fullscreen-viewer';
+
+		const img = document.createElement('img');
+		img.className = 'inspector-fullscreen-image';
+		img.alt = '';
+
+		const toolbar = document.createElement('div');
+		toolbar.className = 'inspector-fullscreen-toolbar';
+		toolbar.innerHTML = `
+			<button type="button" data-action="zoom-out" title="Uitzoomen">−</button>
+			<button type="button" data-action="zoom-in" title="Inzoomen">+</button>
+			<button type="button" data-action="rotate" title="Roteer 90° rechtsom">↻</button>
+			<button type="button" data-action="flip-h" title="Spiegel horizontaal">↔</button>
+			<button type="button" data-action="flip-v" title="Spiegel verticaal">↕</button>
+			<button type="button" data-action="reset" title="Reset weergave">Reset</button>
+			<button type="button" data-action="close" title="Sluiten">✕</button>
+		`;
+
+		toolbar
+			.querySelector('[data-action="zoom-in"]')
+			?.addEventListener('click', () => {
+				this.adjustFullscreenZoom(0.25);
+			});
+		toolbar
+			.querySelector('[data-action="zoom-out"]')
+			?.addEventListener('click', () => {
+				this.adjustFullscreenZoom(-0.25);
+			});
+		toolbar
+			.querySelector('[data-action="rotate"]')
+			?.addEventListener('click', () => {
+				this.fullscreenRotation = (this.fullscreenRotation + 90) % 360;
+				this.applyFullscreenTransform();
+			});
+		toolbar
+			.querySelector('[data-action="flip-h"]')
+			?.addEventListener('click', () => {
+				this.fullscreenFlipH = !this.fullscreenFlipH;
+				this.applyFullscreenTransform();
+			});
+		toolbar
+			.querySelector('[data-action="flip-v"]')
+			?.addEventListener('click', () => {
+				this.fullscreenFlipV = !this.fullscreenFlipV;
+				this.applyFullscreenTransform();
+			});
+		toolbar
+			.querySelector('[data-action="reset"]')
+			?.addEventListener('click', () => {
+				this.resetFullscreenTransform();
+			});
+		toolbar
+			.querySelector('[data-action="close"]')
+			?.addEventListener('click', () => {
+				void document.exitFullscreen();
+			});
+
+		img.addEventListener(
+			'wheel',
+			(event) => {
+				event.preventDefault();
+				this.adjustFullscreenZoom(event.deltaY < 0 ? 0.25 : -0.25);
+			},
+			{ passive: false }
+		);
+
+		img.addEventListener('pointerdown', (event) => {
+			this.fullscreenDragging = true;
+			this.fullscreenDragStartX = event.clientX;
+			this.fullscreenDragStartY = event.clientY;
+			this.fullscreenPanStartX = this.fullscreenPanX;
+			this.fullscreenPanStartY = this.fullscreenPanY;
+			img.setPointerCapture(event.pointerId);
+		});
+		img.addEventListener('pointermove', (event) => {
+			if (!this.fullscreenDragging) {
+				return;
+			}
+			this.fullscreenPanX =
+				this.fullscreenPanStartX +
+				(event.clientX - this.fullscreenDragStartX);
+			this.fullscreenPanY =
+				this.fullscreenPanStartY +
+				(event.clientY - this.fullscreenDragStartY);
+			this.applyFullscreenTransform();
+		});
+		const stopDragging = (): void => {
+			this.fullscreenDragging = false;
+		};
+		img.addEventListener('pointerup', stopDragging);
+		img.addEventListener('pointercancel', stopDragging);
+
+		viewer.appendChild(img);
+		viewer.appendChild(toolbar);
+		document.body.appendChild(viewer);
+
+		document.addEventListener('fullscreenchange', () => {
+			if (document.fullscreenElement !== viewer) {
+				this.resetFullscreenTransform();
+			}
+		});
+
+		this.fullscreenViewerEl = viewer;
+		this.fullscreenImageEl = img;
+
+		return { viewer, img };
+	}
+
+	private adjustFullscreenZoom(delta: number): void {
+		this.fullscreenZoom = Math.min(
+			6,
+			Math.max(1, this.fullscreenZoom + delta)
+		);
+		this.applyFullscreenTransform();
+	}
+
+	private applyFullscreenTransform(): void {
+		if (!this.fullscreenImageEl) {
+			return;
+		}
+		const scaleX = (this.fullscreenFlipH ? -1 : 1) * this.fullscreenZoom;
+		const scaleY = (this.fullscreenFlipV ? -1 : 1) * this.fullscreenZoom;
+		this.fullscreenImageEl.style.transform =
+			`translate(${String(this.fullscreenPanX)}px, ${String(this.fullscreenPanY)}px) ` +
+			`rotate(${String(this.fullscreenRotation)}deg) ` +
+			`scaleX(${String(scaleX)}) scaleY(${String(scaleY)})`;
+	}
+
+	private resetFullscreenTransform(): void {
+		this.fullscreenRotation = 0;
+		this.fullscreenFlipH = false;
+		this.fullscreenFlipV = false;
+		this.fullscreenZoom = 1;
+		this.fullscreenPanX = 0;
+		this.fullscreenPanY = 0;
+		this.applyFullscreenTransform();
+	}
+
+	private openFullscreenImage(url: string): void {
+		const { viewer, img } = this.ensureFullscreenViewer();
+		this.resetFullscreenTransform();
+		img.src = url;
+		void viewer.requestFullscreen();
 	}
 
 	private insertEmbeddedThumbCard(): void {
