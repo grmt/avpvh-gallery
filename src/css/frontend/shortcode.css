@@ -70,6 +70,7 @@ html.pswp-is-open body {
 
 .avpvh-grid-a {
 	box-shadow: none !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	overflow: hidden;
 }
 
 .avpvh-grid-square {
@@ -140,8 +141,13 @@ html.pswp-is-open body {
 	box-shadow: none !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	display: block;
 	height: 100% !important;
+	left: 50%;
 	object-fit: cover !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	object-position: center !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	position: absolute;
+	top: 50%;
+	transform: translate(-50%, -50%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	width: 100% !important;
 }
 
@@ -150,17 +156,56 @@ html.pswp-is-open body {
 }
 
 a[data-avpvh-thumb-rotation="90"] .avpvh-grid-img {
-	transform: rotate(90deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform: translate(-50%, -50%) rotate(90deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
 a[data-avpvh-thumb-rotation="180"] .avpvh-grid-img {
-	transform: rotate(180deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform: translate(-50%, -50%) rotate(180deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
 a[data-avpvh-thumb-rotation="270"] .avpvh-grid-img {
-	transform: rotate(270deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform: translate(-50%, -50%) rotate(270deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+a[data-avpvh-thumb-hflip="1"] .avpvh-grid-img {
+	transform: translate(-50%, -50%) scaleX(-1); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+a[data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
+	transform: translate(-50%, -50%) scaleY(-1); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+/* Combined rotation + flip cases */
+a[data-avpvh-thumb-rotation="90"][data-avpvh-thumb-hflip="1"] .avpvh-grid-img {
+	transform: translate(-50%, -50%) scaleX(-1) rotate(90deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+a[data-avpvh-thumb-rotation="180"][data-avpvh-thumb-hflip="1"] .avpvh-grid-img {
+	transform: translate(-50%, -50%) scaleX(-1) rotate(180deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-hflip="1"] .avpvh-grid-img {
+	transform: translate(-50%, -50%) scaleX(-1) rotate(270deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+a[data-avpvh-thumb-rotation="90"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
+	transform: translate(-50%, -50%) scaleY(-1) rotate(90deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+a[data-avpvh-thumb-rotation="180"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
+	transform: translate(-50%, -50%) scaleY(-1) rotate(180deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
+	transform: translate(-50%, -50%) scaleY(-1) rotate(270deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	transform-origin: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
@@ -320,58 +365,140 @@ a[data-avpvh-thumb-rotation="270"] .avpvh-grid-img {
 	border-radius: 8px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
-.avpvh-loading,
-.avpvh-loading div {
-	border-radius: 50%; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-}
-
 .avpvh-loading {
-	background-color: #9b9b9b;
-	background-color: rgb(130, 130, 130, 80%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	box-shadow: 0 0 2.5em #b3b3b3; /* 40 */ /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	box-shadow: 0 0 2.5em rgb(130, 130, 130, 60%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	box-sizing: content-box; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	margin: 10px auto;
-	padding: 0.65em;
-	width: 1.3em;
+	height: 68px;
+	margin: 14px auto;
+	position: relative;
+	width: 78px;
 }
 
-.avpvh-loading div {
-	animation: avpvh-loading 0.5s ease infinite; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	background-color: #fff;
-	height: 1.3em;
+.avpvh-loading > :first-child {
+	animation: avpvh-neutral-loader 0.9s linear infinite; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	background: url(../images/loading.svg) center / contain no-repeat;
+	bottom: 12px;
+	height: 44px;
+	left: 17px;
+	position: absolute;
+	width: 44px;
 }
 
-@keyframes avpvh-loading {
+.avpvh-gallery-branded .avpvh-loading > :first-child {
+	animation: none;
+	background-image: url(../images/kruiwagen.svg);
+	bottom: 0;
+	height: 68px;
+	left: -2px;
+	width: 75px;
+}
+
+.avpvh-gallery-branded .avpvh-loading > :first-child::after {
+	color: #c62828;
+	content: "PvH";
+	font-family: Arial, sans-serif;
+	font-size: 8px;
+	font-weight: 700;
+	left: 38px;
+	line-height: 1;
+	position: absolute;
+	top: 28px;
+}
+
+.avpvh-gallery-branded .avpvh-loading::before {
+	animation: avpvh-sand-fall 1.1s ease-in infinite; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	background: #c48a2c;
+	border-radius: 50%; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	box-shadow: 8px -7px 0 -1px #d4a247, -6px -13px 0 -1px #b87820;
+	content: "";
+	height: 5px;
+	left: 43px;
+	position: absolute;
+	top: -7px;
+	width: 5px;
+	z-index: 2;
+}
+
+.avpvh-gallery-branded .avpvh-loading::after {
+	animation: avpvh-sand-pile 1.1s ease-in-out infinite; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	background: #d4a247;
+	clip-path: polygon(0 100%, 38% 20%, 55% 0, 100% 100%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	content: "";
+	height: 10px;
+	left: 37px;
+	position: absolute;
+	top: 13px;
+	transform-origin: center bottom; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	width: 25px;
+	z-index: 1;
+}
+
+@keyframes avpvh-sand-fall {
 
 	0% {
-		opacity: 0.5; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-		transform: scale(0.75); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+		opacity: 0; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+		transform: translateY(-4px); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	}
 
-	50% {
+	18% {
 		opacity: 1; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-		transform: scale(1); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	}
 
 	100% {
-		opacity: 0.5; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-		transform: scale(0.75); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+		opacity: 0; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+		transform: translateY(24px); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	}
+}
+
+@keyframes avpvh-sand-pile {
+
+	0%,
+	20% {
+		transform: scaleY(0.55); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	}
+
+	75%,
+	100% {
+		transform: scaleY(1); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	}
+}
+
+@keyframes avpvh-neutral-loader {
+
+	to {
+		transform: rotate(360deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+	.avpvh-gallery-branded .avpvh-loading::before,
+	.avpvh-gallery-branded .avpvh-loading::after {
+		animation: none;
+		opacity: 1; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	}
+
+	.avpvh-loading > :first-child {
+		animation: none;
 	}
 }
 
 .avpvh-more-button {
-	margin-top: 27px;
-	text-align: center;
+	background: transparent;
+	border: 0;
+	cursor: pointer;
+	display: block;
+	margin: 27px auto 0;
+	padding: 0;
 }
 
-.avpvh-more-button div {
-	background-color: #7f7f7f;
-	background-color: rgb(0, 0, 0, 50%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+.avpvh-more-button .avpvh-loading {
+	display: block;
+	margin: 0;
+}
+
+.avpvh-more-button-text {
+	background: rgb(0, 0, 0, 50%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	border-radius: 2px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	color: #fff;
-	cursor: pointer;
-	display: inline;
 	padding: 10px 15px;
 }
 
@@ -600,9 +727,15 @@ a[data-avpvh-thumb-rotation="270"] .avpvh-grid-img {
 }
 /* stylelint-enable selector-class-pattern */
 
-/* Ensure orientation is respected in PhotoSwipe lightbox images */
+/* Disable browser EXIF auto-rotation on PhotoSwipe images: PhotoSwipe sizes
+   the container from data-pswp-width/height (raw pre-rotation dims); letting
+   the browser also rotate would create a dimension mismatch → stretched image.
+   CSS rotation is applied by applySlideRotation() instead. */
 .pswp__img {
-	image-orientation: from-image; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	image-orientation: none; /* stylelint-disable-line declaration-property-value-no-unknown, plugin/no-unsupported-browser-features */
+	max-height: none !important;
+	max-width: none !important;
+	object-fit: contain;
 }
 
 .avpvh-pswp-path-name {
@@ -613,6 +746,36 @@ a[data-avpvh-thumb-rotation="270"] .avpvh-grid-img {
 	font-size: 11px;
 	margin-top: 2px;
 	opacity: 0.85;
+}
+
+.avpvh-pswp-orientation-icon {
+	display: inline-block;
+	margin-left: 6px;
+	opacity: 1;
+	vertical-align: middle;
+}
+
+.avpvh-orientation-chain,
+.avpvh-orientation-state,
+.avpvh-orientation-move {
+	align-items: center;
+	display: inline-flex;
+}
+
+.avpvh-orientation-chain {
+	gap: 3px;
+	vertical-align: middle;
+}
+
+.avpvh-orientation-state {
+	flex: 0 0 auto;
+	justify-content: center;
+}
+
+.avpvh-orientation-move {
+	font-size: 9px;
+	gap: 2px;
+	white-space: nowrap;
 }
 
 .avpvh-pswp-exif-inspector-link {
@@ -628,13 +791,36 @@ a[data-avpvh-thumb-rotation="270"] .avpvh-grid-img {
 	opacity: 1;
 }
 
-/* Cached grid thumbnail shown in the lightbox when the full-size image fails
-   to load (Google rate-limit / expired URL). Centred and scaled to fit. */
+/* Cached grid thumbnail shown dimmed behind the Drive error notice. */
 .avpvh-pswp-fallback {
-	left: 50%;
-	max-height: 100%;
-	max-width: 100%;
+	height: 100%;
+	inset: 0;
+	object-fit: contain;
+	opacity: 0.35;
 	position: absolute;
-	top: 50%;
-	transform: translate(-50%, -50%);
+	width: 100%;
+}
+
+/* Notice shown when Google Drive can't serve the full-size image. */
+.avpvh-pswp-drive-error {
+	background: rgba(0, 0, 0, 0.65);
+	border: 1px solid rgba(255, 255, 255, 0.18);
+	border-radius: 8px;
+	color: #fff;
+	max-width: 360px;
+	padding: 16px 20px;
+	position: relative;
+	text-align: center;
+	z-index: 1;
+}
+
+.avpvh-pswp-drive-error__title {
+	font-size: 14px;
+	font-weight: bold;
+	margin-bottom: 6px;
+}
+
+.avpvh-pswp-drive-error__detail {
+	font-size: 12px;
+	opacity: 0.8;
 }

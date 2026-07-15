@@ -7,6 +7,7 @@
 
 namespace Avpvh;
 
+use Avpvh\Admin\Asset_Set_Option;
 use Avpvh\Admin\Readonly_String_Option;
 use Avpvh\Frontend\Boolean_Option;
 use Avpvh\Frontend\Bounded_Integer_Option;
@@ -25,6 +26,7 @@ require_once __DIR__ . '/frontend/class-array-option.php';
 require_once __DIR__ . '/frontend/class-ordering-option.php';
 require_once __DIR__ . '/frontend/class-root-path-option.php';
 require_once __DIR__ . '/admin/class-readonly-string-option.php';
+require_once __DIR__ . '/admin/class-asset-set-option.php';
 
 /**
  * A container for all the configuration of the plugin.
@@ -38,6 +40,13 @@ require_once __DIR__ . '/admin/class-readonly-string-option.php';
  * phpcs:disable SlevomatCodingStandard.Classes.ForbiddenPublicProperty.ForbiddenPublicProperty
  */
 final class Options {
+
+	/**
+	 * Gallery icon and branding set: auto, branded or neutral.
+	 *
+	 * @var Asset_Set_Option $asset_set
+	 */
+	public static $asset_set;
 
 	/**
 	 * Shows the authorized domain which the user needs for registering the Google app.
@@ -203,6 +212,13 @@ final class Options {
 	 * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
 	 */
 	public static function init() {
+		self::$asset_set         = new Asset_Set_Option(
+			'asset_set',
+			'auto',
+			'advanced',
+			'appearance',
+			esc_html__( 'Icon set', 'avpvh-gallery' )
+		);
 		$url                     = wp_parse_url( get_site_url() );
 		self::$authorized_domain = new Readonly_String_Option(
 			'authorized_domain',
@@ -354,7 +370,7 @@ final class Options {
 			'lightbox',
 			esc_html__( 'Activity indicator', 'avpvh-gallery' )
 		);
-		self::$preview_captions = new Boolean_Option(
+		self::$preview_captions           = new Boolean_Option(
 			'preview_captions',
 			true,
 			'advanced',

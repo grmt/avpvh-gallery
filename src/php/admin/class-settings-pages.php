@@ -7,6 +7,11 @@
 
 namespace Avpvh\Admin;
 
+use Avpvh\Admin\Exif_Inspector\Browse_REST;
+use Avpvh\Admin\Exif_Inspector\Camera_Model_Index_REST;
+use Avpvh\Admin\Exif_Inspector\Corrections_REST;
+use Avpvh\Admin\Exif_Inspector\Exif_Data_REST;
+use Avpvh\Admin\Exif_Inspector\Media_Stream_REST;
 use Avpvh\Admin\Settings_Pages\Advanced_Settings;
 use Avpvh\Admin\Settings_Pages\Basic_Settings;
 use Avpvh\Admin\Settings_Pages\Exif_Inspector;
@@ -15,7 +20,13 @@ use Avpvh\GET_Helpers;
 require_once __DIR__ . '/settings-pages/class-advanced-settings.php';
 require_once __DIR__ . '/settings-pages/class-basic-settings.php';
 require_once __DIR__ . '/settings-pages/class-exif-inspector.php';
-require_once __DIR__ . '/class-exif-inspector-rest.php';
+require_once __DIR__ . '/exif-inspector/class-exif-inspector-permission.php';
+require_once __DIR__ . '/exif-inspector/class-camera-model-index-rest.php';
+require_once __DIR__ . '/exif-inspector/class-media-stream-rest.php';
+require_once __DIR__ . '/exif-inspector/class-browse-rest.php';
+require_once __DIR__ . '/exif-inspector/class-makernote-tags.php';
+require_once __DIR__ . '/exif-inspector/class-exif-data-rest.php';
+require_once __DIR__ . '/exif-inspector/class-corrections-rest.php';
 
 /**
  * Registers and renders the plugin settings pages.
@@ -37,8 +48,12 @@ final class Settings_Pages {
 	 * Registers all the hooks all the pages, registers the plugin into the WordPress admin menu and register a handler for OAuth redirect.
 	 */
 	public function __construct() {
-		// Initialize REST routes globally (not just in admin)
-		new Exif_Inspector_REST();
+		// Initialize REST routes globally (not just in admin).
+		new Camera_Model_Index_REST();
+		new Media_Stream_REST();
+		new Browse_REST();
+		new Exif_Data_REST();
+		new Corrections_REST();
 
 		if ( ! is_admin() ) {
 			return;

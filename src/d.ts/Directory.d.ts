@@ -7,6 +7,7 @@ declare interface Directory {
 	dircount?: number;
 	id: string;
 	imagecount?: number;
+	mediacount?: number;
 	name: string;
 	subdirs?: SubDir[];
 	thumbnail: string;

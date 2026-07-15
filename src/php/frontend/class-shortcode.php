@@ -19,6 +19,7 @@ use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Exceptions\Root_Not_Found_Exception;
 use Avpvh\Frontend\Options_Proxy;
 use Avpvh\Helpers;
+use Avpvh\Main;
 use Avpvh\Options;
 use Avpvh\Script_And_Style_Helpers;
 use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
@@ -121,48 +122,48 @@ final class Shortcode {
 		$options = new Options_Proxy( $atts );
 
 		wp_enqueue_script( 'avpvh_gallery_init' );
+		$branded_assets  = Main::uses_branded_assets();
+		$navigation_icon = $branded_assets ? 'troffel.svg' : 'navigation.svg';
+
 		Script_And_Style_Helpers::add_script_configuration(
 			'avpvh_gallery_init',
 			'avpvhShortcodeLocalize',
 			array(
-				'ajax_url'            => admin_url( 'admin-ajax.php' ),
-				'tag_nonce'           => wp_create_nonce( 'avpvh_tag_nonce' ),
-				'rest_nonce'          => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : '',
-				'breadcrumbs_top'     => esc_html__( 'Gallery', 'avpvh-gallery' ),
-				'empty_gallery'       => esc_html__( 'The gallery is empty.', 'avpvh-gallery' ),
-				'error_header'        => esc_html__(
+				'ajax_url'             => admin_url( 'admin-ajax.php' ),
+				'branded_assets'       => $branded_assets ? 'true' : 'false',
+				'breadcrumbs_top'      => esc_html__( 'Gallery', 'avpvh-gallery' ),
+				'empty_gallery'        => esc_html__( 'The gallery is empty.', 'avpvh-gallery' ),
+				'error_header'         => esc_html__(
 					'The AVPVH Gallery plugin has encountered an error. Error message:',
 					'avpvh-gallery'
 				),
-				'error_trace_header'  => esc_html__( 'Stack trace:', 'avpvh-gallery' ),
-				'grid_height'         => $options->get( 'grid_height' ),
-				'grid_spacing'        => $options->get( 'grid_spacing' ),
-				'load_more'           => esc_html__( 'Load more', 'avpvh-gallery' ),
-				'page_autoload'       => $options->get( 'page_autoload' ),
-				'preview_activity'    => $options->get( 'preview_activity_indicator' ),
-				'preview_arrows'      => $options->get( 'preview_arrows' ),
-				'preview_captions'    => $options->get( 'preview_captions' ),
-				'preview_closebutton' => $options->get( 'preview_close_button' ),
-				'preview_quitOnEnd'   => 'true' === $options->get( 'preview_loop' ) ? 'false' : 'true',
-				'preview_speed'       => $options->get( 'preview_speed' ),
-				'favicon_url'         => ( static function () {
-					$id  = (int) get_option( 'site_icon' );
-					$src = $id ? wp_get_attachment_image_src( $id, 'full' ) : false;
-					return $src ? $src[0] : get_site_icon_url( 32 );
-				} )(),
-				'is_admin'            => current_user_can( 'manage_options' ) ? 'true' : 'false',
-				'exif_inspector_url'  => current_user_can( 'manage_options' )
+				'error_trace_header'   => esc_html__( 'Stack trace:', 'avpvh-gallery' ),
+				'exif_inspector_url'   => current_user_can( 'manage_options' )
 					? admin_url( 'admin.php?page=avpvh_exif_inspector' )
 					: '',
+				'exif_orientation_url' => current_user_can( 'manage_options' )
+					? rest_url( 'avpvh-gallery/v1/exif-inspector/orientation' )
+					: '',
+				'grid_height'          => $options->get( 'grid_height' ),
+				'grid_spacing'         => $options->get( 'grid_spacing' ),
+				'is_admin'             => current_user_can( 'manage_options' ) ? 'true' : 'false',
+				'load_more'            => esc_html__( 'Load more', 'avpvh-gallery' ),
+				'navigation_icon_url'  => plugins_url( '/avpvh-gallery/frontend/images/' . $navigation_icon ),
+				'page_autoload'        => $options->get( 'page_autoload' ),
+				'preview_activity'     => $options->get( 'preview_activity_indicator' ),
+				'preview_arrows'       => $options->get( 'preview_arrows' ),
+				'preview_captions'     => $options->get( 'preview_captions' ),
+				'preview_closebutton'  => $options->get( 'preview_close_button' ),
+				'preview_quitOnEnd'    => 'true' === $options->get( 'preview_loop' ) ? 'false' : 'true',
+				'preview_speed'        => $options->get( 'preview_speed' ),
+				'rest_nonce'           => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : '',
+				'server_error'         => esc_html__( 'The server returned an unexpected response.', 'avpvh-gallery' ),
+				'tag_nonce'            => wp_create_nonce( 'avpvh_tag_nonce' ),
 			)
 		);
 		wp_enqueue_style( 'avpvh_gallery_css' );
 		wp_enqueue_style( 'avpvh_photo_tagger_css' );
 		$inline_css = '.avpvh-dir-name {font-size: ' . $options->get( 'dir_title_size' ) . ';}';
-		$favicon    = get_site_icon_url( 32 );
-		if ( '' !== $favicon ) {
-			$inline_css .= ':root{--avpvh-favicon-url:url("' . esc_url( $favicon ) . '");}';
-		}
 		wp_add_inline_style( 'avpvh_gallery_css', $inline_css );
 
 		$root_path = Options::$root_path->get();
@@ -183,8 +184,8 @@ final class Shortcode {
 			30 * DAY_IN_SECONDS
 		);
 
-		return '<div class="avpvh-gallery-container" data-avpvh-hash="' .
-			$hash .
+		return '<div class="avpvh-gallery-container' . ( $branded_assets ? ' avpvh-gallery-branded' : '' ) .
+			'" data-avpvh-hash="' . $hash .
 			'"><div class="avpvh-loading"><div></div></div></div>';
 	}
 

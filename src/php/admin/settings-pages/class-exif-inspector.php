@@ -60,9 +60,11 @@ final class Exif_Inspector {
 			'avpvh-exif-inspector',
 			'avpvhExifInspector',
 			array(
-				'rest_url' => rest_url( 'avpvh-gallery/v1/exif-inspector/' ),
-				'root_id'  => end( Options::$root_path->get() ),
-				'nonce'    => wp_create_nonce( 'wp_rest' ),
+				'grid_height'  => (int) Options::$grid_height->get(),
+				'nonce'        => wp_create_nonce( 'wp_rest' ),
+				'preview_size' => (int) Options::$preview_size->get(),
+				'rest_url'     => rest_url( 'avpvh-gallery/v1/exif-inspector/' ),
+				'root_id'      => end( Options::$root_path->get() ),
 			)
 		);
 	}

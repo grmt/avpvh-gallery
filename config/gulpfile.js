@@ -118,12 +118,7 @@ gulp.task(
 		shell.task(['npm install --production=false'], {
 			cwd: 'node_modules/justified-layout',
 		}),
-		shell.task(
-			[
-				'npm run build',
-			],
-			{ cwd: 'node_modules/justified-layout' }
-		),
+		shell.task(['npm run build'], { cwd: 'node_modules/justified-layout' }),
 		() =>
 			gulp
 				.src(
@@ -177,10 +172,22 @@ gulp.task(
 	)
 );
 
-gulp.task('build:png', () =>
+gulp.task('build:png:admin', () =>
 	gulp
 		.src(['src/png/icon.png'], { encoding: false })
 		.pipe(gulp.dest('dist/admin/'))
+);
+
+gulp.task('build:png:frontend', () =>
+	gulp
+		.src(['src/png/troffel-*.png'], { encoding: false })
+		.pipe(gulp.dest('dist/frontend/images/'))
+);
+
+gulp.task('build:png', gulp.parallel('build:png:admin', 'build:png:frontend'));
+
+gulp.task('build:svg', () =>
+	gulp.src(['src/svg/*.svg']).pipe(gulp.dest('dist/frontend/images/'))
 );
 
 gulp.task('build:txt', () =>
@@ -194,6 +201,7 @@ gulp.task(
 		'build:deps',
 		'build:php',
 		'build:png',
+		'build:svg',
 		'build:txt'
 	)
 );

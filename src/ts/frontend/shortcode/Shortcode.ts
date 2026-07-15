@@ -5,6 +5,10 @@ import PhotoSwipe from 'photoswipe';
 import PhotoSwipeLightbox from 'photoswipe/lightbox';
 
 import { isError } from '../../isError';
+import {
+	renderCorrectionOrientationChain,
+	renderExifOrientationChain,
+} from '../../orientationVisualization';
 import { printError } from '../../printError';
 import { PhotoTagger } from '../photo-tagger/PhotoTagger';
 import { QueryParameter } from './QueryParameter';
@@ -34,10 +38,30 @@ interface FolderNode {
 	loadingNext: boolean;
 }
 
+interface ScreenWakeLockSentinel {
+	released: boolean;
+	release(): Promise<void>;
+	addEventListener(
+		type: 'release',
+		listener: () => void,
+		options?: AddEventListenerOptions
+	): void;
+}
+
+interface NavigatorWithWakeLock extends Navigator {
+	wakeLock?: {
+		request(type: 'screen'): Promise<ScreenWakeLockSentinel>;
+	};
+}
+
 export class Shortcode {
 	private static readonly cache = new Map<
 		string,
 		GalleryResponse | PageResponse
+	>();
+	private static readonly exifOrientationCache = new Map<
+		string,
+		Promise<number | null>
 	>();
 
 	private readonly container: JQuery;
@@ -52,6 +76,7 @@ export class Shortcode {
 	private hasMore = false;
 	private path = '';
 	private lastPage = 1;
+	private getEpoch = 0;
 	private loading = false;
 	private currentPathNames = '';
 	private slideshowTimer: ReturnType<typeof setTimeout> | null = null;
@@ -71,6 +96,8 @@ export class Shortcode {
 	// URL). While set, the auto-slideshow stays paused so we don't keep firing
 	// doomed requests; it clears again as soon as a full-size image loads.
 	private rateLimited = false;
+	private screenWakeLock: ScreenWakeLockSentinel | null = null;
+	private screenWakeLockRequest: Promise<void> | null = null;
 
 	private slideNodes: Array<FolderNode> = [];
 	private currentNode: FolderNode | null = null;
@@ -80,33 +107,48 @@ export class Shortcode {
 	private readonly SLIDESHOW_DELAY_MS = 4000;
 	private readonly IDLE_HIDE_MS = 3000;
 
-	// Resolved once at construction from the page's <link rel="icon"> so it
-	// works regardless of whether WordPress's site-icon setting is configured.
-	private readonly faviconUrl: string;
+	private readonly navigationIconUrl: string;
 
 	public constructor(container: HTMLElement, hash: string) {
 		this.container = $(container);
 		this.hash = hash;
 		this.shortHash = hash.substring(0, 8);
-		const faviconEl =
-			document.querySelector<HTMLLinkElement>('link[rel~="icon"]') ??
-			document.querySelector<HTMLLinkElement>(
-				'link[rel="shortcut icon"]'
-			);
-		this.faviconUrl =
-			faviconEl !== null
-				? faviconEl.href
-				: avpvhShortcodeLocalize.favicon_url;
+		this.navigationIconUrl = avpvhShortcodeLocalize.navigation_icon_url;
+		this.container.toggleClass(
+			'avpvh-gallery-branded',
+			avpvhShortcodeLocalize.branded_assets === 'true'
+		);
 		this.pageQueryParameter = new QueryParameter(this.shortHash, 'page');
 		this.pathQueryParameter = new QueryParameter(this.shortHash, 'path');
 		this.path = this.pathQueryParameter.get();
 		this.lightbox = this.createLightbox();
 		this.lightbox.init();
 		this.photoTagger = new PhotoTagger();
-		this.photoTagger.init(container);
+		void this.photoTagger.init(container);
 		this.get();
 		this.setupFolderSwipe();
 		this.setupFolderKeyboard();
+		window.addEventListener('message', (event: MessageEvent<unknown>) => {
+			if (event.origin !== window.location.origin) {
+				return;
+			}
+			this.handleInspectorSlideshowCommand(event.data);
+		});
+		window.addEventListener('storage', (event: StorageEvent) => {
+			if (
+				event.key !== 'avpvh_slideshow_command' ||
+				event.newValue === null
+			) {
+				return;
+			}
+			try {
+				this.handleInspectorSlideshowCommand(
+					JSON.parse(event.newValue)
+				);
+			} catch {
+				// Ignore malformed or unrelated localStorage values.
+			}
+		});
 		$(window).on('popstate', () => {
 			this.init();
 		});
@@ -167,10 +209,16 @@ export class Shortcode {
 			// A real full-size image loaded — Google is serving us again.
 			if (true !== e.isError) {
 				this.rateLimited = false;
+				Shortcode.syncSlideNaturalDimensions(e.slide);
+				const pswp = this.lightbox.pswp;
+				if (pswp !== undefined && e.slide === pswp.currSlide) {
+					this.startSlideshow(pswp);
+				}
 			}
 		});
-		// Replace PhotoSwipe's error placeholder with the cached grid thumbnail.
-		lightbox.addFilter('contentErrorElement', (errorMsgEl, content) => {
+		// Replace PhotoSwipe's error placeholder with the cached grid thumbnail
+		// plus an explicit notice attributing the problem to Google Drive.
+		lightbox.addFilter('contentErrorElement', (_errorMsgEl, content) => {
 			const data = (
 				content as unknown as { data?: { element?: HTMLElement } }
 			).data;
@@ -183,18 +231,35 @@ export class Shortcode {
 				thumb instanceof HTMLImageElement
 					? thumb.currentSrc || thumb.src
 					: '';
-			if ('' === src) {
-				return errorMsgEl;
+
+			const wrapper = document.createElement('div');
+			wrapper.style.cssText =
+				'position:absolute;top:0;right:0;bottom:0;left:0;display:flex;align-items:center;justify-content:center;';
+
+			if ('' !== src) {
+				const img = document.createElement('img');
+				img.className = 'avpvh-pswp-fallback';
+				img.src = src;
+				img.addEventListener('error', () => {
+					img.style.display = 'none';
+				});
+				wrapper.appendChild(img);
 			}
-			const img = document.createElement('img');
-			img.className = 'avpvh-pswp-fallback';
-			img.src = src;
-			// If even the thumbnail can't be shown, fail quietly (blank) rather
-			// than a broken-image icon.
-			img.addEventListener('error', () => {
-				img.style.display = 'none';
-			});
-			return img;
+
+			const notice = document.createElement('div');
+			notice.className = 'avpvh-pswp-drive-error';
+			const title = document.createElement('div');
+			title.className = 'avpvh-pswp-drive-error__title';
+			title.textContent = 'Google Drive kon de afbeelding niet laden';
+			const detail = document.createElement('div');
+			detail.className = 'avpvh-pswp-drive-error__detail';
+			detail.textContent =
+				'Dit is een tijdelijk probleem bij Google. ' +
+				'Vernieuw de pagina om het opnieuw te proberen.';
+			notice.appendChild(title);
+			notice.appendChild(detail);
+			wrapper.appendChild(notice);
+			return wrapper;
 		});
 
 		lightbox.addFilter('itemData', (itemData) => {
@@ -373,13 +438,6 @@ export class Shortcode {
 					videoEl.currentTime = pct * videoEl.duration;
 					updateBar();
 				});
-			} else if ('image' === e.content.type) {
-				// Apply horizontal flip to images that were served mirrored by Google Drive
-				if ((e.content.data as Record<string, unknown>)['needsHFlip']) {
-					if (e.content.element instanceof HTMLImageElement) {
-						e.content.element.style.transform = 'scaleX(-1)';
-					}
-				}
 			}
 		});
 
@@ -438,18 +496,59 @@ export class Shortcode {
 				isButton: false,
 				appendTo: 'root',
 				onInit: (el, instance) => {
+					let pendingExifLoad: (() => void) | null = null;
+					let exifHoverTimer: ReturnType<typeof setTimeout> | null =
+						null;
+					const queueExifLoad = (): void => {
+						if (pendingExifLoad === null) {
+							return;
+						}
+						if (exifHoverTimer !== null) {
+							clearTimeout(exifHoverTimer);
+						}
+						exifHoverTimer = setTimeout(() => {
+							exifHoverTimer = null;
+							pendingExifLoad?.();
+						}, 300);
+					};
+					instance.element?.addEventListener(
+						'pointermove',
+						queueExifLoad,
+						{
+							passive: true,
+						}
+					);
+					instance.on('close', () => {
+						instance.element?.removeEventListener(
+							'pointermove',
+							queueExifLoad
+						);
+						if (exifHoverTimer !== null) {
+							clearTimeout(exifHoverTimer);
+						}
+					});
 					el.classList.add('avpvh-pswp-path');
 					el.title = 'Klik om pad te kopiëren';
 					const pathLine = document.createElement('div');
 					pathLine.className = 'avpvh-pswp-path-name';
 					const exifLine = document.createElement('div');
 					exifLine.className = 'avpvh-pswp-path-exif';
+					const exifText = document.createElement('span');
+					const orientationIcon = document.createElement('span');
+					orientationIcon.className = 'avpvh-pswp-orientation-icon';
+					orientationIcon.style.setProperty(
+						'--avpvh-orientation-filter',
+						'invert(1)'
+					);
+					exifLine.appendChild(exifText);
+					exifLine.appendChild(orientationIcon);
 					// EXIF Inspector link — only visible to wp-admin users
 					const exifInspectorLink = document.createElement('a');
-					exifInspectorLink.className = 'avpvh-pswp-exif-inspector-link';
+					exifInspectorLink.className =
+						'avpvh-pswp-exif-inspector-link';
 					exifInspectorLink.title = 'Open in EXIF Inspector';
 					exifInspectorLink.target = '_blank';
-					exifInspectorLink.rel = 'noopener';
+					exifInspectorLink.rel = 'opener';
 					exifInspectorLink.innerHTML =
 						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M11 2a9 9 0 1 0 6.32 15.32l4.18 4.18 1.42-1.42-4.18-4.18A9 9 0 0 0 11 2zm0 2a7 7 0 1 1 0 14A7 7 0 0 1 11 4zm-1 3v2H8v2h2v4h2v-4h2V9h-2V7h-2z"/></svg>';
 					exifInspectorLink.addEventListener('click', (e) => {
@@ -459,6 +558,7 @@ export class Shortcode {
 					el.appendChild(exifLine);
 					el.appendChild(exifInspectorLink);
 					const update = (): void => {
+						pendingExifLoad = null;
 						const slideEl = instance.currSlide?.data.element;
 						const fullPath =
 							slideEl instanceof HTMLElement
@@ -468,29 +568,109 @@ export class Shortcode {
 							slideEl instanceof HTMLElement
 								? (slideEl.dataset['avpvhExif'] ?? '')
 								: '';
+						let displayedWidth = 0;
+						let displayedHeight = 0;
 						// Always append pixel dimensions when known and non-zero.
 						if (slideEl instanceof HTMLElement) {
-							const w = parseInt(
-								slideEl.dataset['pswpWidth'] ?? '0',
+							const loadedWidth = parseInt(
+								slideEl.dataset['avpvhLoadedWidth'] ?? '0',
 								10
 							);
-							const h = parseInt(
-								slideEl.dataset['pswpHeight'] ?? '0',
+							const loadedHeight = parseInt(
+								slideEl.dataset['avpvhLoadedHeight'] ?? '0',
 								10
 							);
+							const hasLoadedDimensions =
+								loadedWidth > 0 && loadedHeight > 0;
+							const w = hasLoadedDimensions
+								? loadedWidth
+								: parseInt(
+										slideEl.dataset['pswpWidth'] ?? '0',
+										10
+									);
+							const h = hasLoadedDimensions
+								? loadedHeight
+								: parseInt(
+										slideEl.dataset['pswpHeight'] ?? '0',
+										10
+									);
 							if (w > 0 && h > 0) {
-								const dim = String(w) + ' × ' + String(h) + ' px';
+								const orientation =
+									Shortcode.readSlideOrientation(slideEl);
+								const swapsAxes =
+									hasLoadedDimensions &&
+									(orientation.rotation === 90 ||
+										orientation.rotation === 270);
+								displayedWidth = swapsAxes ? h : w;
+								displayedHeight = swapsAxes ? w : h;
+								const dim =
+									String(displayedWidth) +
+									' × ' +
+									String(displayedHeight) +
+									' px';
 								exifStr =
-									exifStr !== '' ? exifStr + ' · ' + dim : dim;
+									exifStr !== ''
+										? exifStr + ' · ' + dim
+										: dim;
 							}
 						}
 						pathLine.textContent = fullPath;
-						exifLine.textContent = exifStr;
-						exifLine.style.display = exifStr ? '' : 'none';
+						exifText.textContent = exifStr;
+						const { rotation, hFlip, vFlip } =
+							Shortcode.readSlideOrientation(
+								slideEl instanceof HTMLElement
+									? slideEl
+									: undefined
+							);
+						const hasCorrection =
+							slideEl instanceof HTMLElement &&
+							'1' === slideEl.dataset['avpvhHasCorrection'];
+						orientationIcon.innerHTML = '';
+						orientationIcon.style.display = 'none';
+						if (hasCorrection) {
+							orientationIcon.innerHTML =
+								renderCorrectionOrientationChain(
+									rotation,
+									hFlip,
+									vFlip,
+									displayedHeight > displayedWidth,
+									24
+								);
+							orientationIcon.title =
+								'Handmatige oriëntatiecorrectie';
+							orientationIcon.style.display = '';
+						}
+						exifLine.style.display = '';
 						const fileId =
 							slideEl instanceof HTMLElement
 								? (slideEl.dataset['avpvhId'] ?? '')
 								: '';
+						if (!hasCorrection && fileId !== '') {
+							const orientationSlideEl = slideEl;
+							const portrait = displayedHeight > displayedWidth;
+							pendingExifLoad = (): void => {
+								pendingExifLoad = null;
+								void Shortcode.loadExifOrientation(fileId).then(
+									(exifOrientation) => {
+										if (
+											exifOrientation === null ||
+											instance.currSlide?.data.element !==
+												orientationSlideEl
+										) {
+											return;
+										}
+										orientationIcon.innerHTML =
+											renderExifOrientationChain(
+												exifOrientation,
+												portrait,
+												24
+											);
+										orientationIcon.title = `EXIF Orientation ${String(exifOrientation)}`;
+										orientationIcon.style.display = '';
+									}
+								);
+							};
+						}
 						if (
 							fullPath !== '' &&
 							avpvhShortcodeLocalize.is_admin === 'true'
@@ -507,13 +687,26 @@ export class Shortcode {
 							exifInspectorLink.href =
 								adminBase +
 								'?page=avpvh_exif_inspector' +
-								(fileId !== '' ? '&avpvh_file_id=' + fileId : '');
+								(fileId !== ''
+									? '&avpvh_file_id=' + fileId
+									: '');
 							exifInspectorLink.style.display = '';
 						} else {
 							exifInspectorLink.style.display = 'none';
 						}
 					};
 					instance.on('change', update);
+					instance.on(
+						'loadComplete',
+						({ slide, isError: loadFailed }) => {
+							if (
+								true !== loadFailed &&
+								slide === instance.currSlide
+							) {
+								update();
+							}
+						}
+					);
 					el.addEventListener('click', () => {
 						const text = pathLine.textContent ?? '';
 						void navigator.clipboard.writeText(text).then(() => {
@@ -555,6 +748,7 @@ export class Shortcode {
 		lightbox.on('afterInit', () => {
 			const pswp = lightbox.pswp;
 			if (pswp !== undefined) {
+				void this.acquireScreenWakeLock();
 				this.initLightboxNode(pswp, pswp.currIndex);
 				this.onLightboxNodeChange(pswp);
 				// Register our counter override AFTER afterInit — by this point all
@@ -565,8 +759,13 @@ export class Shortcode {
 					if (this.slideNodes.length === 0) {
 						return;
 					}
-					const { node, localIndex } = this.getNodeForIndex(pswp.currIndex);
+					const { node, localIndex } = this.getNodeForIndex(
+						pswp.currIndex
+					);
 					Shortcode.updateNodeCounter(pswp, node, localIndex);
+					if (pswp.currSlide !== undefined) {
+						Shortcode.syncSlideNaturalDimensions(pswp.currSlide);
+					}
 					Shortcode.applySlideRotation(pswp);
 				});
 				pswp.on('loadComplete', ({ slide }) => {
@@ -606,24 +805,50 @@ export class Shortcode {
 							clearTimeout(this.slideshowTimer);
 							this.slideshowTimer = null;
 						}
-					} else if (slideshowWasRunning && !this.slideshowPaused) {
-						slideshowWasRunning = false;
-						this.startSlideshow(pswp);
+					} else {
+						void this.acquireScreenWakeLock();
+						if (slideshowWasRunning && !this.slideshowPaused) {
+							slideshowWasRunning = false;
+							this.startSlideshow(pswp);
+						}
 					}
 				};
-				document.addEventListener('visibilitychange', onVisibilityChange);
+				document.addEventListener(
+					'visibilitychange',
+					onVisibilityChange
+				);
 				pswp.on('close', () => {
 					document.removeEventListener('touchstart', onTouchStart);
 					document.removeEventListener('touchend', onTouchEnd);
-					document.removeEventListener('visibilitychange', onVisibilityChange);
+					document.removeEventListener(
+						'visibilitychange',
+						onVisibilityChange
+					);
 				});
 			}
 			const pswpEl = document.querySelector('.pswp');
 			if (
 				pswpEl instanceof HTMLElement &&
 				document.fullscreenEnabled &&
-				document.fullscreenElement === null
+				document.fullscreenElement === null &&
+				!Shortcode.nativeFullscreenAddsOwnCloseButton()
 			) {
+				// PhotoSwipe already sized the slide for the pre-fullscreen viewport
+				// (updateSize() runs synchronously during init(), before this handler
+				// requests fullscreen). Its own resize listener isn't bound until the
+				// opening animation ends, so the resize the browser fires when the
+				// fullscreen transition completes can be missed, leaving the photo
+				// stuck at the old, smaller viewport size. Force a recalculation once
+				// the transition actually finishes.
+				document.addEventListener(
+					'fullscreenchange',
+					() => {
+						if (pswp?.isOpen === true) {
+							pswp.updateSize(true);
+						}
+					},
+					{ once: true }
+				);
 				void pswpEl
 					.requestFullscreen({ navigationUI: 'hide' })
 					.catch(() => {
@@ -637,15 +862,14 @@ export class Shortcode {
 				pswpEl.addEventListener('contextmenu', (e) => {
 					const fileId =
 						pswp.currSlide?.data.element?.dataset['avpvhId'];
-					if (!fileId) {
+					if (fileId === undefined || fileId === '') {
 						return;
 					}
 					e.preventDefault();
-					const adminBase =
-						avpvhShortcodeLocalize.ajax_url.replace(
-							'admin-ajax.php',
-							'admin.php'
-						);
+					const adminBase = avpvhShortcodeLocalize.ajax_url.replace(
+						'admin-ajax.php',
+						'admin.php'
+					);
 					Shortcode.showContextMenu(e.clientX, e.clientY, [
 						{
 							label: 'Open in EXIF Inspector',
@@ -663,6 +887,7 @@ export class Shortcode {
 		});
 
 		lightbox.on('close', () => {
+			void this.releaseScreenWakeLock();
 			this.onLightboxQuit();
 			if (this.slideshowTimer !== null) {
 				clearTimeout(this.slideshowTimer);
@@ -701,88 +926,149 @@ export class Shortcode {
 		return lightbox;
 	}
 
+	private async acquireScreenWakeLock(): Promise<void> {
+		if (
+			document.hidden ||
+			this.lightbox.pswp === undefined ||
+			!this.lightbox.pswp.isOpen ||
+			this.screenWakeLock?.released === false
+		) {
+			return Promise.resolve();
+		}
+		if (this.screenWakeLockRequest !== null) {
+			return this.screenWakeLockRequest;
+		}
+		const wakeLock = (navigator as NavigatorWithWakeLock).wakeLock;
+		if (wakeLock === undefined) {
+			return Promise.resolve();
+		}
+
+		this.screenWakeLockRequest = wakeLock
+			.request('screen')
+			.then(async (sentinel) => {
+				if (
+					this.lightbox.pswp === undefined ||
+					!this.lightbox.pswp.isOpen ||
+					document.hidden
+				) {
+					await sentinel.release();
+					return;
+				}
+				this.screenWakeLock = sentinel;
+				sentinel.addEventListener(
+					'release',
+					() => {
+						if (this.screenWakeLock === sentinel) {
+							this.screenWakeLock = null;
+						}
+					},
+					{ once: true }
+				);
+			})
+			.catch(() => {
+				// Unsupported, denied, or unavailable due to battery policy.
+			})
+			.finally(() => {
+				this.screenWakeLockRequest = null;
+			});
+		return this.screenWakeLockRequest;
+	}
+
+	private async releaseScreenWakeLock(): Promise<void> {
+		const sentinel = this.screenWakeLock;
+		this.screenWakeLock = null;
+		if (sentinel !== null && !sentinel.released) {
+			await sentinel.release().catch(() => {
+				// The browser may already have released it on a visibility change.
+			});
+		}
+	}
+
 	private setupLightboxBehavior(pswp: PhotoSwipe): void {
 		const el = pswp.element;
 		if (el === undefined) {
 			return;
 		}
 
-		// ── Replace arrow buttons with the actual favicon as a white silhouette ──
-		// Uses an SVG <image> element with a feColorMatrix filter that:
-		//   1. Converts white background → transparent (alpha based on darkness)
-		//   2. Replaces remaining pixels with pure white
-		// Result: exact silhouette of the favicon trowel as a white icon
+		// Replace arrow buttons with the bundled trowel SVG as a white silhouette.
 		// The trowel originally points upper-right; CSS rotate(45deg) makes it
 		// point right (next button); scaleX(-1) rotate(45deg) mirrors it to point left (prev).
-		if ('' !== this.faviconUrl) {
-			const faviconUrl = this.faviconUrl;
+		if ('' !== this.navigationIconUrl) {
+			const navigationIconUrl = this.navigationIconUrl;
 			setTimeout(() => {
 				// transform tuple: [selector, transform, extraMargin]
 				// Prev button sits flush with the viewport's left edge, so nudge
 				// its trowel inward (to the right) for visual symmetry with next.
-				const arrowConfig: Array<[string, string, string]> = [
+				// Each button gets its own unique filter ID. The prev button is
+				// display:none on slide 1 (PhotoSwipe disables it with loop:false),
+				// which means any <filter> defined inside it is in a hidden subtree.
+				// Firefox refuses to resolve url(#id) references into display:none
+				// elements, so a shared filter ID would leave the next button
+				// rendering the unfiltered black SVG. Unique IDs make each button
+				// self-contained.
+				const uid = Math.random().toString(36).substring(2, 9);
+				const arrowConfig: Array<[string, string, string, string]> = [
 					[
 						'.pswp__button--arrow--prev',
 						'scaleX(-1) rotate(45deg)',
 						'margin-left:12px;',
+						'avpvh-wm-' + uid + '-p',
 					],
 					[
 						'.pswp__button--arrow--next',
 						'rotate(45deg)',
 						'margin-right:12px;',
+						'avpvh-wm-' + uid + '-n',
 					],
 				];
-				// Unique filter ID to avoid collisions if multiple galleries share the page
-				const filterId =
-					'avpvh-whitemask-' +
-					Math.random().toString(36).substring(2, 9);
-				const svgPrefix =
+
+				const makeSvg = (fId: string): string =>
 					'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="44" height="44">' +
 					'<defs>' +
 					'<filter id="' +
-					filterId +
+					fId +
 					'" x="0" y="0" width="100%" height="100%">' +
-					// Step 1: Set alpha based on darkness. White (1,1,1) → alpha 0; black (0,0,0) → alpha 1.
-					'<feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  -1 -1 -1 0 2"/>' +
-					// Step 2: Set RGB to pure white, keep new alpha.
+					// Set RGB to pure white while retaining the SVG's transparent alpha.
 					'<feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0"/>' +
 					'</filter>' +
 					'</defs>' +
 					'<image href="' +
-					faviconUrl +
+					navigationIconUrl +
 					'" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet" filter="url(#' +
-					filterId +
+					fId +
 					')"/>' +
 					'</svg>';
 
-				arrowConfig.forEach(([selector, transform, extraMargin]) => {
-					const btn = el.querySelector(selector);
-					if (btn === null) {
-						return;
-					}
-					// Remove PhotoSwipe's default arrow SVGs (hiding via style.display
-					// is overridden by a CSS !important rule in some themes).
-					btn.querySelectorAll('.pswp__icn').forEach((s) => {
-						s.remove();
-					});
-					btn.querySelectorAll('.avpvh-trowel').forEach((n) => {
-						n.remove();
-					});
+				arrowConfig.forEach(
+					([selector, transform, extraMargin, filterId]) => {
+						const btn = el.querySelector(selector);
+						if (btn === null) {
+							return;
+						}
+						// Remove PhotoSwipe's default arrow SVGs (hiding via style.display
+						// is overridden by a CSS !important rule in some themes).
+						btn.querySelectorAll('.pswp__icn').forEach((s) => {
+							s.remove();
+						});
+						btn.querySelectorAll('.avpvh-trowel').forEach((n) => {
+							n.remove();
+						});
 
-					const wrapper = document.createElement('div');
-					wrapper.className = 'avpvh-trowel';
-					// Let PhotoSwipe's own button layout center the wrapper; we only
-					// size it and apply the orientation rotation.
-					wrapper.style.cssText =
-						'width:44px;height:44px;display:block;' +
-						'pointer-events:none;' +
-						extraMargin +
-						'transform:' +
-						transform +
-						';';
-					wrapper.innerHTML = svgPrefix;
-					btn.appendChild(wrapper);
-				});
+						const wrapper = document.createElement('div');
+						wrapper.className = 'avpvh-trowel';
+						// Let PhotoSwipe's own button layout center the wrapper; we only
+						// size it and apply the orientation rotation.
+						wrapper.style.cssText =
+							'width:44px;height:44px;display:block;' +
+							'pointer-events:none;' +
+							extraMargin +
+							'transform:' +
+							transform +
+							';';
+						wrapper.innerHTML = makeSvg(filterId);
+						btn.appendChild(wrapper);
+					}
+				);
 			}, 0);
 		}
 
@@ -940,32 +1226,178 @@ export class Shortcode {
 			this.slideshowTimer = null;
 			return;
 		}
+		const currentContent = pswp.currSlide?.content;
+		if ('image' === currentContent?.type) {
+			const image = currentContent.element;
+			// Never let the fixed timer skip a slide that is still black because
+			// its image has not finished loading. loadComplete starts a fresh timer.
+			if (
+				!(image instanceof HTMLImageElement) ||
+				!image.complete ||
+				currentContent.isLoading()
+			) {
+				return;
+			}
+		}
 		this.slideshowTimer = setTimeout(() => {
 			this.slideshowTimer = null;
 			if (this.lightbox.pswp !== pswp || this.loading) {
 				return;
 			}
 			if (pswp.currIndex === pswp.getNumItems() - 1) {
-				// At the absolute end of all currently loaded items.
-				// If next-folder preloading is in progress, do nothing — items will
-				// be appended soon and appendItemsToDatasource restarts the timer.
-				// If we've confirmed there is no next folder, close (if configured).
-				const lastNode = this.slideNodes[this.slideNodes.length - 1];
-					if (
-					lastNode !== undefined &&
-					lastNode.nextSearched &&
-					lastNode.next === null &&
-					lastNode.fullyLoaded
-				) {
-					if ('true' === avpvhShortcodeLocalize.preview_quitOnEnd) {
-						pswp.close();
-					}
-				}
+				this.nextBoundary(pswp);
 			} else {
 				pswp.next();
 				this.startSlideshow(pswp);
 			}
 		}, this.SLIDESHOW_DELAY_MS);
+	}
+
+	private nextBoundary(pswp: PhotoSwipe): void {
+		// At the absolute end of all currently loaded items.
+		// If next-folder preloading is in progress, do nothing — items will
+		// be appended soon and appendItemsToDatasource restarts the timer.
+		// If we've confirmed there is no next folder, close (if configured).
+		const lastNode = this.slideNodes[this.slideNodes.length - 1];
+		if (
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- slideNodes can be empty, making this index read `undefined` at runtime despite the array element type
+			lastNode !== undefined &&
+			lastNode.nextSearched &&
+			lastNode.next === null &&
+			lastNode.fullyLoaded
+		) {
+			if ('true' === avpvhShortcodeLocalize.preview_quitOnEnd) {
+				pswp.close();
+			}
+		}
+	}
+
+	private handleInspectorSlideshowCommand(data: unknown): void {
+		if (
+			typeof data !== 'object' ||
+			data === null ||
+			(data as Record<string, unknown>)['type'] !==
+				'avpvh-resume-slideshow'
+		) {
+			return;
+		}
+		const pswp = this.lightbox.pswp;
+		if (pswp?.isOpen !== true) {
+			return;
+		}
+		const fileId = (data as Record<string, unknown>)['fileId'];
+		// eslint-disable-next-line @typescript-eslint/init-declarations -- explicit `= undefined` is itself forbidden by no-undef-init; there is no other valid initial value for an optional HTMLElement
+		let target: HTMLElement | undefined;
+		if (typeof fileId === 'string' && fileId !== '') {
+			const items =
+				(pswp.options.dataSource as { items?: Array<HTMLElement> })
+					.items ?? [];
+			const index = items.findIndex(
+				(item) => item.dataset['avpvhId'] === fileId
+			);
+			target = index >= 0 ? items[index] : undefined;
+			if (target !== undefined) {
+				Shortcode.applyInspectorCorrection(
+					target,
+					(data as Record<string, unknown>)['gridCorrection'],
+					(data as Record<string, unknown>)['lightboxCorrection']
+				);
+			}
+			if (index >= 0 && index !== pswp.currIndex) {
+				pswp.goTo(index);
+			}
+		}
+		if (target === pswp.currSlide?.data.element) {
+			Shortcode.applySlideRotation(pswp);
+			pswp.currSlide?.resize();
+		}
+		this.reflow();
+		this.slideshowPaused = false;
+		pswp.element?.classList.add('pswp--ui-idle');
+		this.startSlideshow(pswp);
+		window.focus();
+	}
+
+	// WebKit doesn't support the (Chromium-only) `navigationUI: 'hide'` fullscreen
+	// hint, and Safari/iPadOS draws its own floating exit-fullscreen affordance on
+	// top of whatever's fullscreened — duplicating PhotoSwipe's own close button in
+	// the opposite corner. Skip requesting native fullscreen there and rely on
+	// PhotoSwipe's own (already full-viewport) UI instead. iPadOS Safari reports
+	// itself as desktop Safari, so the standard touch-points check is needed to
+	// distinguish it from actual macOS.
+	private static nativeFullscreenAddsOwnCloseButton(): boolean {
+		const ua = navigator.userAgent;
+		const isIOS = /iP(hone|ad|od)/.test(ua);
+		const isIPadOS =
+			// eslint-disable-next-line deprecation/deprecation -- no non-deprecated equivalent exists; userAgentData is unsupported in Safari
+			navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+		return (
+			(isIOS || isIPadOS) &&
+			ua.includes('Safari') &&
+			!ua.includes('Chrom')
+		);
+	}
+
+	private static applyInspectorCorrection(
+		target: HTMLElement,
+		gridValue: unknown,
+		lightboxValue: unknown
+	): void {
+		const read = (
+			value: unknown
+		): { r: number; h: boolean; v: boolean } | null => {
+			if (typeof value !== 'object' || value === null) {
+				return null;
+			}
+			const transform = value as Record<string, unknown>;
+			return typeof transform['r'] === 'number' &&
+				typeof transform['h'] === 'boolean' &&
+				typeof transform['v'] === 'boolean'
+				? { r: transform['r'], h: transform['h'], v: transform['v'] }
+				: null;
+		};
+		const write = (
+			prefix: 'avpvh' | 'avpvhThumb',
+			value: { r: number; h: boolean; v: boolean }
+		): void => {
+			target.dataset[`${prefix}Rotation`] = String(value.r);
+			if ('avpvhThumb' === prefix) {
+				if (value.h) {
+					target.dataset['avpvhThumbHflip'] = '1';
+				} else {
+					delete target.dataset['avpvhThumbHflip'];
+				}
+				if (value.v) {
+					target.dataset['avpvhThumbVflip'] = '1';
+				} else {
+					delete target.dataset['avpvhThumbVflip'];
+				}
+			} else {
+				if (value.h) {
+					target.dataset['avpvhHflip'] = '1';
+				} else {
+					delete target.dataset['avpvhHflip'];
+				}
+				if (value.v) {
+					target.dataset['avpvhVflip'] = '1';
+				} else {
+					delete target.dataset['avpvhVflip'];
+				}
+			}
+		};
+		const grid = read(gridValue);
+		const lightbox = read(lightboxValue);
+		if (grid !== null) {
+			write('avpvhThumb', grid);
+		}
+		if (lightbox !== null) {
+			write('avpvh', lightbox);
+			if (lightbox.r !== 0 || lightbox.h || lightbox.v) {
+				target.dataset['avpvhHasCorrection'] = '1';
+			} else {
+				delete target.dataset['avpvhHasCorrection'];
+			}
+		}
 	}
 
 	// ── Video playback driver ─────────────────────────────────────────────
@@ -1008,7 +1440,7 @@ export class Shortcode {
 			// Not seekable yet — harmless.
 		}
 		const onEnded = (): void => {
-			cleanup();
+			this.activeVideoCleanup?.();
 			this.advanceFromVideo(pswp);
 		};
 		const onPlaying = (): void => {
@@ -1017,7 +1449,7 @@ export class Shortcode {
 			this.clearVideoFallback();
 			// If the next slide is a proxy video (no Drive thumbnail), start
 			// buffering it now so the black-screen delay is shorter when we get there.
-			this.preloadNextProxyVideo(pswp);
+			Shortcode.preloadNextProxyVideo(pswp);
 		};
 		const cleanup = (): void => {
 			videoEl.removeEventListener('ended', onEnded);
@@ -1031,6 +1463,7 @@ export class Shortcode {
 		// file unreachable) advance anyway so the show never gets stuck.
 		this.armVideoFallback(pswp, videoEl);
 		const playPromise = videoEl.play();
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- some older browsers return undefined instead of a Promise from play()
 		if (playPromise !== undefined) {
 			playPromise.catch(() => {
 				// Autoplay blocked/aborted — the fallback timer or a manual click on
@@ -1071,7 +1504,7 @@ export class Shortcode {
 		// contentActivate for the new slide takes it from here.
 	}
 
-	private preloadNextProxyVideo(pswp: PhotoSwipe): void {
+	private static preloadNextProxyVideo(pswp: PhotoSwipe): void {
 		const nextIdx = pswp.currIndex + 1;
 		if (nextIdx >= pswp.getNumItems()) {
 			return;
@@ -1087,7 +1520,9 @@ export class Shortcode {
 			return;
 		}
 		// Find the already-rendered slide in PhotoSwipe's slide pool and start it fetching.
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- PhotoSwipe's type resolves to `any` under this project's module resolution (its package.json exports map isn't picked up), so `.slides` (an undocumented but stable internal API) is untyped
 		const nextSlide = pswp.slides?.find((s) => s.index === nextIdx);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- see above
 		const nextVideo = nextSlide?.content.element?.querySelector('video');
 		if (
 			nextVideo instanceof HTMLVideoElement &&
@@ -1321,6 +1756,46 @@ export class Shortcode {
 					return;
 				}
 
+				let edgePage: number | null = null;
+				if ('next' === direction) {
+					edgePage = data.more === true ? searchPage + 1 : null;
+				} else {
+					edgePage = searchPage > 1 ? searchPage - 1 : null;
+				}
+				if (edgePage !== null) {
+					this.findEdgeFolderPath(
+						parentPath,
+						edgePage,
+						direction,
+						(newPath) => {
+							if (pswp !== undefined) {
+								this.pendingLightboxOpen =
+									'next' === direction ? 'first' : 'last';
+							}
+							history.pushState(
+								{},
+								'',
+								this.pathQueryParameter.add(newPath)
+							);
+							this.path = newPath;
+							this.folderNavigating = false;
+							this.get();
+						},
+						() => {
+							if (parentPath === '') {
+								this.folderNavigating = false;
+							} else {
+								this.findAdjacentFolder(
+									parentPath,
+									direction,
+									pswp
+								);
+							}
+						}
+					);
+					return;
+				}
+
 				// No adjacent folder at this level; recurse up if parent exists
 				if ('' === parentPath) {
 					// At root level, nowhere to go
@@ -1336,13 +1811,79 @@ export class Shortcode {
 		});
 	}
 
+	private findEdgeFolderPath(
+		parentPath: string,
+		page: number,
+		direction: 'next' | 'prev',
+		onFound: (path: string, total: number) => void,
+		onNotFound: () => void
+	): void {
+		void $.get(
+			avpvhShortcodeLocalize.ajax_url,
+			{ action: 'gallery', hash: this.hash, path: parentPath, page },
+			(data: GalleryResponse) => {
+				if (isError(data)) {
+					onNotFound();
+					return;
+				}
+				const siblings = data.directories ?? [];
+				if (siblings.length > 0) {
+					this.storeKnownTotals(siblings);
+					const target =
+						'next' === direction
+							? siblings[0]
+							: siblings[siblings.length - 1];
+					const canonicalParent =
+						data.path !== undefined && data.path.length > 0
+							? data.path.map((part) => part.id).join('/')
+							: parentPath;
+					onFound(
+						(canonicalParent !== '' ? canonicalParent + '/' : '') +
+							target.id,
+						this.knownTotals.get(target.id) ?? -1
+					);
+					return;
+				}
+				if ('next' === direction && data.more === true) {
+					this.findEdgeFolderPath(
+						parentPath,
+						page + 1,
+						direction,
+						onFound,
+						onNotFound
+					);
+				} else if ('prev' === direction && page > 1) {
+					this.findEdgeFolderPath(
+						parentPath,
+						page - 1,
+						direction,
+						onFound,
+						onNotFound
+					);
+				} else {
+					onNotFound();
+				}
+			}
+		).fail(onNotFound);
+	}
+
 	private static renderMoreButton(): string {
+		const label = avpvhShortcodeLocalize.load_more;
+		if ('true' !== avpvhShortcodeLocalize.page_autoload) {
+			return (
+				'<button class="avpvh-more-button avpvh-more-button-text" type="button">' +
+				label +
+				'</button>'
+			);
+		}
 		return (
-			'<div class="avpvh-more-button">' +
-			'<div>' +
-			avpvhShortcodeLocalize.load_more +
-			'</div>' +
-			'</div>'
+			'<button class="avpvh-more-button" type="button" aria-label="' +
+			label +
+			'" title="' +
+			label +
+			'">' +
+			'<span class="avpvh-loading"><span></span></span>' +
+			'</button>'
 		);
 	}
 
@@ -1350,10 +1891,14 @@ export class Shortcode {
 
 	private storeKnownTotals(dirs: Array<Directory> | undefined): void {
 		for (const dir of dirs ?? []) {
-			this.knownTotals.set(
-				dir.id,
-				(dir.imagecount ?? 0) + (dir.videocount ?? 0)
-			);
+			if (dir.mediacount !== undefined) {
+				this.knownTotals.set(dir.id, dir.mediacount);
+			} else if (
+				dir.imagecount !== undefined &&
+				dir.videocount !== undefined
+			) {
+				this.knownTotals.set(dir.id, dir.imagecount + dir.videocount);
+			}
 		}
 	}
 
@@ -1407,38 +1952,180 @@ export class Shortcode {
 		};
 	}
 
-	// Google full-size images are NOT pre-rotated (unlike thumbnails). Always
-	// apply CSS rotation based on EXIF so the lightbox shows correct orientation.
-	private static applySlideRotation(pswp: PhotoSwipe): void {
-		const slideEl = pswp.currSlide?.data.element;
-		const rawRotation = slideEl instanceof HTMLElement
-			? parseInt(slideEl.dataset['avpvhRotation'] ?? '0', 10)
-			: 0;
+	private static readSlideOrientation(slideEl: HTMLElement | undefined): {
+		rotation: 0 | 90 | 180 | 270;
+		hFlip: boolean;
+		vFlip: boolean;
+	} {
+		const rawRotation =
+			slideEl instanceof HTMLElement
+				? parseInt(slideEl.dataset['avpvhRotation'] ?? '0', 10)
+				: 0;
 		// Only act on clean quarter-turn values (90/180/270).
-		const rotation = [90, 180, 270].includes(rawRotation) ? rawRotation : 0;
-		const imgEl = pswp.currSlide?.content?.element;
-		if (!(imgEl instanceof HTMLElement)) {
+		const rotation: 0 | 90 | 180 | 270 =
+			90 === rawRotation || 180 === rawRotation || 270 === rawRotation
+				? rawRotation
+				: 0;
+		return {
+			rotation,
+			hFlip:
+				slideEl instanceof HTMLElement &&
+				'1' === slideEl.dataset['avpvhHflip'],
+			vFlip:
+				slideEl instanceof HTMLElement &&
+				'1' === slideEl.dataset['avpvhVflip'],
+		};
+	}
+
+	private static describeOrientation(
+		rotation: number,
+		hFlip: boolean,
+		vFlip: boolean
+	): string {
+		const parts: Array<string> = [];
+		const rotationLabels: Partial<Record<number, string>> = {
+			90: '90° rechtsom gedraaid',
+			180: '180° gedraaid',
+			270: '90° linksom gedraaid',
+		};
+		const label = rotationLabels[rotation];
+		if (label !== undefined) {
+			parts.push(label);
+		}
+		if (hFlip) {
+			parts.push('gespiegeld horizontaal');
+		}
+		if (vFlip) {
+			parts.push('gespiegeld verticaal');
+		}
+		return parts.join(', ');
+	}
+
+	private static async loadExifOrientation(
+		fileId: string
+	): Promise<number | null> {
+		const cached = Shortcode.exifOrientationCache.get(fileId);
+		if (cached !== undefined) {
+			return cached;
+		}
+		if (
+			avpvhShortcodeLocalize.exif_orientation_url === '' ||
+			avpvhShortcodeLocalize.rest_nonce === ''
+		) {
+			return Promise.resolve(null);
+		}
+
+		const request = fetch(avpvhShortcodeLocalize.exif_orientation_url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-WP-Nonce': avpvhShortcodeLocalize.rest_nonce,
+			},
+			credentials: 'include',
+			body: JSON.stringify({ file_id: fileId }),
+		})
+			.then(async (response): Promise<number | null> => {
+				if (!response.ok) {
+					return null;
+				}
+				const data = (await response.json()) as {
+					orientation?: number;
+					found?: boolean;
+				};
+				if (
+					data.found !== true ||
+					data.orientation === undefined ||
+					data.orientation < 1 ||
+					data.orientation > 8
+				) {
+					return null;
+				}
+				return data.orientation;
+			})
+			.catch(() => null);
+
+		Shortcode.exifOrientationCache.set(fileId, request);
+		return request;
+	}
+
+	private static syncSlideNaturalDimensions(
+		slide: NonNullable<PhotoSwipe['currSlide']>
+	): void {
+		const image = slide.content.element;
+		if (
+			!(image instanceof HTMLImageElement) ||
+			image.naturalWidth <= 0 ||
+			image.naturalHeight <= 0
+		) {
 			return;
 		}
+
+		const width = image.naturalWidth;
+		const height = image.naturalHeight;
+		const slideEl = slide.data.element;
+		if (slideEl instanceof HTMLElement) {
+			slideEl.dataset['avpvhLoadedWidth'] = String(width);
+			slideEl.dataset['avpvhLoadedHeight'] = String(height);
+		}
+
+		if (
+			slide.width === width &&
+			slide.height === height &&
+			slide.content.width === width &&
+			slide.content.height === height
+		) {
+			return;
+		}
+
+		slide.data.w = width;
+		slide.data.h = height;
+		slide.data.width = width;
+		slide.data.height = height;
+		slide.content.width = width;
+		slide.content.height = height;
+		slide.width = width;
+		slide.height = height;
+		slide.resize();
+	}
+
+	// The Google 1920px derivative may already be physically rotated, while its
+	// EXIF orientation is gone. Apply only the correction stored in WordPress.
+	private static applySlideRotation(pswp: PhotoSwipe): void {
+		const slideEl = pswp.currSlide?.data.element;
+		const { rotation, hFlip, vFlip } = Shortcode.readSlideOrientation(
+			slideEl instanceof HTMLElement ? slideEl : undefined
+		);
+		const imgEl = pswp.currSlide?.content.element;
+		// Only act on the actual slide image — not on the error-fallback wrapper <div>
+		// (which is set as content.element when the image fails to load). Rotating the
+		// wrapper would tilt the error notice on its side.
+		if (!(imgEl instanceof HTMLImageElement)) {
+			return;
+		}
+
+		const flipPart =
+			hFlip || vFlip
+				? `scale(${hFlip ? '-1' : '1'}, ${vFlip ? '-1' : '1'}) `
+				: '';
+
 		if (rotation === 0) {
-			imgEl.style.transform = '';
+			imgEl.style.transform = flipPart ? flipPart.trimEnd() : '';
 			return;
 		}
 		if (rotation === 180) {
-			imgEl.style.transform = 'rotate(180deg)';
+			imgEl.style.transform = `${flipPart}rotate(180deg)`;
 			return;
 		}
-		// 90 or 270: PhotoSwipe sized the slot using the post-rotation (portrait)
-		// dimensions. The raw image pixels are landscape, so after CSS rotate the
-		// image overflows. Scale it down so it fits the portrait slot correctly.
-		const slotW = pswp.currSlide?.data.w ?? 1;
-		const slotH = pswp.currSlide?.data.h ?? 1;
+		// A quarter turn swaps the natural image axes. Scale the rotated result to
+		// the viewport independently from PhotoSwipe's unrotated fit calculation.
+		const slotW = pswp.currSlide?.width ?? 1;
+		const slotH = pswp.currSlide?.height ?? 1;
 		const vw = window.innerWidth;
 		const vh = window.innerHeight;
 		const pswpScale = Math.min(vw / slotW, vh / slotH);
 		const rotScale = Math.min(vw / slotH, vh / slotW);
 		const adj = pswpScale > 0 ? rotScale / pswpScale : 1;
-		imgEl.style.transform = `rotate(${String(rotation)}deg) scale(${String(adj)})`;
+		imgEl.style.transform = `${flipPart}rotate(${String(rotation)}deg) scale(${String(adj)})`;
 	}
 
 	private static updateNodeCounter(
@@ -1580,11 +2267,22 @@ export class Shortcode {
 						nextDir.id;
 					onFound(newPath, this.knownTotals.get(nextDir.id) ?? -1);
 				} else if (data.more === true) {
-					this.findNextSiblingPath(
-						currentPath,
+					this.findEdgeFolderPath(
+						parentPath,
+						searchPage + 1,
+						'next',
 						onFound,
-						onNotFound,
-						searchPage + 1
+						() => {
+							if (parentPath !== '') {
+								this.findNextSiblingPath(
+									parentPath,
+									onFound,
+									onNotFound
+								);
+							} else {
+								onNotFound();
+							}
+						}
 					);
 				} else if (parentPath !== '') {
 					this.findNextSiblingPath(parentPath, onFound, onNotFound);
@@ -1698,6 +2396,10 @@ export class Shortcode {
 			? (ds['items'] as Array<HTMLElement>)
 			: [];
 		ds['items'] = [...existing, ...newItems];
+		// PhotoSwipe only preloads neighbours when a slide changes. These items
+		// were appended while the old last slide remained active, so explicitly
+		// start loading the first new-folder item before restarting the slideshow.
+		pswp.contentLoader.loadSlideByIndex(existing.length);
 		// Refresh the counter so the total updates if a node just became fully
 		// loaded (total was ? and now we know the exact count).
 		const { node, localIndex } = this.getNodeForIndex(pswp.currIndex);
@@ -1717,18 +2419,41 @@ export class Shortcode {
 		for (const image of data.images ?? []) {
 			const el = document.createElement('a');
 			el.className = 'avpvh-grid-a';
-			el.dataset['pswpWidth'] = String(
-				image.width > 0 ? image.width : 2000
+			const previewDimensions = Shortcode.previewDimensions(
+				image.width,
+				image.height,
+				image.image
 			);
-			el.dataset['pswpHeight'] = String(
-				image.height > 0 ? image.height : 1500
-			);
+			el.dataset['pswpWidth'] = String(previewDimensions.width);
+			el.dataset['pswpHeight'] = String(previewDimensions.height);
 			el.dataset['avpvhId'] = image.id;
 			el.dataset['avpvhCaption'] = image.description;
 			el.dataset['avpvhFullpath'] = prefix + image.name;
 			el.dataset['avpvhExif'] = Shortcode.formatExifString(image.exif);
-			el.dataset['avpvhRotation'] = String(image.light_rotation ?? 0);
-			el.dataset['avpvhThumbRotation'] = String(image.thumb_rotation ?? 0);
+			const driveRot = image.rotation ?? 0;
+			// The derivative has no dependable EXIF orientation. Only the explicit
+			// WordPress correction may transform its pixels in the lightbox.
+			const lightRot = image.light_rotation ?? 0;
+			el.dataset['avpvhRotation'] = String(lightRot);
+			el.dataset['avpvhDriveRotation'] = String(driveRot);
+			el.dataset['avpvhThumbRotation'] = String(
+				image.thumb_rotation ?? 0
+			);
+			if (image.light_h_flip === true) {
+				el.dataset['avpvhHflip'] = '1';
+			}
+			if (image.light_v_flip === true) {
+				el.dataset['avpvhVflip'] = '1';
+			}
+			if (image.light_has_correction === true) {
+				el.dataset['avpvhHasCorrection'] = '1';
+			}
+			if (image.thumb_h_flip === true) {
+				el.dataset['avpvhThumbHflip'] = '1';
+			}
+			if (image.thumb_v_flip === true) {
+				el.dataset['avpvhThumbVflip'] = '1';
+			}
 			el.href = image.image;
 			if (avpvhShortcodeLocalize.is_admin === 'true') {
 				const iconEl = document.createElement('button');
@@ -1774,6 +2499,28 @@ export class Shortcode {
 		return items;
 	}
 
+	private static previewDimensions(
+		width: number,
+		height: number,
+		previewUrl: string
+	): { width: number; height: number } {
+		const sourceWidth = width > 0 ? width : 2000;
+		const sourceHeight = height > 0 ? height : 1500;
+		const sizeMatch = /=[shw](\d+)(?:-c)?$/.exec(previewUrl);
+		if (sizeMatch === null) {
+			return { width: sourceWidth, height: sourceHeight };
+		}
+		const maxPreviewSize = parseInt(sizeMatch[1], 10);
+		const scale = Math.min(
+			1,
+			maxPreviewSize / Math.max(sourceWidth, sourceHeight)
+		);
+		return {
+			width: Math.max(1, Math.round(sourceWidth * scale)),
+			height: Math.max(1, Math.round(sourceHeight * scale)),
+		};
+	}
+
 	// ─────────────────────────────────────────────────────────────────────────
 
 	public onLightboxNavigation(e: JQuery): void {
@@ -1802,9 +2549,27 @@ export class Shortcode {
 			.each((i, child) => {
 				$(child).css('display', 'inline-block');
 				let ratio = NaN;
+				const gridImage = child.querySelector('.avpvh-grid-img');
+				const thumbRotation = parseInt(
+					child.getAttribute('data-avpvh-thumb-rotation') ?? '0',
+					10
+				);
 				const pswpWidth = $(child).attr('data-pswp-width');
 				const pswpHeight = $(child).attr('data-pswp-height');
-				if (pswpWidth !== undefined && pswpHeight !== undefined) {
+				if (
+					gridImage instanceof HTMLImageElement &&
+					gridImage.naturalWidth > 0 &&
+					gridImage.naturalHeight > 0 &&
+					child.hasAttribute('data-avpvh-thumb-rotation')
+				) {
+					ratio = gridImage.naturalWidth / gridImage.naturalHeight;
+					if (thumbRotation === 90 || thumbRotation === 270) {
+						ratio = 1 / ratio;
+					}
+				} else if (
+					pswpWidth !== undefined &&
+					pswpHeight !== undefined
+				) {
 					ratio = parseFloat(pswpWidth) / parseFloat(pswpHeight);
 				} else {
 					const image = child.firstChild as HTMLImageElement;
@@ -1855,6 +2620,25 @@ export class Shortcode {
 				$(child).css('left', box.left + containerPosition.left);
 				$(child).width(box.width);
 				$(child).height(box.height);
+				const gridImage = child.querySelector('.avpvh-grid-img');
+				if (gridImage instanceof HTMLImageElement) {
+					const thumbRotation = parseInt(
+						child.getAttribute('data-avpvh-thumb-rotation') ?? '0',
+						10
+					);
+					const quarterTurn =
+						thumbRotation === 90 || thumbRotation === 270;
+					gridImage.style.setProperty(
+						'width',
+						`${String(quarterTurn ? box.height : box.width)}px`,
+						'important'
+					);
+					gridImage.style.setProperty(
+						'height',
+						`${String(quarterTurn ? box.width : box.height)}px`,
+						'important'
+					);
+				}
 				j++;
 			});
 		this.container.find('.avpvh-gallery').height(positions.containerHeight);
@@ -1878,6 +2662,7 @@ export class Shortcode {
 	}
 
 	private get(): void {
+		const epoch = ++this.getEpoch;
 		this.path = this.pathQueryParameter.get();
 		this.lastPage = parseInt(this.pageQueryParameter.get()) || 1;
 		this.container
@@ -1908,6 +2693,9 @@ export class Shortcode {
 				page: this.lastPage,
 			},
 			(data: GalleryResponse) => {
+				if (epoch !== this.getEpoch) {
+					return;
+				}
 				if (isError(data)) {
 					this.container.html(
 						printError(data, avpvhShortcodeLocalize)
@@ -1917,7 +2705,17 @@ export class Shortcode {
 				Shortcode.cache.set(cacheKey, data);
 				this.getSuccess(data);
 			}
-		);
+		).fail(() => {
+			if (epoch !== this.getEpoch) {
+				return;
+			}
+			this.container.html(
+				printError(
+					{ error: avpvhShortcodeLocalize.server_error },
+					avpvhShortcodeLocalize
+				)
+			);
+		});
 	}
 
 	private getSuccess(data: GallerySuccessResponse): void {
@@ -2122,7 +2920,17 @@ export class Shortcode {
 				Shortcode.cache.set(cacheKey, data);
 				this.addSuccess(data);
 			}
-		);
+		).fail(() => {
+			this.container
+				.find('.avpvh-loading')
+				.replaceWith(
+					printError(
+						{ error: avpvhShortcodeLocalize.server_error },
+						avpvhShortcodeLocalize
+					)
+				);
+			this.container.find('.avpvh-more-button').remove();
+		});
 	}
 
 	private addSuccess(data: PageSuccessResponse): void {
@@ -2162,11 +2970,29 @@ export class Shortcode {
 			}
 			const size = parseInt(sizeMatch[1], 10);
 			// Use the thumbnail's natural dimensions to determine the true display aspect ratio.
-			// Google Drive serves =h{n} thumbnails in display orientation (EXIF rotation applied),
-			// so naturalWidth/naturalHeight reflects the correct portrait/landscape proportions.
-			const ratio = img.naturalWidth / img.naturalHeight;
-			let newW: number;
-			let newH: number;
+			// Google Drive serves =h{n} thumbnails in display orientation (Drive's own EXIF
+			// rotation applied), so naturalWidth/naturalHeight reflects the correct
+			// portrait/landscape proportions FOR THAT ROTATION. But the lightbox's full-size
+			// image is rotated by the *effective* rotation (a user correction, when set,
+			// overrides Drive's own) — if that differs from Drive's rotation by a 90°
+			// step, the thumbnail's orientation no longer matches what the lightbox will
+			// actually show, so transpose the ratio to compensate.
+			const driveRotation = parseInt(
+				el.getAttribute('data-avpvh-drive-rotation') ?? '0',
+				10
+			);
+			const effectiveRotation = parseInt(
+				el.getAttribute('data-avpvh-rotation') ?? '0',
+				10
+			);
+			const driveSwapped = [90, 270].includes(driveRotation);
+			const effectiveSwapped = [90, 270].includes(effectiveRotation);
+			let ratio = img.naturalWidth / img.naturalHeight;
+			if (driveSwapped !== effectiveSwapped) {
+				ratio = 1 / ratio;
+			}
+			let newW = 0;
+			let newH = 0;
 			if (ratio >= 1) {
 				// Landscape: width is the longest side
 				newW = size;
@@ -2303,32 +3129,35 @@ export class Shortcode {
 	}
 
 	private renderBreadcrumbs(path: Array<PartialDirectory>): string {
-		const faviconUrl = this.faviconUrl;
+		const navigationIconUrl = this.navigationIconUrl;
 		// Parent path = all but last segment, joined with /
 		const parentPath = path
 			.slice(0, -1)
 			.map((c) => c.id)
 			.join('/');
 		const upIcon =
-			'' !== faviconUrl
+			'' !== navigationIconUrl
 				? '<img src="' +
-					faviconUrl +
+					navigationIconUrl +
 					'" alt="Up" style="height:1.5em;width:1.5em;vertical-align:middle;border-radius:2px;object-fit:contain;transform:rotate(-45deg)">'
 				: '&#8679;';
-		const siblingIcon = (dir: 'prev' | 'next'): string =>
-			'' !== faviconUrl
-				? '<img src="' +
-					faviconUrl +
-					'" alt="' +
-					(dir === 'prev' ? 'Previous' : 'Next') +
-					' folder" style="height:1.5em;width:1.5em;vertical-align:middle;border-radius:2px;object-fit:contain;transform:' +
-					(dir === 'prev'
-						? 'scaleX(-1) rotate(45deg)'
-						: 'rotate(45deg)') +
-					'">'
-				: dir === 'prev'
-				  ? '&#8678;'
-				  : '&#8680;';
+		const siblingIcon = (dir: 'next' | 'prev'): string => {
+			if ('' === navigationIconUrl) {
+				return dir === 'prev' ? '&#8678;' : '&#8680;';
+			}
+			const label = dir === 'prev' ? 'Previous' : 'Next';
+			const rotate =
+				dir === 'prev' ? 'scaleX(-1) rotate(45deg)' : 'rotate(45deg)';
+			return (
+				'<img src="' +
+				navigationIconUrl +
+				'" alt="' +
+				label +
+				' folder" style="height:1.5em;width:1.5em;vertical-align:middle;border-radius:2px;object-fit:contain;transform:' +
+				rotate +
+				'">'
+			);
+		};
 		let html =
 			'<div class="avpvh-breadcrumbs">' +
 			'<a class="avpvh-breadcrumb-sibling avpvh-breadcrumb-prev" href="#" data-avpvh-dir="prev" aria-label="Previous folder">' +
@@ -2481,11 +3310,11 @@ export class Shortcode {
 
 	private static formatVideoDuration(seconds: number): string {
 		if (seconds < 60) {
-			return Math.round(seconds) + 's';
+			return String(Math.round(seconds)) + 's';
 		}
 		const minutes = Math.floor(seconds / 60);
 		const secs = Math.round(seconds % 60);
-		return minutes + 'min ' + (secs > 0 ? secs + 's' : '');
+		return String(minutes) + 'min ' + (secs > 0 ? String(secs) + 's' : '');
 	}
 
 	private static formatFilesize(bytes: number): string {
@@ -2496,11 +3325,11 @@ export class Shortcode {
 			size /= 1024;
 			unitIndex++;
 		}
-		return Math.round(size * 10) / 10 + ' ' + units[unitIndex];
+		return String(Math.round(size * 10) / 10) + ' ' + units[unitIndex];
 	}
 
 	private static formatResolution(width: number, height: number): string {
-		return width + 'x' + height;
+		return String(width) + 'x' + String(height);
 	}
 
 	// Combine make + model but drop the make when the model already starts with
@@ -2517,8 +3346,7 @@ export class Shortcode {
 		}
 		const brand = make.split(/\s+/)[0] ?? '';
 		const redundant =
-			brand !== '' &&
-			model.toUpperCase().startsWith(brand.toUpperCase());
+			brand !== '' && model.toUpperCase().startsWith(brand.toUpperCase());
 		return (redundant ? model : make + ' ' + model)
 			.replace(/\s+/g, ' ')
 			.trim();
@@ -2595,7 +3423,7 @@ export class Shortcode {
 			a.className = 'avpvh-context-menu-item';
 			a.href = item.href;
 			a.target = '_blank';
-			a.rel = 'noopener';
+			a.rel = 'opener';
 			a.textContent = item.label;
 			a.addEventListener('click', () => {
 				if (this.contextMenuEl !== null) {
@@ -2632,9 +3460,11 @@ export class Shortcode {
 			return '';
 		}
 		const date = match[1] + '-' + match[2] + '-' + match[3];
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- optional regex capture groups type as `string`, not `string | undefined`, without noUncheckedIndexedAccess, but are genuinely undefined here when the time-of-day part isn't present
 		if (match[4] === undefined || match[5] === undefined) {
 			return date;
 		}
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- see above
 		const seconds = match[6] !== undefined ? ':' + match[6] : '';
 		return date + ' ' + match[4] + ':' + match[5] + seconds;
 	}
@@ -2701,10 +3531,27 @@ export class Shortcode {
 	}
 
 	private renderImage(page: number, image: Image): string {
-		const width = 0 < image.width ? image.width : 2000;
-		const height = 0 < image.height ? image.height : 1500;
+		const { width, height } = Shortcode.previewDimensions(
+			image.width,
+			image.height,
+			image.image
+		);
 		const thumbRotation = image.thumb_rotation ?? 0;
+		// Never fall back to Drive's metadata rotation for the broken 1920px
+		// derivative; its WordPress lightbox correction is authoritative.
 		const lightRotation = image.light_rotation ?? 0;
+		const lightHFlip =
+			image.light_h_flip === true ? ' data-avpvh-hflip="1"' : '';
+		const lightVFlip =
+			image.light_v_flip === true ? ' data-avpvh-vflip="1"' : '';
+		const thumbHFlip =
+			image.thumb_h_flip === true ? ' data-avpvh-thumb-hflip="1"' : '';
+		const thumbVFlip =
+			image.thumb_v_flip === true ? ' data-avpvh-thumb-vflip="1"' : '';
+		const hasCorrection =
+			image.light_has_correction === true
+				? ' data-avpvh-has-correction="1"'
+				: '';
 
 		// Format EXIF data for data attribute (used by lightbox)
 		const exifParts: Array<string> = [];
@@ -2715,7 +3562,10 @@ export class Shortcode {
 					exifParts.push(d);
 				}
 			}
-			const camera = Shortcode.formatCamera(image.exif.make, image.exif.model);
+			const camera = Shortcode.formatCamera(
+				image.exif.make,
+				image.exif.model
+			);
 			if ('' !== camera) {
 				exifParts.push(camera);
 			}
@@ -2745,7 +3595,7 @@ export class Shortcode {
 					'&amp;avpvh_file_id=' +
 					image.id +
 					'" title="Open in EXIF Inspector" ' +
-					'onclick="window.open(this.dataset.exifHref,\'_blank\',\'noopener\');event.stopPropagation()">&#9881;</button>'
+					'onclick="window.open(this.dataset.exifHref,\'_blank\');event.stopPropagation()">&#9881;</button>'
 				: '';
 
 		return (
@@ -2768,10 +3618,18 @@ export class Shortcode {
 			'data-avpvh-rotation="' +
 			String(lightRotation) +
 			'" ' +
+			'data-avpvh-drive-rotation="' +
+			String(image.rotation ?? 0) +
+			'" ' +
 			'data-avpvh-thumb-rotation="' +
 			String(thumbRotation) +
-			'" ' +
-			'href="' +
+			'"' +
+			lightHFlip +
+			lightVFlip +
+			thumbHFlip +
+			thumbVFlip +
+			hasCorrection +
+			' href="' +
 			image.image +
 			'" data-avpvh-fullpath="' +
 			('' !== this.currentPathNames ? this.currentPathNames + '/' : '') +

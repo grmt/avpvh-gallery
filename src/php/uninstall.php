@@ -7,12 +7,14 @@
  * @package avpvh-gallery
  */
 
+use Avpvh\Photo_Corrections_DB;
+
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	die( 'Die, die, die!' );
 }
 
 require_once __DIR__ . '/class-photo-corrections-db.php';
-\Avpvh\Photo_Corrections_DB::drop_tables();
+Photo_Corrections_DB::drop_tables();
 
 delete_option( 'avpvh_client_id' );
 delete_option( 'avpvh_client_secret' );
@@ -48,6 +50,8 @@ delete_option( 'avpvh_thumbnail_size' );
 delete_option( 'avpvh_thumbnail_size_value' );
 delete_option( 'avpvh_thumbnail_size_unit' );
 delete_option( 'avpvh_thumbnail_spacing' );
+delete_option( 'avpvh_camera_model_index' );
+delete_option( 'avpvh_camera_model_scan' );
 delete_option( 'avpvh_date_ordering_order' );
 delete_option( 'avpvh_date_ordering_by' );
 delete_option( 'avpvh_grid_mode' );

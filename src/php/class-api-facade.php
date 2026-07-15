@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:ignore SlevomatCodingStandard.Files.FileLength.FileTooLong -- single facade class per CLAUDE.md; the EXIF inspector's search/get-file methods were added here to keep all Drive API access behind one facade.
 /**
  * Contains the API_Facade class.
  *
@@ -21,6 +21,7 @@ use Avpvh\Frontend\Single_Page_Pagination_Helper;
 use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
 use Avpvh\Vendor\GuzzleHttp\Promise\RejectedPromise;
 
+// phpcs:disable SlevomatCodingStandard.Classes.ClassLength.ClassTooLong -- single facade class per CLAUDE.md; the EXIF inspector's search/get-file methods were added here to keep all Drive API access behind one facade.
 /**
  * API call facade
  */
@@ -299,6 +300,90 @@ final class API_Facade {
 	}
 
 	/**
+	 * Searches for folders by name fragment across all drives.
+	 *
+	 * @param string $query The filename fragment to search for.
+	 *
+	 * @return PromiseInterface A promise resolving to an array of file records with id, name, parents.
+	 *
+	 * @throws Internal_Exception The method was called without an initialized batch.
+	 * @throws Plugin_Not_Authorized_Exception Not authorized.
+	 */
+	public static function search_folders( $query ) {
+		return self::search_files_by_name(
+			$query,
+			'mimeType = "application/vnd.google-apps.folder"',
+			false
+		);
+	}
+
+	/**
+	 * Searches for image and video files by name fragment across all drives.
+	 *
+	 * @param string $query The filename fragment to search for.
+	 *
+	 * @return PromiseInterface A promise resolving to an array of file records with id, name, mimeType, parents.
+	 *
+	 * @throws Internal_Exception The method was called without an initialized batch.
+	 * @throws Plugin_Not_Authorized_Exception Not authorized.
+	 */
+	public static function search_media( $query ) {
+		return self::search_files_by_name(
+			$query,
+			'(mimeType contains "image/" or mimeType contains "video/")',
+			true
+		);
+	}
+
+	/**
+	 * Returns the parent directory IDs of a file.
+	 *
+	 * @param string $file_id The ID of the file.
+	 *
+	 * @return PromiseInterface A promise resolving to an array of parent directory IDs.
+	 *
+	 * @throws Internal_Exception The method was called without an initialized batch.
+	 * @throws Plugin_Not_Authorized_Exception Not authorized.
+	 */
+	public static function get_file_parents( $file_id ) {
+		return self::get_file_by_id(
+			$file_id,
+			'id, parents',
+			static function ( $file ) {
+				$parents = $file->getParents();
+
+				return is_array( $parents ) ? $parents : array();
+			}
+		);
+	}
+
+	/**
+	 * Returns a single file's metadata.
+	 *
+	 * @param string                  $file_id The ID of the file.
+	 * @param API_Fields|array<mixed> $fields The fields to request, either as an API_Fields instance or an array to build one from.
+	 *
+	 * @return PromiseInterface A promise resolving to the parsed file metadata.
+	 *
+	 * @throws Internal_Exception The method was called without an initialized batch.
+	 * @throws Plugin_Not_Authorized_Exception Not authorized.
+	 * @throws Unsupported_Value_Exception A field that is not supported was passed in `$fields`.
+	 */
+	public static function get_file( $file_id, $fields ) {
+		if ( is_array( $fields ) ) {
+			$fields = new API_Fields( $fields );
+		}
+
+		return self::get_file_by_id(
+			$file_id,
+			$fields->format(),
+			static function ( $file ) use ( $fields ) {
+				return $fields->parse_response( $file );
+			}
+		);
+	}
+
+	/**
 	 * Lists all files of a given type inside a given directory.
 	 *
 	 * @param string            $parent_id The ID of the directory to list the files in.
@@ -322,6 +407,8 @@ final class API_Facade {
 				'trashed',
 				'size',
 				'createdTime',
+				'modifiedTime',
+				'md5Checksum',
 				'copyRequiresWriterPermission',
 				'imageMediaMetadata' => array(
 					'width',
@@ -342,7 +429,7 @@ final class API_Facade {
 				'iconLink',
 				'hasThumbnail',
 				'description',
-				'shortcutDetails'   => array( 'targetId', 'targetMimeType' ),
+				'shortcutDetails'    => array( 'targetId', 'targetMimeType' ),
 				'permissions'        => array( 'type', 'role' ),
 			)
 		) ) {
@@ -400,35 +487,79 @@ final class API_Facade {
 	}
 
 	/**
-	 * Gets file data by ID.
+	 * Searches for files by name fragment across all drives, filtered by a Drive API mimeType clause.
 	 *
-	 * @param string     $file_id The ID of the file.
-	 * @param array|API_Fields $fields The fields to retrieve. Can be an array or API_Fields object.
+	 * @param string $query The filename fragment to search for.
+	 * @param string $mime_type_clause A Drive API query clause restricting results by mimeType.
+	 * @param bool   $include_mime_type Whether to include the file's mimeType in each result record.
 	 *
-	 * @return PromiseInterface A promise resolving to the file data.
+	 * @return PromiseInterface A promise resolving to an array of file records with id, name, parents
+	 *                          (and mimeType, if `$include_mime_type` is true).
 	 *
 	 * @throws Internal_Exception The method was called without an initialized batch.
 	 * @throws Plugin_Not_Authorized_Exception Not authorized.
-	 * @throws Unsupported_Value_Exception A field that is not supported was passed in `$fields`.
 	 */
-	public static function get_file( $file_id, $fields ) {
-		if ( is_array( $fields ) ) {
-			$fields = new API_Fields( $fields );
-		}
+	private static function search_files_by_name( $query, $mime_type_clause, $include_mime_type ) {
+		$safe          = str_replace( '"', '\\"', $query );
+		$result_fields = $include_mime_type ? 'files(id, name, mimeType, parents)' : 'files(id, name, parents)';
+		$params        = array(
+			'fields'                    => $result_fields,
+			'includeItemsFromAllDrives' => true,
+			'pageSize'                  => 100,
+			'q'                         => 'name contains "' . $safe . '" and ' . $mime_type_clause .
+				' and trashed = false',
+			'supportsAllDrives'         => true,
+		);
 
 		return API_Client::async_request(
-			static function () use ( $file_id, $fields ) {
-				return API_Client::get_drive_client()->files->get(
-					$file_id,
-					array(
-						'fields'            => $fields->format(),
-						'supportsAllDrives' => true,
-					)
-				);
-			},
-			static function ( $file ) use ( $fields ) {
-				return $fields->parse_response( $file );
+			// @phan-suppress-next-line PhanTypeMismatchArgument
+			API_Client::get_drive_client()->files->listFiles( $params ),
+			static function ( $response ) use ( $include_mime_type ) {
+				$results = array();
+
+				foreach ( $response->getFiles() as $file ) {
+					$parents = $file->getParents();
+					$entry   = array(
+						'id'      => $file->getId(),
+						'name'    => $file->getName(),
+						'parents' => is_array( $parents ) ? $parents : array(),
+					);
+
+					if ( $include_mime_type ) {
+						$entry['mimeType'] = $file->getMimeType();
+					}
+
+					$results[] = $entry;
+				}
+
+				return $results;
 			}
+		);
+	}
+
+	/**
+	 * Requests a single file's data by ID.
+	 *
+	 * @param string   $file_id The ID of the file.
+	 * @param string   $request_fields The Drive API `fields` parameter value to request.
+	 * @param callable $transform Transforms the raw Google API response into the returned value.
+	 *
+	 * @return PromiseInterface A promise resolving to the value returned by `$transform`.
+	 *
+	 * @throws Internal_Exception The method was called without an initialized batch.
+	 * @throws Plugin_Not_Authorized_Exception Not authorized.
+	 */
+	private static function get_file_by_id( $file_id, $request_fields, $transform ) {
+		return API_Client::async_request(
+			// @phan-suppress-next-line PhanTypeMismatchArgument
+			API_Client::get_drive_client()->files->get(
+				$file_id,
+				array(
+					'fields'            => $request_fields,
+					'supportsAllDrives' => true,
+				)
+			),
+			$transform
 		);
 	}
 }

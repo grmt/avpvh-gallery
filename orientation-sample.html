@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EXIF orientation icon sequences</title>
+  <style>
+    :root {
+      --ink: #171813;
+      --muted: #68695f;
+      --paper: #f4f1e8;
+      --card: #fffdf7;
+      --rule: #d4d0c4;
+      --accent: #b94c2d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background:
+        radial-gradient(circle at 12% 8%, #fff 0 4%, transparent 22%),
+        repeating-linear-gradient(0deg, transparent 0 31px, rgb(23 24 19 / 4%) 32px),
+        var(--paper);
+      color: var(--ink);
+      font-family: "Aptos", "Trebuchet MS", sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      padding: clamp(24px, 5vw, 72px);
+    }
+
+    main { margin: 0 auto; max-width: 1180px; }
+
+    header {
+      align-items: end;
+      border-bottom: 2px solid var(--ink);
+      display: flex;
+      gap: 28px;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 18px;
+    }
+
+    h1 {
+      font-family: Georgia, serif;
+      font-size: clamp(31px, 5vw, 58px);
+      font-weight: 500;
+      letter-spacing: -0.04em;
+      line-height: 0.95;
+      margin: 0;
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      margin: 0;
+      max-width: 390px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: 14px;
+      min-height: 176px;
+      padding: 18px 20px 20px;
+    }
+
+    .card-head {
+      align-items: baseline;
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+    }
+
+    .number {
+      color: var(--accent);
+      font: 700 12px/1 "Aptos", sans-serif;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h2 { font: 600 14px/1.2 "Aptos", sans-serif; margin: 0; }
+
+    .chain {
+      align-items: center;
+      display: flex;
+      gap: 9px;
+      margin-top: 25px;
+      min-height: 82px;
+      overflow-x: auto;
+      padding: 2px;
+    }
+
+    .variant {
+      align-items: center;
+      border-top: 1px solid var(--rule);
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      margin-top: 12px;
+      padding-top: 12px;
+    }
+
+    .variant:first-child { border-top: 0; margin-top: 18px; padding-top: 0; }
+
+    .variant-label {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .variant .chain { margin-top: 0; min-height: 66px; }
+
+    .state {
+      align-items: center;
+      display: flex;
+      flex: 0 0 64px;
+      justify-content: center;
+    }
+
+    .state img {
+      display: block;
+      height: 64px;
+      width: 64px;
+    }
+
+    .move {
+      align-items: center;
+      color: var(--muted);
+      display: flex;
+      flex: 0 0 auto;
+      font-size: 11px;
+      font-weight: 700;
+      gap: 7px;
+      letter-spacing: 0.035em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .move::before, .move::after {
+      color: var(--accent);
+      content: "→";
+      font-size: 17px;
+      font-weight: 400;
+    }
+
+    .normal { color: var(--muted); font-size: 11px; font-weight: 700; }
+
+    @media (max-width: 760px) {
+      body { padding: 22px 14px 40px; }
+      header { align-items: start; flex-direction: column; }
+      .grid { grid-template-columns: 1fr; }
+      .card { padding-inline: 15px; }
+      .chain { gap: 5px; }
+      .state { flex-basis: 56px; }
+      .state img { height: 56px; width: 56px; }
+      .move { gap: 4px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Eight ways<br>to orient a photo</h1>
+      <p>
+        Each row ends with the correctly displayed original. The left icon is the
+        stored EXIF state; the labelled moves restore it. Every orientation is
+        shown for both landscape and portrait results.
+      </p>
+    </header>
+    <section class="grid" id="orientation-grid" aria-label="Eight EXIF orientations"></section>
+  </main>
+
+  <script>
+    const LANDSCAPE = 'assets/icon.svg';
+    const PORTRAIT = 'assets/icon-portrait.svg';
+
+    const orientations = [
+      { id: 1, name: 'Normal', moves: [], states: [''] },
+      { id: 2, name: 'Mirror horizontal', moves: ['mirror'], states: ['scaleX(-1)', ''] },
+      { id: 3, name: 'Rotate 180°', moves: ['180°'], states: ['rotate(180deg)', ''] },
+      { id: 4, name: 'Flip vertical', moves: ['flip'], states: ['scaleY(-1)', ''] },
+      { id: 5, name: 'Transpose', moves: ['+90°', 'flip'], states: [
+        'matrix(0,-1,-1,0,0,0)', 'scaleY(-1)', '',
+      ] },
+      { id: 6, name: 'Rotate +90°', moves: ['+90°'], states: ['rotate(-90deg)', ''] },
+      { id: 7, name: 'Transverse', moves: ['+90°', 'mirror'], states: [
+        'matrix(0,1,1,0,0,0)', 'scaleX(-1)', '',
+      ] },
+      { id: 8, name: 'Rotate −90°', moves: ['−90°'], states: ['rotate(90deg)', ''] },
+    ];
+
+    function state(icon, transform = '') {
+      const style = transform ? ` style="transform:${transform}"` : '';
+      return `<span class="state"><img src="${icon}" alt=""${style}></span>`;
+    }
+
+    function chain(icon, orientation) {
+      let html = state(icon, orientation.states[0]);
+      if (orientation.moves.length === 0) {
+        return `${html}<span class="normal">No correction</span>`;
+      }
+      orientation.moves.forEach((move, index) => {
+        html += `<span class="move">${move}</span>`;
+        html += state(icon, orientation.states[index + 1]);
+      });
+      return html;
+    }
+
+    const grid = document.querySelector('#orientation-grid');
+    grid.innerHTML = orientations.map((orientation) => {
+      return `
+        <article class="card">
+          <div class="card-head">
+            <span class="number">EXIF ${orientation.id}</span>
+            <h2>${orientation.name}</h2>
+          </div>
+          <div class="variant">
+            <span class="variant-label">Landscape</span>
+            <div class="chain">${chain(LANDSCAPE, orientation)}</div>
+          </div>
+          <div class="variant">
+            <span class="variant-label">Portrait</span>
+            <div class="chain">${chain(PORTRAIT, orientation)}</div>
+          </div>
+        </article>`;
+    }).join('');
+  </script>
+</body>
+</html>

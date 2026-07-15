@@ -50,7 +50,7 @@
         "classmap-authoritative": true
     },
     "require": {
-        "php": "^5.6 || ^7.0 || ^8.0",
+        "php": "^8.1",
         "google/apiclient": "^2.14.0 <2.15.0",
         "google/apiclient-services": "^0.302.0 <0.303.0",
         "google/auth": "^1.19 <1.20",

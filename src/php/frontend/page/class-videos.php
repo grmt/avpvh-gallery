@@ -61,29 +61,10 @@ final class Videos {
 			$options->get( 'image_ordering' )
 		)->then(
 			static function ( $raw_videos ) use ( $options ) {
+				$raw_videos         = self::filter_excluded( $raw_videos );
 				$videos             = array_map(
 					static function ( $video ) use ( $options ) {
-						$thumbnail = ! is_null( $video['thumbnailLink'] )
-							? substr( $video['thumbnailLink'], 0, -4 ) . 'h' . floor( 1.25 * $options->get( 'grid_height' ) )
-							: null;
-						return array(
-							'duration'  => array_key_exists( 'videoMediaMetadata', $video ) &&
-								array_key_exists( 'durationMillis', $video['videoMediaMetadata'] )
-								? (int) round( ( (int) $video['videoMediaMetadata']['durationMillis'] ) / 1000 )
-								: 0,
-							'height'    => array_key_exists( 'videoMediaMetadata', $video ) &&
-								array_key_exists( 'height', $video['videoMediaMetadata'] )
-								? $video['videoMediaMetadata']['height']
-								: '0',
-							'id'        => $video['id'],
-							'name'      => $video['name'],
-							'mimeType'  => $video['mimeType'],
-							'thumbnail' => $thumbnail,
-							'width'     => array_key_exists( 'videoMediaMetadata', $video ) &&
-								array_key_exists( 'width', $video['videoMediaMetadata'] )
-								? $video['videoMediaMetadata']['width']
-								: '0',
-						);
+						return self::format_video( $video, $options );
 					},
 					$raw_videos
 				);
@@ -117,6 +98,71 @@ final class Videos {
 
 				return $videos;
 			}
+		);
+	}
+
+	/**
+	 * Normalizes a raw Google Drive video record into the gallery's video shape.
+	 *
+	 * @param array<string, mixed> $video The raw Google Drive video record.
+	 * @param Options_Proxy        $options The configuration of the gallery.
+	 *
+	 * @return array<string, mixed> The normalized video record (without a resolved `src`).
+	 */
+	private static function format_video( $video, $options ) {
+		$metadata  = array_key_exists( 'videoMediaMetadata', $video ) ? $video['videoMediaMetadata'] : array();
+		$thumbnail = ! is_null( $video['thumbnailLink'] )
+			? substr( $video['thumbnailLink'], 0, -4 ) . 'h' . floor(
+				1.25 * $options->get( 'grid_height' )
+			)
+			: null;
+
+		return array(
+			'duration'  => array_key_exists( 'durationMillis', $metadata )
+				? (int) round( ( (int) $metadata['durationMillis'] ) / 1000 )
+				: 0,
+			'height'    => array_key_exists( 'height', $metadata ) ? $metadata['height'] : '0',
+			'id'        => $video['id'],
+			'mimeType'  => $video['mimeType'],
+			'name'      => $video['name'],
+			'thumbnail' => $thumbnail,
+			'width'     => array_key_exists( 'width', $metadata ) ? $metadata['width'] : '0',
+		);
+	}
+
+	/**
+	 * Removes administrator-excluded videos before URLs are resolved.
+	 *
+	 * @param array<array<string, mixed>> $videos Raw Google Drive video records.
+	 * @return array<array<string, mixed>> Visible video records.
+	 */
+	private static function filter_excluded( array $videos ) {
+		if ( array() === $videos ) {
+			return $videos;
+		}
+
+		global $wpdb;
+		$ids          = array_column( $videos, 'id' );
+		$table        = $wpdb->prefix . 'agallery_photo_exclusions';
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%s' ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
+		$excluded_col = $wpdb->get_col(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholder count is dynamic, built above via array_fill().
+				"SELECT image_id FROM {$table} WHERE image_id IN ({$placeholders})",
+				$ids
+			)
+		);
+		$excluded = is_array( $excluded_col ) ? $excluded_col : array();
+		$lookup   = array_fill_keys( $excluded, true );
+
+		return array_values(
+			array_filter(
+				$videos,
+				static function ( $video ) use ( $lookup ) {
+					return ! isset( $lookup[ $video['id'] ] );
+				}
+			)
 		);
 	}
 
