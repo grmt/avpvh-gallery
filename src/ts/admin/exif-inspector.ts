@@ -1632,6 +1632,11 @@ class ExifInspector {
 						opacity: 0.5;
 					}
 
+					.inspector-clickable-preview,
+					.icon-image.inspector-clickable-preview {
+						cursor: zoom-in;
+					}
+
 					.rotate-btn, .hflip-btn, .vflip-btn, .apply-all-btn, .reset-variant-btn {
 						position: absolute;
 						background: rgba(0,0,0,.55);
@@ -4706,6 +4711,13 @@ class ExifInspector {
 		void viewer.requestFullscreen();
 	}
 
+	private bindEnlargeOnClick(img: HTMLImageElement, url: string): void {
+		img.classList.add('inspector-clickable-preview');
+		img.addEventListener('click', () => {
+			this.openFullscreenImage(url);
+		});
+	}
+
 	private insertEmbeddedThumbCard(): void {
 		if (!this.embeddedThumb) {
 			return;
@@ -4733,6 +4745,11 @@ class ExifInspector {
 			</div>
 		`;
 		container.insertBefore(card, container.firstChild);
+
+		const embeddedImg = card.querySelector('img');
+		if (embeddedImg) {
+			this.bindEnlargeOnClick(embeddedImg, src);
+		}
 	}
 
 	private displayPreviews(): void {
@@ -4796,6 +4813,7 @@ class ExifInspector {
 			const img = item.querySelector('img');
 			if (img) {
 				this.fetchAndDisplayPreview(img, url, sizeKey);
+				this.bindEnlargeOnClick(img, url);
 			}
 
 			item.querySelector('.rotate-btn')?.addEventListener('click', () => {
@@ -4880,6 +4898,7 @@ class ExifInspector {
 			const img = item.querySelector('img');
 			if (img) {
 				this.fetchAndDisplayPreview(img, url, sizeKey, false);
+				this.bindEnlargeOnClick(img, url);
 			}
 		}
 	}
@@ -5216,6 +5235,7 @@ class ExifInspector {
 			const img = item.querySelector('img');
 			if (img) {
 				this.fetchAndDisplayIcon(img, url);
+				this.bindEnlargeOnClick(img, url);
 			}
 		}
 	}

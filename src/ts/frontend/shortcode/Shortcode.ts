@@ -1282,10 +1282,15 @@ export class Shortcode {
 			return;
 		}
 		const pswp = this.lightbox.pswp;
+		const fileId = (data as Record<string, unknown>)['fileId'];
 		if (pswp?.isOpen !== true) {
+			// The lightbox isn't open yet in this tab — open it directly on the
+			// inspected photo instead of silently doing nothing.
+			if (typeof fileId === 'string' && fileId !== '') {
+				this.openLightboxForInspectorFile(fileId);
+			}
 			return;
 		}
-		const fileId = (data as Record<string, unknown>)['fileId'];
 		// eslint-disable-next-line @typescript-eslint/init-declarations -- explicit `= undefined` is itself forbidden by no-undef-init; there is no other valid initial value for an optional HTMLElement
 		let target: HTMLElement | undefined;
 		if (typeof fileId === 'string' && fileId !== '') {
@@ -1316,6 +1321,19 @@ export class Shortcode {
 		pswp.element?.classList.add('pswp--ui-idle');
 		this.startSlideshow(pswp);
 		window.focus();
+	}
+
+	private openLightboxForInspectorFile(fileId: string): void {
+		const links = this.container
+			.find('a.avpvh-grid-a[data-pswp-width]')
+			.get();
+		const index = links.findIndex(
+			(el) => el.getAttribute('data-avpvh-id') === fileId
+		);
+		if (0 <= index) {
+			this.lightbox.loadAndOpen(index);
+			window.focus();
+		}
 	}
 
 	// WebKit doesn't support the (Chromium-only) `navigationUI: 'hide'` fullscreen
