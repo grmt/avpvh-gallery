@@ -253,7 +253,8 @@ final class Options {
 			'',
 			'basic',
 			'auth',
-			esc_html__( 'Client secret', 'avpvh-gallery' )
+			esc_html__( 'Client secret', 'avpvh-gallery' ),
+			true
 		);
 
 		self::$root_path = new Root_Path_Option( 'root_path', array( 'root' ), 'basic', 'root_selection', '' );
