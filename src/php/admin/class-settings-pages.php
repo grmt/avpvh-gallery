@@ -11,6 +11,7 @@ use Avpvh\Admin\Exif_Inspector\Browse_REST;
 use Avpvh\Admin\Exif_Inspector\Camera_Model_Index_REST;
 use Avpvh\Admin\Exif_Inspector\Corrections_REST;
 use Avpvh\Admin\Exif_Inspector\Exif_Data_REST;
+use Avpvh\Admin\Exif_Inspector\Folder_Authors_REST;
 use Avpvh\Admin\Exif_Inspector\Media_Stream_REST;
 use Avpvh\Admin\Settings_Pages\Advanced_Settings;
 use Avpvh\Admin\Settings_Pages\Basic_Settings;
@@ -27,6 +28,7 @@ require_once __DIR__ . '/exif-inspector/class-browse-rest.php';
 require_once __DIR__ . '/exif-inspector/class-makernote-tags.php';
 require_once __DIR__ . '/exif-inspector/class-exif-data-rest.php';
 require_once __DIR__ . '/exif-inspector/class-corrections-rest.php';
+require_once __DIR__ . '/exif-inspector/class-folder-authors-rest.php';
 
 /**
  * Registers and renders the plugin settings pages.
@@ -54,6 +56,7 @@ final class Settings_Pages {
 		new Browse_REST();
 		new Exif_Data_REST();
 		new Corrections_REST();
+		new Folder_Authors_REST();
 
 		if ( ! is_admin() ) {
 			return;

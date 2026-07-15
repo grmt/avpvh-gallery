@@ -7,6 +7,7 @@
  * @package avpvh-gallery
  */
 
+use Avpvh\Folder_Authors_DB;
 use Avpvh\Photo_Corrections_DB;
 
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
@@ -15,6 +16,9 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 
 require_once __DIR__ . '/class-photo-corrections-db.php';
 Photo_Corrections_DB::drop_tables();
+
+require_once __DIR__ . '/class-folder-authors-db.php';
+Folder_Authors_DB::drop_tables();
 
 delete_option( 'avpvh_client_id' );
 delete_option( 'avpvh_client_secret' );
@@ -43,6 +47,7 @@ delete_option( 'avpvh_preview_activity' );
 delete_option( 'avpvh_preview_captions' );
 
 delete_option( 'avpvh_exif_inspector_last_path' );
+delete_option( 'avpvh_folder_authors_schema' );
 
 // Deprecated.
 delete_option( 'avpvh_image_ordering' );

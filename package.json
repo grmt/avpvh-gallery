@@ -28,6 +28,7 @@
     "build:gulp": "gulp --gulpfile config/gulpfile.js --cwd . --color build",
     "build:js:block": "vite build --config config/vite/block.config.ts",
     "build:js:camera-model-index": "vite build --config config/vite/camera-model-index.config.ts",
+    "build:js:folder-authors": "vite build --config config/vite/folder-authors.config.ts",
     "build:js:root_selection": "vite build --config config/vite/root_selection.config.ts",
     "build:js:shortcode": "vite build --config config/vite/shortcode.config.ts",
     "build:js:tinymce": "vite build --config config/vite/tinymce.config.ts",

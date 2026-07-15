@@ -14,10 +14,12 @@ use Avpvh\Frontend\API_Fields;
 use Avpvh\Frontend\Paging_Pagination_Helper;
 use Avpvh\Options;
 use Exception;
+use Throwable;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 
+// phpcs:disable SlevomatCodingStandard.Classes.ClassLength.ClassTooLong -- see FileTooLong suppression above.
 /**
  * REST API controller for the resumable, persistent camera-model index.
  *
@@ -120,9 +122,11 @@ final class Camera_Model_Index_REST {
 				'children'      => array(),
 				'direct_models' => array(),
 				'image_count'   => 0,
+				'names'         => array(),
 				'processed'     => array(),
 				'queue'         => array( $root_id ),
 				'root_id'       => $root_id,
+				'root_name'     => self::fetch_folder_name( $root_id ),
 				'started_at'    => time(),
 			),
 			false
@@ -168,7 +172,9 @@ final class Camera_Model_Index_REST {
 				'direct_models' => $state['direct_models'],
 				'folder_count'  => count( $state['processed'] ),
 				'image_count'   => $state['image_count'],
+				'names'         => isset( $state['names'] ) ? $state['names'] : array(),
 				'root_id'       => $state['root_id'],
+				'root_name'     => isset( $state['root_name'] ) ? $state['root_name'] : '',
 				'updated_at'    => time(),
 			);
 			update_option( self::CAMERA_MODEL_INDEX_OPTION, $index, false );
@@ -187,10 +193,8 @@ final class Camera_Model_Index_REST {
 	 * @return WP_REST_Response
 	 */
 	public function camera_models_for_folder( $request ) {
-		$folder_id = (string) $request->get_param( 'folder_id' );
-		$index     = get_option( self::CAMERA_MODEL_INDEX_OPTION, array() );
-		$index     = is_array( $index ) ? $index : array();
-
+		$folder_id   = (string) $request->get_param( 'folder_id' );
+		$index       = self::get_index();
 		$model_names = self::descendant_model_names( $folder_id, $index );
 
 		return new WP_REST_Response(
@@ -201,6 +205,19 @@ final class Camera_Model_Index_REST {
 			),
 			200
 		);
+	}
+
+	/**
+	 * Returns the persisted camera-model index, or an empty array if none exists yet.
+	 * Shared with Folder_Authors_REST, which needs the same folder tree (children/names)
+	 * to resolve folder authorship.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function get_index() {
+		$index = get_option( self::CAMERA_MODEL_INDEX_OPTION, array() );
+
+		return is_array( $index ) ? $index : array();
 	}
 
 	/**
@@ -313,13 +330,17 @@ final class Camera_Model_Index_REST {
 	 * @return array<string, mixed> The updated scan state.
 	 */
 	private static function merge_step_results( array $state, $folder_id, array $directories, array $images ) {
-		list( $children, $state['queue'] ) = self::enqueue_new_children( $directories, $state );
+		list( $children, $state['queue'], $names ) = self::enqueue_new_children( $directories, $state );
 
 		natcasesort( $children );
 		$model_names = self::direct_model_names( $images );
 
 		$state['children'][ $folder_id ]      = array_values( $children );
 		$state['direct_models'][ $folder_id ] = $model_names;
+		$state['names']                       = array_merge(
+			isset( $state['names'] ) ? $state['names'] : array(),
+			$names
+		);
 		$state['processed'][]                 = $folder_id;
 		$state['image_count']                += count( $images );
 
@@ -327,18 +348,19 @@ final class Camera_Model_Index_REST {
 	}
 
 	/**
-	 * Lists this folder's child IDs and appends the not-yet-seen ones to the scan queue.
+	 * Lists this folder's child IDs/names and appends the not-yet-seen ones to the scan queue.
 	 *
 	 * @param array<array<string, mixed>> $directories Immediate subfolders of the scanned folder.
 	 * @param array<string, mixed>        $state       The scan state (already popped the current folder off its queue).
 	 *
-	 * @return array{0: array<string>, 1: array<string>} All child IDs, then the updated queue.
+	 * @return array{0: array<string>, 1: array<string>, 2: array<string, string>} All child IDs, the updated queue, then a child ID → name map.
 	 */
 	private static function enqueue_new_children( array $directories, array $state ) {
 		$processed = array_fill_keys( array_map( 'strval', $state['processed'] ), true );
 		$queued    = array_fill_keys( array_map( 'strval', $state['queue'] ), true );
 		$children  = array();
 		$queue     = $state['queue'];
+		$names     = array();
 
 		foreach ( $directories as $directory ) {
 			$child_id = isset( $directory['id'] ) ? (string) $directory['id'] : '';
@@ -347,7 +369,8 @@ final class Camera_Model_Index_REST {
 				continue;
 			}
 
-			$children[] = $child_id;
+			$children[]         = $child_id;
+			$names[ $child_id ] = isset( $directory['name'] ) ? (string) $directory['name'] : '';
 
 			if ( isset( $processed[ $child_id ] ) || isset( $queued[ $child_id ] ) ) {
 				continue;
@@ -357,7 +380,7 @@ final class Camera_Model_Index_REST {
 			$queued[ $child_id ] = true;
 		}
 
-		return array( $children, $queue );
+		return array( $children, $queue, $names );
 	}
 
 	/**
@@ -394,8 +417,7 @@ final class Camera_Model_Index_REST {
 	private static function camera_model_status_data() {
 		$state = get_option( self::CAMERA_MODEL_SCAN_OPTION, array() );
 		$state = is_array( $state ) ? $state : array();
-		$index = get_option( self::CAMERA_MODEL_INDEX_OPTION, array() );
-		$index = is_array( $index ) ? $index : array();
+		$index = self::get_index();
 		$queue = isset( $state['queue'] ) ? $state['queue'] : array();
 
 		return array(
@@ -407,5 +429,23 @@ final class Camera_Model_Index_REST {
 			'running'        => array() !== $queue,
 			'updated_at'     => isset( $index['updated_at'] ) ? $index['updated_at'] : null,
 		);
+	}
+
+	/**
+	 * Best-effort lookup of a folder's display name. Never fails the caller: an
+	 * indexing scan should start (or continue) even if this one lookup errors.
+	 *
+	 * @param string $folder_id Google Drive folder ID.
+	 *
+	 * @return string The folder's name, or '' if it couldn't be resolved.
+	 */
+	private static function fetch_folder_name( $folder_id ) {
+		try {
+			$results = API_Client::execute( array( API_Facade::get_file_name( $folder_id ) ) );
+
+			return is_string( $results[0] ) ? $results[0] : '';
+		} catch ( Throwable $e ) {
+			return '';
+		}
 	}
 }

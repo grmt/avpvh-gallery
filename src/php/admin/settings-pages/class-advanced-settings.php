@@ -7,15 +7,17 @@
 
 namespace Avpvh\Admin\Settings_Pages;
 
-use Avpvh\Admin\Settings_Pages\Advanced\Grid;
-use Avpvh\Admin\Settings_Pages\Advanced\Lightbox;
 use Avpvh\Admin\Settings_Pages\Advanced\Appearance;
 use Avpvh\Admin\Settings_Pages\Advanced\Camera_Model_Index;
+use Avpvh\Admin\Settings_Pages\Advanced\Folder_Authors;
+use Avpvh\Admin\Settings_Pages\Advanced\Grid;
+use Avpvh\Admin\Settings_Pages\Advanced\Lightbox;
 
 require_once __DIR__ . '/advanced/class-grid.php';
 require_once __DIR__ . '/advanced/class-lightbox.php';
 require_once __DIR__ . '/advanced/class-appearance.php';
 require_once __DIR__ . '/advanced/class-camera-model-index.php';
+require_once __DIR__ . '/advanced/class-folder-authors.php';
 
 /**
  * Registers and renders the advanced settings page.
@@ -37,6 +39,7 @@ final class Advanced_Settings {
 		new Lightbox();
 		new Appearance();
 		new Camera_Model_Index();
+		new Folder_Authors();
 	}
 
 	/**

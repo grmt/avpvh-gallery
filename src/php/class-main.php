@@ -34,6 +34,7 @@ final class Main {
 		add_action( 'init', array( '\\Avpvh\\Options', 'init' ), 1 );
 		add_action( 'admin_notices', array( self::class, 'activation_notice' ) );
 		add_action( 'init', array( '\\Avpvh\\Photo_Corrections_DB', 'maybe_migrate' ) );
+		add_action( 'init', array( '\\Avpvh\\Folder_Authors_DB', 'maybe_migrate' ) );
 		add_filter( 'get_site_icon_url', array( self::class, 'filter_site_icon_url' ), 10, 3 );
 		add_filter( 'get_custom_logo', array( self::class, 'filter_custom_logo' ), 10, 2 );
 		new Shortcode();
@@ -152,6 +153,7 @@ final class Main {
 		// Create photo tagging tables.
 		Photo_Tags_DB::create_tables();
 		Photo_Corrections_DB::create_tables();
+		Folder_Authors_DB::create_tables();
 
 		set_transient( 'avpvh_activation_notice', true, 30 );
 	}

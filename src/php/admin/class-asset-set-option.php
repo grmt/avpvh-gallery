@@ -137,14 +137,13 @@ final class Asset_Set_Option extends Option {
 			.avpvh-asset-set-options{display:grid;gap:10px;max-width:780px}
 			.avpvh-asset-set-card{align-items:center;background:#fff;border:1px solid #c3c4c7;
 				border-radius:4px;cursor:pointer;display:grid;gap:8px;
-				grid-template-columns:130px 190px 1fr;padding:10px 12px}
+				grid-template-columns:130px minmax(220px,max-content) 1fr;padding:10px 12px}
 			.avpvh-asset-set-card:has(input:checked){border-color:#2271b1;box-shadow:0 0 0 1px #2271b1}
-			.avpvh-asset-set-preview{display:inline-flex;gap:14px;margin:7px 12px;vertical-align:middle}
+			.avpvh-asset-set-preview{display:inline-flex;gap:14px;margin:7px 0;vertical-align:middle}
 			.avpvh-asset-set-preview span{align-items:center;color:#50575e;
 				display:inline-flex;font-size:11px;gap:5px}
 			.avpvh-asset-set-preview img{height:34px;object-fit:contain;width:42px}
-			@media(max-width:782px){.avpvh-asset-set-card{grid-template-columns:1fr}
-				.avpvh-asset-set-preview{margin-left:0}}
+			@media(max-width:782px){.avpvh-asset-set-card{grid-template-columns:1fr}}
 		</style>';
 	}
 }

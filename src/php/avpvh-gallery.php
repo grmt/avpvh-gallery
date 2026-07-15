@@ -56,6 +56,7 @@ require_once __DIR__ . '/class-api-client.php';
 require_once __DIR__ . '/class-api-facade.php';
 require_once __DIR__ . '/class-photo-tags-db.php';
 require_once __DIR__ . '/class-photo-corrections-db.php';
+require_once __DIR__ . '/class-folder-authors-db.php';
 
 require_once __DIR__ . '/exceptions/class-exception.php';
 require_once __DIR__ . '/exceptions/class-api-exception.php';
