@@ -16,6 +16,27 @@ function extractFromShortcode(
 	return attributes.named['path'].replace(/^\/+|\/+$/g, '').split('/');
 }
 
+// @wordpress/blocks' own bundled BlockTransform type doesn't declare `tag`/
+// `attributes`, even though the real Block API requires `tag` to match a
+// shortcode's name for `type: 'shortcode'` transforms. Building this as a
+// standalone value (rather than an inline literal in the call below) avoids
+// TypeScript's excess-property check flagging that upstream gap.
+const shortcodeTransform = {
+	from: [
+		{
+			type: 'shortcode' as const,
+			tag: 'avpvh',
+			priority: 15,
+			attributes: {
+				path: {
+					type: 'string',
+					shortcode: extractFromShortcode,
+				},
+			},
+		},
+	],
+};
+
 registerBlockType('avpvh-gallery/gallery', {
 	title: avpvhBlockLocalize.block_name,
 	description: avpvhBlockLocalize.block_description,
@@ -62,19 +83,5 @@ registerBlockType('avpvh-gallery/gallery', {
 	},
 	edit: AvpvhEditorComponent,
 	save: renderFrontend,
-	transforms: {
-		from: [
-			{
-				type: 'shortcode',
-				tag: 'avpvh',
-				priority: 15,
-				attributes: {
-					path: {
-						type: 'string',
-						shortcode: extractFromShortcode,
-					},
-				},
-			},
-		],
-	},
+	transforms: shortcodeTransform,
 });

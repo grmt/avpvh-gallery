@@ -5,5 +5,5 @@ export function isError(
 		| ListGdriveDirResponse
 		| PageResponse
 ): data is ErrorResponse {
-	return typeof data === 'object' && data !== null && 'error' in data;
+	return typeof data === 'object' && 'error' in data;
 }

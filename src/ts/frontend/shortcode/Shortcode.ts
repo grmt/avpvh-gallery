@@ -38,22 +38,6 @@ interface FolderNode {
 	loadingNext: boolean;
 }
 
-interface ScreenWakeLockSentinel {
-	released: boolean;
-	release(): Promise<void>;
-	addEventListener(
-		type: 'release',
-		listener: () => void,
-		options?: AddEventListenerOptions
-	): void;
-}
-
-interface NavigatorWithWakeLock extends Navigator {
-	wakeLock?: {
-		request(type: 'screen'): Promise<ScreenWakeLockSentinel>;
-	};
-}
-
 export class Shortcode {
 	private static readonly cache = new Map<
 		string,
@@ -86,7 +70,6 @@ export class Shortcode {
 	private lightboxTouchStartX = 0;
 	private lightboxTouchStartIndex = 0;
 	private slideshowPaused = false;
-	private readonly slideshowWasActive = false;
 	// When the active slide is a video the fixed-interval slideshow is suspended;
 	// the video's own 'ended' event (or a stall fallback) advances instead.
 	private currentSlideIsVideo = false;
@@ -96,7 +79,7 @@ export class Shortcode {
 	// URL). While set, the auto-slideshow stays paused so we don't keep firing
 	// doomed requests; it clears again as soon as a full-size image loads.
 	private rateLimited = false;
-	private screenWakeLock: ScreenWakeLockSentinel | null = null;
+	private screenWakeLock: WakeLockSentinel | null = null;
 	private screenWakeLockRequest: Promise<void> | null = null;
 
 	private slideNodes: Array<FolderNode> = [];
@@ -249,10 +232,10 @@ export class Shortcode {
 			const notice = document.createElement('div');
 			notice.className = 'avpvh-pswp-drive-error';
 			const title = document.createElement('div');
-			title.className = 'avpvh-pswp-drive-error__title';
+			title.className = 'avpvh-pswp-drive-error-title';
 			title.textContent = 'Google Drive kon de afbeelding niet laden';
 			const detail = document.createElement('div');
-			detail.className = 'avpvh-pswp-drive-error__detail';
+			detail.className = 'avpvh-pswp-drive-error-detail';
 			detail.textContent =
 				'Dit is een tijdelijk probleem bij Google. ' +
 				'Vernieuw de pagina om het opnieuw te proberen.';
@@ -861,7 +844,7 @@ export class Shortcode {
 			) {
 				pswpEl.addEventListener('contextmenu', (e) => {
 					const fileId =
-						pswp.currSlide?.data.element?.dataset['avpvhId'];
+						pswp?.currSlide?.data.element?.dataset['avpvhId'];
 					if (fileId === undefined || fileId === '') {
 						return;
 					}
@@ -880,7 +863,7 @@ export class Shortcode {
 						},
 					]);
 				});
-				pswp.on('close', () => {
+				pswp?.on('close', () => {
 					Shortcode.hideContextMenu();
 				});
 			}
@@ -938,10 +921,13 @@ export class Shortcode {
 		if (this.screenWakeLockRequest !== null) {
 			return this.screenWakeLockRequest;
 		}
-		const wakeLock = (navigator as NavigatorWithWakeLock).wakeLock;
-		if (wakeLock === undefined) {
+		// The DOM lib types navigator.wakeLock as always-present, but older
+		// browsers genuinely lack it at runtime — hence the `in` check rather
+		// than a (statically "impossible") undefined comparison.
+		if (!('wakeLock' in navigator)) {
 			return Promise.resolve();
 		}
+		const wakeLock = navigator.wakeLock;
 
 		this.screenWakeLockRequest = wakeLock
 			.request('screen')
@@ -1532,15 +1518,23 @@ export class Shortcode {
 		if (!(nextEl instanceof HTMLElement)) {
 			return;
 		}
-		// .avpvh-grid-img--no-thumb is only on tiles with no Drive thumbnail — those
+		// .avpvh-grid-img-no-thumb is only on tiles with no Drive thumbnail — those
 		// always go through the proxy and benefit from early buffering.
-		if (nextEl.querySelector('.avpvh-grid-img--no-thumb') === null) {
+		if (nextEl.querySelector('.avpvh-grid-img-no-thumb') === null) {
 			return;
 		}
 		// Find the already-rendered slide in PhotoSwipe's slide pool and start it fetching.
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- PhotoSwipe's type resolves to `any` under this project's module resolution (its package.json exports map isn't picked up), so `.slides` (an undocumented but stable internal API) is untyped
-		const nextSlide = pswp.slides?.find((s) => s.index === nextIdx);
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- see above
+		// `.slides` is an undocumented but stable internal API, not part of PhotoSwipe's
+		// public type definitions — hence the cast through a minimal local shape.
+		const slides = (
+			pswp as unknown as {
+				slides?: Array<{
+					index: number;
+					content: { element: HTMLElement | undefined };
+				}>;
+			}
+		).slides;
+		const nextSlide = slides?.find((s) => s.index === nextIdx);
 		const nextVideo = nextSlide?.content.element?.querySelector('video');
 		if (
 			nextVideo instanceof HTMLVideoElement &&
@@ -1993,30 +1987,6 @@ export class Shortcode {
 				slideEl instanceof HTMLElement &&
 				'1' === slideEl.dataset['avpvhVflip'],
 		};
-	}
-
-	private static describeOrientation(
-		rotation: number,
-		hFlip: boolean,
-		vFlip: boolean
-	): string {
-		const parts: Array<string> = [];
-		const rotationLabels: Partial<Record<number, string>> = {
-			90: '90° rechtsom gedraaid',
-			180: '180° gedraaid',
-			270: '90° linksom gedraaid',
-		};
-		const label = rotationLabels[rotation];
-		if (label !== undefined) {
-			parts.push(label);
-		}
-		if (hFlip) {
-			parts.push('gespiegeld horizontaal');
-		}
-		if (vFlip) {
-			parts.push('gespiegeld verticaal');
-		}
-		return parts.join(', ');
 	}
 
 	private static async loadExifOrientation(
@@ -3326,26 +3296,6 @@ export class Shortcode {
 		return '1/' + String(Math.round(1 / exposure)) + 's';
 	}
 
-	private static formatVideoDuration(seconds: number): string {
-		if (seconds < 60) {
-			return String(Math.round(seconds)) + 's';
-		}
-		const minutes = Math.floor(seconds / 60);
-		const secs = Math.round(seconds % 60);
-		return String(minutes) + 'min ' + (secs > 0 ? String(secs) + 's' : '');
-	}
-
-	private static formatFilesize(bytes: number): string {
-		const units = ['B', 'KB', 'MB', 'GB'];
-		let size = bytes;
-		let unitIndex = 0;
-		while (size >= 1024 && unitIndex < units.length - 1) {
-			size /= 1024;
-			unitIndex++;
-		}
-		return String(Math.round(size * 10) / 10) + ' ' + units[unitIndex];
-	}
-
 	private static formatResolution(width: number, height: number): string {
 		return String(width) + 'x' + String(height);
 	}
@@ -3713,7 +3663,7 @@ export class Shortcode {
 			'>' +
 			(video.thumbnail !== null
 				? '<img class="avpvh-grid-img" src="' + video.thumbnail + '">'
-				: '<div class="avpvh-grid-img avpvh-grid-img--no-thumb"></div>') +
+				: '<div class="avpvh-grid-img avpvh-grid-img-no-thumb"></div>') +
 			'<div class="avpvh-video-play-btn">' +
 			Shortcode.SVG_VIDEO +
 			'</div>' +

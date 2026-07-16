@@ -388,3 +388,7 @@ void (async (): Promise<void> => {
 		}
 	}
 })();
+
+// Marks this file as an ES module so its top-level declarations (e.g. `render`)
+// don't collide with same-named globals in other standalone admin scripts.
+export {};

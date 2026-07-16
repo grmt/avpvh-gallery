@@ -393,7 +393,6 @@ class ExifInspector {
 	private readonly rootId: string;
 	private readonly restUrl: string;
 	private readonly nonce: string;
-	private readonly currentPath: Array<string> = [];
 	private currentFile: FileData | null = null;
 	private allFiles: Array<FileData> = [];
 	private displayFiles: Array<FileData> = [];
@@ -427,7 +426,6 @@ class ExifInspector {
 	private photoCorrectionsLoaded = false;
 	private embeddedThumb: { src: string; w: number; h: number } | null = null;
 	private readonly pendingCorrectionSaves = new Set<Promise<void>>();
-	private photoExcluded = false;
 	private excludedPhotoIds = new Set<string>();
 	private folderStack: Array<{ id: string; name: string }> = [];
 	private fullscreenViewerEl: HTMLDivElement | null = null;
@@ -3497,7 +3495,6 @@ class ExifInspector {
 		this.transformsBySize = {};
 		this.photoCorrectionsLoaded = false;
 		this.embeddedThumb = null;
-		this.photoExcluded = false;
 		this.updateFolderCorrectionUi();
 		this.renderPhotoExclusion(false, [], '', 'Laden…');
 
@@ -3661,7 +3658,6 @@ class ExifInspector {
 		note: string,
 		status = ''
 	): void {
-		this.photoExcluded = excluded;
 		const currentFileId = this.currentFile?.id;
 		if (currentFileId !== undefined) {
 			if (excluded) {

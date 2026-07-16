@@ -6,6 +6,7 @@
     "module": "es6",
     "moduleResolution": "bundler",
     "skipLibCheck": true,
+    "types": ["imagesloaded", "jquery", "node", "react", "wordpress__block-editor"],
 
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
