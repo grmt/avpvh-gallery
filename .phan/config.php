@@ -14,11 +14,10 @@ return array(
 		'tests',
 		'.phan',
 		'dist/vendor',
-		'vendor/skaut/wordpress-stubs/stubs',
 	),
 	'exclude_analysis_directory_list'           => array(
 		'dist/vendor/',
-		'vendor/skaut/wordpress-stubs/stubs',
+		'.phan/wordpress-stubs/',
 	),
 	'file_list'                                 => array(
 		'config/scoper.inc.php',

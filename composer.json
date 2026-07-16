@@ -5,7 +5,6 @@
     "keywords": [
         "WordPress",
         "WordPress plugin",
-        "skaut",
         "Google Drive",
         "Google Drive gallery",
         "AVPVH Gallery",
@@ -18,7 +17,7 @@
         "gallery",
         "gallery plugin"
     ],
-    "homepage": "https://wordpress.org/plugins/avpvh-gallery",
+    "homepage": "https://github.com/grmt/avpvh-gallery",
     "readme": "README.md",
     "license": "MIT",
     "authors": [
@@ -28,10 +27,8 @@
     }
     ],
     "support": {
-        "issues": "https://github.com/skaut/avpvh-gallery/issues",
-        "wiki": "https://napoveda.skaut.cz/dobryweb/en-avpvh-gallery",
-        "source": "https://github.com/skaut/avpvh-gallery",
-        "docs": "https://napoveda.skaut.cz/dobryweb/en-avpvh-gallery"
+        "issues": "https://github.com/grmt/avpvh-gallery/issues",
+        "source": "https://github.com/grmt/avpvh-gallery"
     },
     "config": {
         "allow-plugins": {
@@ -67,7 +64,6 @@
         "phpcompatibility/phpcompatibility-wp": "^2.0",
         "phpmd/phpmd": "^2.6",
         "phan/phan": "^5.1",
-        "skaut/wordpress-stubs": "^2.1.0",
         "symfony/polyfill-mbstring": "^1.23.0",
         "humbug/php-scoper": "^0.18.4 <0.18.5",
         "yoast/phpunit-polyfills": "^2.0",

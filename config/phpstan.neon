@@ -7,11 +7,30 @@ parameters:
     - scoper.inc.php
   scanDirectories:
     - ../.phan/stubs
-    - ../vendor/skaut/wordpress-stubs/stubs
+    - ../.phan/wordpress-stubs
     - ../dist/vendor
   scanFiles:
-    - ../vendor/skaut/wordpress-stubs/stubs/WordPress/functions.php
+    - ../.phan/wordpress-stubs/WordPress/functions.php
+    - ../.phan/wordpress-stubs/WordPress-test/functions.php
   dynamicConstantNames:
     - SCRIPT_DEBUG
     - WP_DEBUG
     - WP_DEBUG_DISPLAY
+  ignoreErrors:
+    -
+      # wp-admin/includes/upgrade.php (for dbDelta()) is a real WordPress core
+      # file present at runtime; it just isn't part of any stub set since it's
+      # not a function/class signature but a whole conditionally-loaded file.
+      message: '#^Path in require_once\(\) "wp-admin/includes/upgrade\.php" is not a file or it does not exist\.$#'
+      identifier: requireOnce.fileNotFound
+      path: ../src/php/class-*-db.php
+    -
+      # Google\Client::authorize()'s return type is inferred through several
+      # layers of google/auth's AuthHandler classes (third-party vendor code,
+      # regenerated on every build) whose own methods lack declared return
+      # types, so PHPStan loses the concrete Guzzle ClientInterface type and
+      # falls back to `object`. The returned client genuinely does have a
+      # request() method at runtime; this isn't fixable from our own code.
+      message: '#^Call to an undefined method object::request\(\)\.$#'
+      identifier: method.notFound
+      path: ../src/php/admin/exif-inspector/class-media-stream-rest.php

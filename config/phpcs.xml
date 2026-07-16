@@ -5,6 +5,11 @@
 	<file>../.phan</file>
 	<file>scoper.inc.php</file>
 
+	<!-- Vendored third-party stubs (not our code, not held to our coding standard). -->
+	<exclude-pattern>.phan/wordpress-stubs/*</exclude-pattern>
+	<!-- Phan's own auto-generated baseline file (see the save baseline flag in package.json); never hand-edited. -->
+	<exclude-pattern>.phan/baseline.php</exclude-pattern>
+
 	<arg name="basepath" value="../"/>
 	<arg name="colors"/>
 	<arg value="s"/>

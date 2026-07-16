@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "4d9568dddd2fe1161ce0a3bad9430b45",
+    "content-hash": "52eca75521f5488c6105c6f910c9b181",
     "packages": [
         {
             "name": "firebase/php-jwt",
@@ -5103,65 +5103,6 @@
                 }
             ],
             "time": "2023-02-07T11:34:05+00:00"
-        },
-        {
-            "name": "skaut/wordpress-stubs",
-            "version": "2.14.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/skaut/wordpress-stubs.git",
-                "reference": "c95b1af1a265750fd54efd2f5ccef6e4d28e8f8d"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/skaut/wordpress-stubs/zipball/c95b1af1a265750fd54efd2f5ccef6e4d28e8f8d",
-                "reference": "c95b1af1a265750fd54efd2f5ccef6e4d28e8f8d",
-                "shasum": ""
-            },
-            "require": {
-                "php": "^7.0 || ^8.0"
-            },
-            "require-dev": {
-                "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
-                "phan/phan": "^6.0",
-                "phpstan/phpstan": "^2.1",
-                "slevomat/coding-standard": "^8.14",
-                "squizlabs/php_codesniffer": "^3.0",
-                "wp-coding-standards/wpcs": "^3.0"
-            },
-            "suggest": {
-                "phan/phan": "A static analyzer for PHP",
-                "phpstan/phpstan": "PHPStan - PHP Static Analysis Tool"
-            },
-            "type": "library",
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Marek Dědič",
-                    "email": "developer@dedic.eu"
-                }
-            ],
-            "description": "High quality stubs for WordPress functions and classes",
-            "homepage": "https://github.com/skaut/wordpress-stubs",
-            "keywords": [
-                "PHPStan",
-                "WordPress stubs",
-                "phan",
-                "stub",
-                "stubs",
-                "wordpress",
-                "wordpress plugin",
-                "wordpress theme"
-            ],
-            "support": {
-                "issues": "https://github.com/skaut/wordpress-stubs/issues",
-                "source": "https://github.com/skaut/wordpress-stubs",
-                "wiki": "https://github.com/skaut/wordpress-stubs/wiki"
-            },
-            "time": "2026-03-10T09:19:42+00:00"
         },
         {
             "name": "slevomat/coding-standard",
