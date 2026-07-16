@@ -1,260 +1,261 @@
+/* Emoji reactions */
+.avpvh-emoji-picker {
+	display: flex;
+	gap: 4px;
+	flex-wrap: wrap;
+	padding: 4px 0;
+}
+
+.avpvh-emoji-picker button {
+	background: #f5f5f5;
+	border: 1px solid #ddd;
+	padding: 4px 8px;
+	border-radius: 3px;
+	cursor: pointer;
+	font-size: 16px;
+	min-width: 32px;
+	transition: all 0.2s ease;
+	line-height: 1;
+}
+
 /* Member selector overlay (when drawing annotation) */
 .avpvh-member-selector-overlay {
-  position: absolute;
-  background: white;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 8px;
-  z-index: 10000;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	position: absolute;
+	background: #fff;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	padding: 8px;
+	z-index: 10000;
+	box-shadow: 0 2px 8px rgb(0, 0, 0, 15%);
 }
 
 .avpvh-member-selector-overlay select {
-  min-width: 200px;
-  padding: 6px;
-  margin-right: 8px;
-  font-size: 13px;
+	min-width: 200px;
+	padding: 6px;
+	margin-right: 8px;
+	font-size: 13px;
 }
 
 .avpvh-member-selector-overlay button {
-  padding: 6px 12px;
-  background: #0073aa;
-  color: white;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 13px;
+	padding: 6px 12px;
+	background: #0073aa;
+	color: #fff;
+	border: none;
+	border-radius: 3px;
+	cursor: pointer;
+	font-size: 13px;
 }
 
-.avpvh-member-selector-overlay button:hover {
-  background: #005a87;
+.avpvh-emoji-picker button:hover {
+	background: #e8e8e8;
+	transform: scale(1.1);
+	border-color: #999;
+}
+
+.avpvh-emoji-picker button:active {
+	transform: scale(0.95);
 }
 
 /* Annotorious popup customization */
 .annotorious-popup {
-  background: white;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
-  padding: 12px;
-  max-width: 280px;
-  z-index: 10000;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	background: #fff;
+	border-radius: 4px;
+	box-shadow: 0 2px 12px rgb(0, 0, 0, 20%);
+	padding: 12px;
+	max-width: 280px;
+	z-index: 10000;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 .annotorious-popup-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
 }
 
 .avpvh-tag-info {
-  font-weight: bold;
-  font-size: 14px;
-  color: #333;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+	font-weight: 700;
+	font-size: 14px;
+	color: #333;
+	display: flex;
+	align-items: center;
+	gap: 6px;
 }
 
 /* Comments section */
 .avpvh-tag-comments {
-  max-height: 150px;
-  overflow-y: auto;
-  border: 1px solid #eee;
-  border-radius: 3px;
-  padding: 8px;
-  margin: 4px 0;
-  font-size: 12px;
-  background: #fafafa;
+	max-height: 150px;
+	overflow-y: auto;
+	border: 1px solid #eee;
+	border-radius: 3px;
+	padding: 8px;
+	margin: 4px 0;
+	font-size: 12px;
+	background: #fafafa;
 }
 
 .avpvh-comment {
-  margin-bottom: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #eee;
+	margin-bottom: 8px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid #eee;
 }
 
 .avpvh-comment:last-child {
-  border-bottom: none;
+	border-bottom: none;
 }
 
 .avpvh-comment-author {
-  font-weight: bold;
-  font-size: 11px;
-  color: #666;
+	font-weight: 700;
+	font-size: 11px;
+	color: #666;
 }
 
 .avpvh-comment-text {
-  font-size: 12px;
-  color: #333;
-  margin-top: 2px;
-  word-wrap: break-word;
-  line-height: 1.4;
+	font-size: 12px;
+	color: #333;
+	margin-top: 2px;
+	word-wrap: break-word;
+	line-height: 1.4;
 }
 
 /* Comment input */
 .avpvh-comment-input {
-  width: 100%;
-  padding: 6px;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  font-size: 12px;
-  font-family: inherit;
-  min-height: 40px;
-  resize: vertical;
-  box-sizing: border-box;
+	width: 100%;
+	padding: 6px;
+	border: 1px solid #ccc;
+	border-radius: 3px;
+	font-size: 12px;
+	font-family: inherit;
+	min-height: 40px;
+	resize: vertical;
+	box-sizing: border-box;
 }
 
 .avpvh-comment-input::placeholder {
-  color: #999;
+	color: #999;
 }
 
 .avpvh-comment-submit {
-  background: #0073aa;
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 12px;
-  align-self: flex-start;
+	background: #0073aa;
+	color: #fff;
+	border: none;
+	padding: 6px 12px;
+	border-radius: 3px;
+	cursor: pointer;
+	font-size: 12px;
+	align-self: flex-start;
 }
 
 .avpvh-comment-submit:hover {
-  background: #005a87;
+	background: #005a87;
 }
 
-/* Emoji reactions */
-.avpvh-emoji-picker {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  padding: 4px 0;
-}
-
-.avpvh-emoji-picker button {
-  background: #f5f5f5;
-  border: 1px solid #ddd;
-  padding: 4px 8px;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 16px;
-  min-width: 32px;
-  transition: all 0.2s ease;
-  line-height: 1;
-}
-
-.avpvh-emoji-picker button:hover {
-  background: #e8e8e8;
-  transform: scale(1.1);
-  border-color: #999;
-}
-
-.avpvh-emoji-picker button:active {
-  transform: scale(0.95);
+.avpvh-member-selector-overlay button:hover {
+	background: #005a87;
 }
 
 /* Reactions display */
 .avpvh-reactions-list {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  padding: 4px 0;
+	display: flex;
+	gap: 4px;
+	flex-wrap: wrap;
+	font-size: 12px;
+	padding: 4px 0;
 }
 
 .avpvh-reaction-badge {
-  background: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  padding: 2px 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
+	background: #f0f0f0;
+	border: 1px solid #ddd;
+	border-radius: 12px;
+	padding: 2px 6px;
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	user-select: none;
 }
 
 .avpvh-reaction-badge:hover {
-  background: #e0e0e0;
-  border-color: #999;
+	background: #e0e0e0;
+	border-color: #999;
 }
 
 .avpvh-reaction-badge.active {
-  background: #c8e6c9;
-  border-color: #4caf50;
-  font-weight: bold;
+	background: #c8e6c9;
+	border-color: #4caf50;
+	font-weight: 700;
 }
 
 .avpvh-reaction-count {
-  font-size: 10px;
-  color: #666;
-  font-weight: normal;
+	font-size: 10px;
+	color: #666;
+	font-weight: 400;
 }
 
 /* Interactions panel in lightbox */
 .avpvh-tag-interactions-panel {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(0, 0, 0, 0.85);
-  padding: 12px;
-  color: white;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 1000;
-  max-height: 200px;
-  overflow-y: auto;
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background: rgb(0, 0, 0, 85%);
+	padding: 12px;
+	color: #fff;
+	border-top: 1px solid rgb(255, 255, 255, 20%);
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	z-index: 1000;
+	max-height: 200px;
+	overflow-y: auto;
 }
 
 .avpvh-tag-interactions-panel textarea {
-  background: rgba(255, 255, 255, 0.95);
-  color: #333;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+	background: rgb(255, 255, 255, 95%);
+	color: #333;
+	border: 1px solid rgb(255, 255, 255, 30%);
 }
 
 /* Responsive adjustments */
-@media (max-width: 768px) {
-  .avpvh-member-selector-overlay {
-    min-width: 150px;
-    font-size: 12px;
-  }
+@media (width <= 768px) {
 
-  .annotorious-popup {
-    max-width: 200px;
-    padding: 8px;
-  }
+	.avpvh-member-selector-overlay {
+		min-width: 150px;
+		font-size: 12px;
+	}
 
-  .avpvh-emoji-picker {
-    gap: 2px;
-  }
+	.annotorious-popup {
+		max-width: 200px;
+		padding: 8px;
+	}
 
-  .avpvh-emoji-picker button {
-    padding: 3px 6px;
-    font-size: 14px;
-  }
+	.avpvh-emoji-picker {
+		gap: 2px;
+	}
 
-  .avpvh-tag-interactions-panel {
-    padding: 8px;
-    gap: 4px;
-  }
+	.avpvh-emoji-picker button {
+		padding: 3px 6px;
+		font-size: 14px;
+	}
+
+	.avpvh-tag-interactions-panel {
+		padding: 8px;
+		gap: 4px;
+	}
 }
 
 /* Annotorious core element styling */
 .annotorious-editor {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 .annotorious-editor svg rect {
-  stroke: #ffeb3b;
-  stroke-width: 2;
-  fill: rgba(255, 235, 59, 0.1);
+	stroke: #ffeb3b;
+	stroke-width: 2;
+	fill: rgb(255, 235, 59, 10%);
 }
 
 .annotorious-editor svg:hover rect {
-  fill: rgba(255, 235, 59, 0.2);
+	fill: rgb(255, 235, 59, 20%);
 }

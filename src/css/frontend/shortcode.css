@@ -53,6 +53,7 @@ html.pswp-is-open body {
 }
 
 @media (hover: hover) and (pointer: fine) {
+
 	.avpvh-breadcrumb-sibling {
 		display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	}
@@ -99,19 +100,16 @@ html.pswp-is-open body {
 
 .avpvh-grid-a:hover .avpvh-exif-overlay {
 	opacity: 1;
+	cursor: copy;
 }
 
 .avpvh-exif-filename {
-	font-weight: bold;
+	font-weight: 700;
 }
 
 .avpvh-exif-data {
-	font-weight: normal;
+	font-weight: 400;
 	margin-top: 2px;
-}
-
-.avpvh-grid-a:hover .avpvh-exif-overlay {
-	cursor: copy;
 }
 
 /* Small subtle video badge, bottom-left of the tile. */
@@ -151,7 +149,7 @@ html.pswp-is-open body {
 	width: 100% !important;
 }
 
-.avpvh-grid-img--no-thumb {
+.avpvh-grid-img-no-thumb {
 	background-color: #1a1a1a;
 }
 
@@ -235,7 +233,7 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	background: #fff;
 	border: 1px solid #ccc;
 	border-radius: 4px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	box-shadow: 0 2px 8px rgb(0 0 0 / 20%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	box-shadow: 0 2px 8px rgb(0, 0, 0, 20%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	display: none;
 	min-width: 200px;
 	padding: 4px 0;
@@ -268,7 +266,7 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 }
 
 .avpvh-dir-name {
-	font-weight: bold;
+	font-weight: 700;
 	overflow: hidden;
 	text-overflow: ellipsis; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	white-space: nowrap;
@@ -283,7 +281,7 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 
 .avpvh-count-svg {
 	display: inline-block;
-	fill: currentColor;
+	fill: currentcolor;
 	height: 1.5em;
 	vertical-align: middle;
 	width: 1.5em;
@@ -315,12 +313,9 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 
 /* Subfolder name list inside the folder body */
 .avpvh-dir-sublist {
-	bottom: 30%;
-	left: 8%;
+	inset: 24% 6% 30% 8%;
 	overflow: hidden; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	position: absolute;
-	right: 6%;
-	top: 24%;
 }
 
 .avpvh-dir-sublist-item {
@@ -527,6 +522,7 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	transition: opacity 0.4s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
+/* stylelint-disable-next-line selector-class-pattern -- PhotoSwipe class */
 .pswp--ui-idle .avpvh-pswp-path {
 	opacity: 0;
 	pointer-events: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
@@ -553,8 +549,9 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	width: 100%;
 }
 
-/* Tight wrapper around the video — bar and controls are positioned relative to this,
-   so they hug the actual video frame instead of the full slide height. */
+/* Tight wrapper around the video — bar and controls are positioned
+   relative to this, so they hug the actual video frame instead of the
+   full slide height. */
 .avpvh-video-inner {
 	line-height: 0;
 	max-height: 100vh;
@@ -673,8 +670,8 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	opacity: 0 !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
-/* Show arrows on hover — pointer/mouse devices only (touch triggers :hover on tap, causing
-   unwanted flashes on mobile). */
+/* Show arrows on hover — pointer/mouse devices only (touch triggers
+   :hover on tap, causing unwanted flashes on mobile). */
 @media (hover: hover) {
 
 	.pswp:hover:not(.pswp--ui-idle) .pswp__button--arrow {
@@ -687,7 +684,8 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	}
 }
 
-/* On touch devices, keep arrows fully suppressed even if pswp--has_mouse is also set. */
+/* On touch devices, keep arrows fully suppressed even if pswp--has_mouse
+   is also set. */
 .pswp--touch .pswp__button--arrow {
 	opacity: 0 !important; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	pointer-events: none !important;
@@ -731,6 +729,7 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
    the container from data-pswp-width/height (raw pre-rotation dims); letting
    the browser also rotate would create a dimension mismatch → stretched image.
    CSS rotation is applied by applySlideRotation() instead. */
+/* stylelint-disable-next-line selector-class-pattern -- PhotoSwipe class */
 .pswp__img {
 	image-orientation: none; /* stylelint-disable-line declaration-property-value-no-unknown, plugin/no-unsupported-browser-features */
 	max-height: none !important;
@@ -739,7 +738,7 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 }
 
 .avpvh-pswp-path-name {
-	font-weight: bold;
+	font-weight: 700;
 }
 
 .avpvh-pswp-path-exif {
@@ -803,8 +802,8 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 
 /* Notice shown when Google Drive can't serve the full-size image. */
 .avpvh-pswp-drive-error {
-	background: rgba(0, 0, 0, 0.65);
-	border: 1px solid rgba(255, 255, 255, 0.18);
+	background: rgb(0, 0, 0, 65%);
+	border: 1px solid rgb(255, 255, 255, 18%);
 	border-radius: 8px;
 	color: #fff;
 	max-width: 360px;
@@ -814,13 +813,13 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	z-index: 1;
 }
 
-.avpvh-pswp-drive-error__title {
+.avpvh-pswp-drive-error-title {
 	font-size: 14px;
-	font-weight: bold;
+	font-weight: 700;
 	margin-bottom: 6px;
 }
 
-.avpvh-pswp-drive-error__detail {
+.avpvh-pswp-drive-error-detail {
 	font-size: 12px;
 	opacity: 0.8;
 }
