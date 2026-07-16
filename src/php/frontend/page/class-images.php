@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend\Page;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Facade;
 use Avpvh\Exceptions\Internal_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
@@ -20,6 +24,8 @@ use DateTime;
 // phpcs:disable SlevomatCodingStandard.Classes.ClassLength.ClassTooLong -- see FileTooLong suppression above.
 /**
  * Contains all the functions used to display images in a gallery.
+ *
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
 final class Images {
 
@@ -113,7 +119,9 @@ final class Images {
 	 * @param array<string, mixed> $image The raw Google Drive image record.
 	 * @param Options_Proxy        $options The configuration of the gallery.
 	 *
-	 * @return array<string, mixed> The normalized image record.
+	 * @return array{description: string, exif: array<string, mixed>, height: int, id: string, image: string, name: string, rotation: int, thumbnail: string, width: int} The normalized image record.
+	 *
+	 * @SuppressWarnings("PHPMD.CyclomaticComplexity")
 	 */
 	private static function format_image( $image, $options ) {
 		$metadata = array_key_exists( 'imageMediaMetadata', $image ) && is_array( $image['imageMediaMetadata'] )
@@ -173,8 +181,8 @@ final class Images {
 				'model'    => array_key_exists( 'cameraModel', $metadata ) ? $metadata['cameraModel'] : null,
 				'time'     => array_key_exists( 'time', $metadata ) ? $metadata['time'] : null,
 			),
-			static function ( $v ) {
-				return null !== $v;
+			static function ( $value ) {
+				return null !== $value;
 			}
 		);
 	}
@@ -241,11 +249,11 @@ final class Images {
 	/**
 	 * Merges stored orientation corrections into a list of images.
 	 *
-	 * @param array<array<string, mixed>> $images A list of mapped image arrays.
-	 * @param string                      $folder_id Current Google Drive folder ID.
-	 * @param Options_Proxy               $options Gallery options, including the active lightbox size.
+	 * @param array<array{description: string, exif: array<string, mixed>, height: int, id: string, image: string, name: string, rotation: int, thumbnail: string, width: int}> $images A list of mapped image arrays.
+	 * @param string                                                                                                                                                            $folder_id Current Google Drive folder ID.
+	 * @param Options_Proxy                                                                                                                                                     $options Gallery options, including the active lightbox size.
 	 *
-	 * @return array<array<string, mixed>> Images with thumb_rotation and light_rotation added.
+	 * @return array<array{description: string, exif: array<string, mixed>, height: int, id: string, image: string, name: string, rotation: int, thumbnail: string, width: int, thumb_rotation: int, thumb_h_flip: bool, thumb_v_flip: bool, light_rotation: int, light_h_flip: bool, light_v_flip: bool, light_has_correction: bool}> Images with thumb_rotation and light_rotation added.
 	 */
 	private static function merge_corrections( array $images, $folder_id, $options ) {
 		if ( array() === $images ) {
@@ -325,12 +333,14 @@ final class Images {
 	/**
 	 * Applies stored thumb/lightbox orientation corrections to a single image.
 	 *
-	 * @param array<string, mixed>                               $image The mapped image array.
-	 * @param array<string, array<string, array<string, mixed>>> $corrections Per-photo corrections, indexed by image ID then size key.
-	 * @param array<string, array<string, mixed>>                $folder_corrections Folder-level corrections, indexed by size key.
-	 * @param string                                             $preview_key The size key used for the configured lightbox preview size.
+	 * @param array{description: string, exif: array<string, mixed>, height: int, id: string, image: string, name: string, rotation: int, thumbnail: string, width: int} $image The mapped image array.
+	 * @param array<string, array<string, array<string, mixed>>>                                                                                                         $corrections Per-photo corrections, indexed by image ID then size key.
+	 * @param array<string, array<string, mixed>>                                                                                                                        $folder_corrections Folder-level corrections, indexed by size key.
+	 * @param string                                                                                                                                                     $preview_key The size key used for the configured lightbox preview size.
 	 *
-	 * @return array<string, mixed> The image with correction fields added.
+	 * @return array{description: string, exif: array<string, mixed>, height: int, id: string, image: string, name: string, rotation: int, thumbnail: string, width: int, thumb_rotation: int, thumb_h_flip: bool, thumb_v_flip: bool, light_rotation: int, light_h_flip: bool, light_v_flip: bool, light_has_correction: bool} The image with correction fields added.
+	 *
+	 * @SuppressWarnings("PHPMD.CyclomaticComplexity")
 	 */
 	private static function apply_correction( $image, $corrections, $folder_corrections, $preview_key ) {
 		$photo = isset( $corrections[ $image['id'] ] ) ? $corrections[ $image['id'] ] : array();
@@ -385,9 +395,9 @@ final class Images {
 	 * not already have rotated pixels. This estimate is replaced client-side by the
 	 * derivative's actual natural dimensions after load.
 	 *
-	 * @param array<string, mixed> $image The mapped image array, with `light_rotation` already set.
+	 * @param array{description: string, exif: array<string, mixed>, height: int, id: string, image: string, name: string, rotation: int, thumbnail: string, width: int, thumb_rotation: int, thumb_h_flip: bool, thumb_v_flip: bool, light_rotation: int, light_h_flip: bool, light_v_flip: bool, light_has_correction: bool} $image The mapped image array, with `light_rotation` already set.
 	 *
-	 * @return array<string, mixed> The image, with `width`/`height` swapped if needed.
+	 * @return array{description: string, exif: array<string, mixed>, height: int, id: string, image: string, name: string, rotation: int, thumbnail: string, width: int, thumb_rotation: int, thumb_h_flip: bool, thumb_v_flip: bool, light_rotation: int, light_h_flip: bool, light_v_flip: bool, light_has_correction: bool} The image, with `width`/`height` swapped if needed.
 	 */
 	private static function swap_dimensions_if_rotated( $image ) {
 		$effective_rotation = $image['light_rotation'];
@@ -429,11 +439,11 @@ final class Images {
 	/**
 	 * Orders images.
 	 *
-	 * @param array<array{id: string, description: string, image: string, thumbnail: string, width: int, height: int, timestamp?: int}> $images A list of images.
-	 * @param array<int>                                                                                                                $image_timestamps The timestamps for each image.
-	 * @param Options_Proxy                                                                                                             $options The configuration of the gallery.
+	 * @param array<array{description: string, exif: array<string, mixed>, height: int, id: string, image: string, name: string, rotation: int, thumbnail: string, width: int, thumb_rotation: int, thumb_h_flip: bool, thumb_v_flip: bool, light_rotation: int, light_h_flip: bool, light_v_flip: bool, light_has_correction: bool}> $images A list of images.
+	 * @param array<int>                                                                                                                                                                                                                                                                                                              $image_timestamps The timestamps for each image.
+	 * @param Options_Proxy                                                                                                                                                                                                                                                                                                           $options The configuration of the gallery.
 	 *
-	 * @return array<array{id: string, description: string, image: string, thumbnail: string, width: int, height: int}> An ordered list of images.
+	 * @return array<array{description: string, exif: array<string, mixed>, height: int, id: string, image: string, name: string, rotation: int, thumbnail: string, width: int, thumb_rotation: int, thumb_h_flip: bool, thumb_v_flip: bool, light_rotation: int, light_h_flip: bool, light_v_flip: bool, light_has_correction: bool}> An ordered list of images.
 	 */
 	private static function order( $images, $image_timestamps, $options ) {
 		if ( 'time' === $options->get_by( 'image_ordering' ) ) {

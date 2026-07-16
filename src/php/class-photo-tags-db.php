@@ -7,6 +7,10 @@
 
 namespace Avpvh;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 /**
  * Photo Tags Database Migration
  */
@@ -23,9 +27,9 @@ final class Photo_Tags_DB {
 
 		$charset_collate = $wpdb->get_charset_collate();
 
-		// Table 1: Photo tags (annotations)
+		// Table 1: Photo tags (annotations).
 		$table_tags = $wpdb->prefix . 'agallery_photo_tags';
-		$sql_tags = "CREATE TABLE {$table_tags} (
+		$sql_tags   = "CREATE TABLE {$table_tags} (
 			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 			image_id VARCHAR(255) NOT NULL,
 			member_id BIGINT UNSIGNED,
@@ -39,9 +43,9 @@ final class Photo_Tags_DB {
 			FOREIGN KEY (member_id) REFERENCES {$wpdb->prefix}avm_members (id) ON DELETE CASCADE
 		) {$charset_collate};";
 
-		// Table 2: Tag comments
+		// Table 2: Tag comments.
 		$table_comments = $wpdb->prefix . 'agallery_tag_comments';
-		$sql_comments = "CREATE TABLE {$table_comments} (
+		$sql_comments   = "CREATE TABLE {$table_comments} (
 			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 			tag_id BIGINT UNSIGNED NOT NULL,
 			user_id BIGINT UNSIGNED,
@@ -52,9 +56,9 @@ final class Photo_Tags_DB {
 			FOREIGN KEY (tag_id) REFERENCES {$table_tags} (id) ON DELETE CASCADE
 		) {$charset_collate};";
 
-		// Table 3: Emoji reactions
+		// Table 3: Emoji reactions.
 		$table_reactions = $wpdb->prefix . 'agallery_reactions';
-		$sql_reactions = "CREATE TABLE {$table_reactions} (
+		$sql_reactions   = "CREATE TABLE {$table_reactions} (
 			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 			tag_id BIGINT UNSIGNED NOT NULL,
 			user_id BIGINT UNSIGNED NOT NULL,
@@ -85,7 +89,8 @@ final class Photo_Tags_DB {
 		);
 
 		foreach ( $tables as $table ) {
-			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name cannot be a placeholder; uninstall-time schema drop of a custom plugin table.
+			$wpdb->query( "DROP TABLE IF EXISTS {$table}" );
 		}
 	}
 }

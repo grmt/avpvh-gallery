@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Exif_Inspector;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 /**
  * Renames UndefinedTag:0xXXXX keys in a flat EXIF array using per-manufacturer tag tables.
  * Tag names sourced from ExifTool (https://github.com/exiftool/exiftool).
@@ -71,6 +75,8 @@ final class Makernote_Tags {
 	 * @param array<string, mixed>  $result  The result array being built (checked to avoid overwrites).
 	 *
 	 * @return string|null The renamed key, or null to keep the original key unchanged.
+	 *
+	 * @SuppressWarnings("PHPMD.ShortVariable")
 	 */
 	private static function rename_key( $key, array $tag_map, array $result ) {
 		$colon = strpos( $key, ':' );

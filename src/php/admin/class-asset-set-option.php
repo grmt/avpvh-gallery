@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Frontend\Option;
 use Avpvh\Main;
 

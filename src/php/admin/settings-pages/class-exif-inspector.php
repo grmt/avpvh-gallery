@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Settings_Pages;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Options;
 
 /**
@@ -46,11 +50,13 @@ final class Exif_Inspector {
 	 * @return void
 	 */
 	public function enqueue_scripts() {
+		$root_path = Options::$root_path->get();
+
 		wp_enqueue_script(
 			'avpvh-exif-inspector',
 			plugin_dir_url( __FILE__ ) . '../../admin/js/exif-inspector.min.js',
 			array(),
-			(int) filemtime(
+			(string) filemtime(
 				plugin_dir_path( __FILE__ ) . '../../admin/js/exif-inspector.min.js'
 			),
 			true
@@ -64,7 +70,7 @@ final class Exif_Inspector {
 				'nonce'        => wp_create_nonce( 'wp_rest' ),
 				'preview_size' => (int) Options::$preview_size->get(),
 				'rest_url'     => rest_url( 'avpvh-gallery/v1/exif-inspector/' ),
-				'root_id'      => end( Options::$root_path->get() ),
+				'root_id'      => end( $root_path ),
 			)
 		);
 	}

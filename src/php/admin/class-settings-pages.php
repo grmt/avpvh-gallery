@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Admin\Exif_Inspector\Browse_REST;
 use Avpvh\Admin\Exif_Inspector\Camera_Model_Index_REST;
 use Avpvh\Admin\Exif_Inspector\Corrections_REST;

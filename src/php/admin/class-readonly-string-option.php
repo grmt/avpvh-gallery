@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 /**
  * An option representing a string value which is never changed, just read. The value isn't actually stored in the database, it just follows the UI of other options.
  *

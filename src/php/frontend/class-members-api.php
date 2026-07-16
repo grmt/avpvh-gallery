@@ -7,6 +7,13 @@
 
 namespace Avpvh\Frontend;
 
+use Exception;
+use WP_REST_Response;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 /**
  * REST API endpoint for fetching members for tagging.
  *
@@ -31,8 +38,8 @@ final class Members_API {
 			'avpvh/v1',
 			'/members/for-tagging',
 			array(
-				'methods' => 'GET',
-				'callback' => array( $this, 'get_members_for_tagging' ),
+				'callback'            => array( $this, 'get_members_for_tagging' ),
+				'methods'             => 'GET',
 				'permission_callback' => array( $this, 'check_can_tag' ),
 			)
 		);
@@ -50,38 +57,41 @@ final class Members_API {
 	/**
 	 * Get members for tagging (active and inactive)
 	 *
-	 * @return \WP_REST_Response
+	 * @return WP_REST_Response
 	 */
 	public function get_members_for_tagging() {
 		if ( ! class_exists( '\\AVPVH\\AVPVH_DB' ) ) {
-			return new \WP_REST_Response( array( 'data' => array() ), 200 );
+			return new WP_REST_Response( array( 'data' => array() ), 200 );
 		}
 
 		try {
-			// Use the AVPVH_DB from avpvh-members plugin
-			$members = call_user_func( array( '\\AVPVH\\AVPVH_DB', 'get_members' ), array(
-				'orderby' => 'last_name',
-				'order' => 'ASC',
-				'per_page' => 500,
-			) );
+			// Use the AVPVH_DB from avpvh-members plugin.
+			$members = call_user_func(
+				array( '\\AVPVH\\AVPVH_DB', 'get_members' ),
+				array(
+					'order'    => 'ASC',
+					'orderby'  => 'last_name',
+					'per_page' => 500,
+				)
+			);
 
 			$result = array_map(
-				function( $m ) {
+				static function ( $member ) {
 					return array(
-						'id' => intval( $m->id ),
-						'name' => $m->first_name . ' ' . $m->last_name,
-						'status' => $m->status,
+						'id'     => intval( $member->id ),
+						'name'   => $member->first_name . ' ' . $member->last_name,
+						'status' => $member->status,
 					);
 				},
 				$members
 			);
 
-			return new \WP_REST_Response(
+			return new WP_REST_Response(
 				array( 'data' => $result ),
 				200
 			);
-		} catch ( \Exception $e ) {
-			return new \WP_REST_Response(
+		} catch ( Exception $e ) {
+			return new WP_REST_Response(
 				array( 'message' => esc_html( $e->getMessage() ) ),
 				500
 			);

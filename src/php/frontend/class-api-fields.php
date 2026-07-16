@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Vendor\Google\Service\Drive\DriveFile;
 
 /**

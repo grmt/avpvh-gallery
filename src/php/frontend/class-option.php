@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 /**
  * An interface for all plugin options
  *

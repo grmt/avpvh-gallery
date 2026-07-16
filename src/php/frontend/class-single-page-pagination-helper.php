@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 /**
  * Loads exactly one page worth of data.
  */

@@ -7,6 +7,10 @@
 
 namespace Avpvh\Exceptions;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Exceptions\Exception as Avpvh_Exception;
 use Avpvh\Vendor\Google\Service\Exception as Google_Service_Exception;
 

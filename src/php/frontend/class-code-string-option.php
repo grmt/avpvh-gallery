@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 /**
  * An option representing a code which the user has to fill in, with the option for the code to be locked to be read-only.
  *

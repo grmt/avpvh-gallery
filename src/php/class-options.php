@@ -7,6 +7,10 @@
 
 namespace Avpvh;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Admin\Asset_Set_Option;
 use Avpvh\Admin\Readonly_String_Option;
 use Avpvh\Frontend\Boolean_Option;

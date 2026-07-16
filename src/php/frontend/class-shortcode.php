@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Client;
 use Avpvh\API_Facade;
 use Avpvh\Exceptions\API_Exception;
@@ -113,6 +117,9 @@ final class Shortcode {
 	 * @throws Not_Found_Exception The requested resource couldn't be found.
 	 * @throws Plugin_Not_Authorized_Exception Not authorized.
 	 * @throws Root_Not_Found_Exception The root directory of the gallery couldn't be found.
+	 *
+	 * @SuppressWarnings("PHPMD.CyclomaticComplexity")
+	 * @SuppressWarnings("PHPMD.NPathComplexity")
 	 */
 	public static function html( $atts ) {
 		wp_enqueue_style( 'avpvh_photoswipe_style' );

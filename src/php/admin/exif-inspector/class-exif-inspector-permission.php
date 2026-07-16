@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Exif_Inspector;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 /**
  * Shared REST permission check for all EXIF Inspector routes.
  */

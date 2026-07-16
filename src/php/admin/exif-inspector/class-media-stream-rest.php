@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Exif_Inspector;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Client;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Exception;
@@ -95,9 +99,10 @@ final class Media_Stream_REST {
 	 *
 	 * @param WP_REST_Request $request The request object.
 	 *
-	 * @return WP_Error|void
+	 * @return WP_Error
 	 *
 	 * @SuppressWarnings("PHPMD.ExitExpression")
+	 * @SuppressWarnings("PHPMD.CyclomaticComplexity")
 	 */
 	public function stream_video( $request ) {
 		$file_id   = $request->get_param( 'file_id' );
@@ -110,7 +115,7 @@ final class Media_Stream_REST {
 
 		try {
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			$range    = isset( $_SERVER['HTTP_RANGE'] ) ? wp_unslash( $_SERVER['HTTP_RANGE'] ) : '';
+			$range    = isset( $_SERVER['HTTP_RANGE'] ) ? wp_unslash( (string) $_SERVER['HTTP_RANGE'] ) : '';
 			$resolved = self::resolve_byte_range( $range, $size );
 
 			if ( $resolved instanceof WP_Error ) {
@@ -151,7 +156,7 @@ final class Media_Stream_REST {
 	 *
 	 * @param WP_REST_Request $request The request object.
 	 *
-	 * @return WP_Error|void
+	 * @return WP_Error
 	 *
 	 * @SuppressWarnings("PHPMD.ExitExpression")
 	 */
@@ -207,7 +212,7 @@ final class Media_Stream_REST {
 	 *
 	 * @param WP_REST_Request $request The request object.
 	 *
-	 * @return WP_Error|void
+	 * @return WP_Error
 	 *
 	 * @SuppressWarnings("PHPMD.ExitExpression")
 	 */
@@ -241,9 +246,10 @@ final class Media_Stream_REST {
 			);
 		}
 
-		$status_code  = wp_remote_retrieve_response_code( $response );
-		$body         = wp_remote_retrieve_body( $response );
-		$content_type = wp_remote_retrieve_header( $response, 'content-type' );
+		$status_code      = wp_remote_retrieve_response_code( $response );
+		$body             = wp_remote_retrieve_body( $response );
+		$content_type_raw = wp_remote_retrieve_header( $response, 'content-type' );
+		$content_type     = is_array( $content_type_raw ) ? ( $content_type_raw[0] ?? '' ) : $content_type_raw;
 
 		if ( 200 !== $status_code ) {
 			return new WP_Error(

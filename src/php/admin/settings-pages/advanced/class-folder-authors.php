@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Settings_Pages\Advanced;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 /**
  * Renders and wires the folder → author(s) attribution table.
  */
@@ -54,13 +58,13 @@ final class Folder_Authors {
 			'avpvh-folder-authors',
 			plugin_dir_url( __FILE__ ) . '../../../admin/css/folder-authors.min.css',
 			array(),
-			(int) filemtime( plugin_dir_path( __FILE__ ) . '../../../admin/css/folder-authors.min.css' )
+			(string) filemtime( plugin_dir_path( __FILE__ ) . '../../../admin/css/folder-authors.min.css' )
 		);
 		wp_enqueue_script(
 			'avpvh-folder-authors',
 			plugin_dir_url( __FILE__ ) . '../../../admin/js/folder-authors.min.js',
 			array(),
-			(int) filemtime( $path ),
+			(string) filemtime( $path ),
 			true
 		);
 		wp_localize_script(

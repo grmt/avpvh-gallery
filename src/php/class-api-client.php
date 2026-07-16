@@ -7,6 +7,10 @@
 
 namespace Avpvh;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use ArrayAccess;
 use Avpvh\Exceptions\API_Exception;
 use Avpvh\Exceptions\API_Rate_Limit_Exception;

@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Settings_Pages\Basic;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Admin\Settings_Pages\Basic\Root_Selection\List_Ajax_Endpoint;
 use Avpvh\Options;
 use Avpvh\Script_And_Style_Helpers;

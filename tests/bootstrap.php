@@ -9,6 +9,12 @@
 
 require_once dirname( __DIR__ ) . '/vendor/yoast/phpunit-polyfills/phpunitpolyfills-autoload.php';
 
+// Tells WordPress core's own bundled test bootstrap to use the Polyfills'
+// compat shims instead of its baked-in phpunit6/compat.php, which references
+// PHPUnit classes removed in PHPUnit 10.
+// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.runtime_configuration_putenv -- this is the documented mechanism yoast/phpunit-polyfills uses to signal WP core's test bootstrap; there's no WordPress API equivalent.
+putenv( 'WP_TESTS_PHPUNIT_POLYFILLS_PATH=' . dirname( __DIR__ ) . '/vendor/yoast/phpunit-polyfills' );
+
 $_tests_dir = getenv( 'WP_TESTS_DIR' );
 
 if ( '' === $_tests_dir || false === $_tests_dir ) {

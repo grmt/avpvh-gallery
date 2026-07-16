@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Client;
 use Avpvh\GET_Helpers;
 use Avpvh\Vendor\Google\Service\Drive;

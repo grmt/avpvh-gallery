@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Settings_Pages;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Admin\Settings_Pages\Advanced\Appearance;
 use Avpvh\Admin\Settings_Pages\Advanced\Camera_Model_Index;
 use Avpvh\Admin\Settings_Pages\Advanced\Folder_Authors;

@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Exif_Inspector;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Client;
 use Avpvh\API_Facade;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
@@ -24,6 +28,8 @@ use WP_REST_Response;
  * REST API controller for the resumable, persistent camera-model index.
  *
  * @phan-constructor-used-for-side-effects
+ *
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
 final class Camera_Model_Index_REST {
 
@@ -227,6 +233,8 @@ final class Camera_Model_Index_REST {
 	 * @param array<string, mixed> $index     The persisted camera-model index.
 	 *
 	 * @return array<string>
+	 *
+	 * @SuppressWarnings("PHPMD.ShortVariable")
 	 */
 	private static function descendant_model_names( $folder_id, array $index ) {
 		$models = array();
@@ -265,6 +273,8 @@ final class Camera_Model_Index_REST {
 	 * @param string               $id    Folder ID.
 	 *
 	 * @return array<mixed>
+	 *
+	 * @SuppressWarnings("PHPMD.ShortVariable")
 	 */
 	private static function index_lookup( array $index, $key, $id ) {
 		return isset( $index[ $key ][ $id ] ) ? $index[ $key ][ $id ] : array();

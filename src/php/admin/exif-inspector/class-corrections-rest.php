@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Exif_Inspector;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -196,10 +200,12 @@ final class Corrections_REST {
 	 * @param WP_REST_Request $request The request object.
 	 *
 	 * @return WP_REST_Response|WP_Error
+	 *
+	 * @SuppressWarnings("PHPMD.ShortVariable")
 	 */
 	public function save_corrections( $request ) {
 		global $wpdb;
-		$params = $request->get_json_params();
+		$params = $request->get_json_params() ?? array();
 		$c      = self::parse_correction_params( $params );
 
 		if ( '' === $c['file_id'] ) {
@@ -307,10 +313,12 @@ final class Corrections_REST {
 	 * @param WP_REST_Request $request The request object.
 	 *
 	 * @return WP_REST_Response|WP_Error
+	 *
+	 * @SuppressWarnings("PHPMD.ShortVariable")
 	 */
 	public function save_exclusion( $request ) {
 		global $wpdb;
-		$p = self::parse_exclusion_params( $request->get_json_params() );
+		$p = self::parse_exclusion_params( $request->get_json_params() ?? array() );
 
 		if ( '' === $p['file_id'] ) {
 			return new WP_Error( 'invalid_file', 'file_id is required', array( 'status' => 400 ) );
@@ -360,6 +368,8 @@ final class Corrections_REST {
 	 * @param string $id      The folder or file ID to look up.
 	 *
 	 * @return array<string, array{r: int, h: bool, v: bool}>
+	 *
+	 * @SuppressWarnings("PHPMD.ShortVariable")
 	 */
 	private static function read_corrections_table( $table, $id_col, $id ) {
 		global $wpdb;

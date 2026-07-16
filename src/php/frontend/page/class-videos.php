@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend\Page;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Facade;
 use Avpvh\Exceptions\Internal_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;

@@ -7,6 +7,10 @@
 
 namespace Avpvh;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Client;
 use Avpvh\Exceptions\Directory_Not_Found_Exception;
 use Avpvh\Exceptions\Drive_Not_Found_Exception;

@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Client;
 use Avpvh\API_Facade;
 use Avpvh\Exceptions\API_Exception;

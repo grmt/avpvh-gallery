@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Exif_Inspector;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -19,6 +23,8 @@ use WP_REST_Response;
  * descendants. member_id 0 is a reserved sentinel meaning "explicitly AVPvH, stop inheriting".
  *
  * @phan-constructor-used-for-side-effects
+ *
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
 final class Folder_Authors_REST {
 

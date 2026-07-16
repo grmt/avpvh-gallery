@@ -7,6 +7,10 @@
 
 namespace Avpvh\Exceptions;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Exception as Base_Exception;
 
 /**

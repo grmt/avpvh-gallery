@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Settings_Pages\Basic;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Options;
 
 /**

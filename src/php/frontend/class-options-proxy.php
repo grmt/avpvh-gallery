@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Frontend\Boolean_Option;
 use Avpvh\Frontend\Bounded_Integer_Option;
 use Avpvh\Frontend\Integer_Option;

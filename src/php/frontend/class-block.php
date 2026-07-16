@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Exceptions\Exception as Avpvh_Exception;
 use Avpvh\Frontend\Options_Proxy;
 use Avpvh\Frontend\Shortcode;

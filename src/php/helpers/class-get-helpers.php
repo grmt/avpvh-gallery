@@ -7,6 +7,10 @@
 
 namespace Avpvh;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 /**
  * Contains helper functions for working with GET variables.
  */

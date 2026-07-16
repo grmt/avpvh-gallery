@@ -7,6 +7,10 @@
 
 namespace Avpvh;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 /**
  * Photo Corrections Database Migration
  */
@@ -102,11 +106,11 @@ final class Photo_Corrections_DB {
 			array( '%d' )
 		);
 
-		$legacy_lightbox_key    = 's' . intval( get_option( 'avpvh_preview_size', 1920 ) );
-		$lightbox_migration_sql = 'INSERT IGNORE INTO ' . $table . ' (image_id, size_key, rotation, h_flip, v_flip)' .
+		$legacy_lightbox_key = 's' . intval( get_option( 'avpvh_preview_size', 1920 ) );
+		$migration_sql       = 'INSERT IGNORE INTO ' . $table . ' (image_id, size_key, rotation, h_flip, v_flip)' .
 			' SELECT image_id, %s, rotation, h_flip, v_flip FROM ' . $table . ' WHERE size_key = %s';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $table is concatenated (not user-supplied); %s placeholders above are filled via $wpdb->prepare() just below.
-		$wpdb->query( $wpdb->prepare( $lightbox_migration_sql, 'lightbox', $legacy_lightbox_key ) );
+		$wpdb->query( $wpdb->prepare( $migration_sql, 'lightbox', $legacy_lightbox_key ) );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
 		$wpdb->delete( $table, array( 'size_key' => $legacy_lightbox_key ), array( '%s' ) );
 		update_option( 'avpvh_corrections_schema', self::SCHEMA_VERSION );
@@ -146,6 +150,13 @@ final class Photo_Corrections_DB {
 		}
 
 		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name cannot be a placeholder; one-time legacy schema check.
+		$table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+
+		if ( ! $table_exists ) {
+			return;
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name cannot be a placeholder; one-time legacy schema check.
 		$has_old = $wpdb->get_var( "SHOW COLUMNS FROM `{$table}` LIKE 'thumb_rotation'" );
 

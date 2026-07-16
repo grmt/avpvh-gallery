@@ -7,14 +7,21 @@
 
 namespace Avpvh\Admin\Exif_Inspector;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Client;
 use Avpvh\API_Facade;
 use Avpvh\Exceptions\API_Exception;
 use Avpvh\Exceptions\Not_Found_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Frontend\API_Fields;
+use Requests_Utility_CaseInsensitiveDictionary;
 use Throwable;
 use WP_Error;
+use WP_Http_Cookie;
+use WP_HTTP_Requests_Response;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -23,6 +30,8 @@ use WP_REST_Response;
  * REST API controller that extracts and formats EXIF data for the inspector.
  *
  * @phan-constructor-used-for-side-effects
+ *
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
 final class Exif_Data_REST {
 
@@ -123,7 +132,7 @@ final class Exif_Data_REST {
 			$params  = $request->get_json_params();
 			$file_id = isset( $params['file_id'] ) ? $params['file_id'] : '';
 
-			if ( ! isset( $file_id ) || '' === $file_id ) {
+			if ( '' === $file_id ) {
 				return new WP_Error( 'invalid_file', 'File ID is required', array( 'status' => 400 ) );
 			}
 
@@ -304,7 +313,8 @@ final class Exif_Data_REST {
 	 * Flattens exif_read_data()'s nested section→key→value structure into `SECTION:key` entries,
 	 * dropping binary/unsafe values along the way.
 	 *
-	 * @param array<string, array<string, mixed>>|false $exif_data Raw exif_read_data() output.
+	 * @param array<string, mixed>|false $exif_data Raw exif_read_data() output; not every section is
+	 *                                               guaranteed to itself be an array in the wild.
 	 *
 	 * @return array<string, mixed>
 	 */
@@ -401,10 +411,12 @@ final class Exif_Data_REST {
 	/**
 	 * Extracts the Orientation tag from a downloaded byte range, once the download itself succeeded.
 	 *
-	 * @param array<string, mixed>|WP_Error $dl_response Result of wp_remote_get().
-	 * @param string                        $temp_file   Path the response body was streamed to.
+	 * @param array{headers: Requests_Utility_CaseInsensitiveDictionary, body: string, response: array{code: int, message: string}, cookies: array<WP_Http_Cookie>, filename: string|null, http_response: WP_HTTP_Requests_Response}|array{headers: array<never>, body: string, response: array{code: false, message: false}, cookies: array<never>, http_response: null}|WP_Error $dl_response Result of wp_remote_get().
+	 * @param string                                                                                                                                                                                                                                                                                                                                                               $temp_file Path the response body was streamed to.
 	 *
 	 * @return array{orientation: int, found: bool}
+	 *
+	 * @SuppressWarnings("PHPMD.ShortVariable")
 	 */
 	private static function orientation_from_downloaded_range( $dl_response, $temp_file ) {
 		$default = array(

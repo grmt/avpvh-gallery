@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Client;
 use Avpvh\API_Facade;
 use Avpvh\Exceptions\API_Exception;
@@ -77,9 +81,9 @@ final class Gallery {
 		$pagination_helper                               = (
 			new Paging_Pagination_Helper()
 		)->withOptions( $options, true );
-		$raw_path          = GET_Helpers::get_string_variable( 'path' );
+		$raw_path                                        = GET_Helpers::get_string_variable( 'path' );
 
-		$path_name_promise = self::path_names(
+		$path_name_promise       = self::path_names(
 			'' !== $raw_path ? explode( '/', $raw_path ) : array(),
 			$options
 		);

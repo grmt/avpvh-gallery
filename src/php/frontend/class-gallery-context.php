@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Facade;
 use Avpvh\Exceptions\Directory_Not_Found_Exception;
 use Avpvh\Exceptions\Gallery_Expired_Exception;

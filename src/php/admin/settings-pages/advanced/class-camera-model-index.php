@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Settings_Pages\Advanced;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 /**
  * Renders and wires the persistent Drive camera-model index controls.
  */
@@ -54,7 +58,7 @@ final class Camera_Model_Index {
 			'avpvh-camera-model-index',
 			plugin_dir_url( __FILE__ ) . '../../../admin/js/camera-model-index.min.js',
 			array(),
-			(int) filemtime( $path ),
+			(string) filemtime( $path ),
 			true
 		);
 		wp_localize_script(

@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Client;
 use Avpvh\Exceptions\API_Exception;
 use Avpvh\Exceptions\API_Rate_Limit_Exception;
@@ -22,7 +26,6 @@ use Avpvh\Frontend\Page\Directories;
 use Avpvh\Frontend\Page\Images;
 use Avpvh\Frontend\Page\Videos;
 use Avpvh\Frontend\Paging_Pagination_Helper;
-use Avpvh\GET_Helpers;
 use Avpvh\Helpers;
 use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
 use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
@@ -78,8 +81,6 @@ final class Page {
 		$pagination_helper                               = (
 			new Paging_Pagination_Helper()
 		)->withOptions( $options, false );
-
-		$raw_path = GET_Helpers::get_string_variable( 'path' );
 
 		$page_promise = self::get( $parent_id, $pagination_helper, $options );
 		list( $page ) = API_Client::execute( array( $page_promise, $path_verification ) );

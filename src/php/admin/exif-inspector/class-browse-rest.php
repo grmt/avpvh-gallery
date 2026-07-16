@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Exif_Inspector;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\API_Client;
 use Avpvh\API_Facade;
 use Avpvh\Exceptions\API_Exception;
@@ -26,6 +30,8 @@ use WP_REST_Response;
  * REST API controller for folder/file browsing and search in the EXIF Inspector.
  *
  * @phan-constructor-used-for-side-effects
+ *
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
 final class Browse_REST {
 
@@ -40,6 +46,8 @@ final class Browse_REST {
 	 * Registers the REST routes.
 	 *
 	 * @return void
+	 *
+	 * @SuppressWarnings("PHPMD.ShortVariable")
 	 */
 	public function register_routes() {
 		register_rest_route(
@@ -106,12 +114,12 @@ final class Browse_REST {
 			$parent_id   = isset( $params['parent_id'] ) ? $params['parent_id'] : '';
 			$folder_name = isset( $params['folder_name'] ) ? $params['folder_name'] : '';
 
-			if ( ! isset( $parent_id ) || '' === $parent_id ) {
+			if ( '' === $parent_id ) {
 				$root_path = Options::$root_path->get();
 				$parent_id = end( $root_path );
 			}
 
-			if ( ! isset( $folder_name ) || '' === $folder_name ) {
+			if ( '' === $folder_name ) {
 				return new WP_Error( 'invalid_folder_name', 'Folder name is required', array( 'status' => 400 ) );
 			}
 
@@ -143,13 +151,15 @@ final class Browse_REST {
 	 * @param WP_REST_Request $request The request object.
 	 *
 	 * @return WP_REST_Response|WP_Error
+	 *
+	 * @SuppressWarnings("PHPMD.ShortVariable")
 	 */
 	public function list_files( $request ) {
 		try {
 			$params    = $request->get_json_params();
 			$parent_id = isset( $params['parent_id'] ) ? $params['parent_id'] : '';
 
-			if ( ! isset( $parent_id ) || '' === $parent_id ) {
+			if ( '' === $parent_id ) {
 				return new WP_Error( 'invalid_parent', 'Parent ID is required', array( 'status' => 400 ) );
 			}
 
@@ -298,6 +308,8 @@ final class Browse_REST {
 	 * @return string The matching folder's ID (or shortcut target ID).
 	 *
 	 * @throws Directory_Not_Found_Exception When no matching folder is found.
+	 *
+	 * @SuppressWarnings("PHPMD.ShortVariable")
 	 */
 	private static function find_folder_id_by_name( $parent_id, $folder_name ) {
 		$drive = API_Client::get_drive_client();
@@ -496,6 +508,8 @@ final class Browse_REST {
 	 * @param array<int, array<string>> $pending Folder index → parent IDs still to verify.
 	 *
 	 * @return array<string, array<string>>|null Parents keyed by ID, or null on API failure.
+	 *
+	 * @SuppressWarnings("PHPMD.ShortVariable")
 	 */
 	private static function fetch_parents_for_pending( array $pending ) {
 		$all_ids = array();

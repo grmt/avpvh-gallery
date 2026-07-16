@@ -7,6 +7,10 @@
 
 namespace Avpvh;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Admin\Settings_Pages;
 use Avpvh\Admin\TinyMCE_Plugin;
 use Avpvh\Frontend\Block;
@@ -50,6 +54,8 @@ final class Main {
 
 	/**
 	 * Loads the plugin textdomain on the init hook.
+	 *
+	 * @return void
 	 */
 	public static function load_textdomain() {
 		load_plugin_textdomain( 'avpvh-gallery', false, dirname( plugin_basename( __FILE__ ) ) . '/languages/' );

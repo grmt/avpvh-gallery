@@ -7,6 +7,10 @@
 
 namespace Avpvh;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Exceptions\Exception as Avpvh_Exception;
 use Exception as Base_Exception;
 use const WP_DEBUG;

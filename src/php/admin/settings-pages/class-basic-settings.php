@@ -7,6 +7,10 @@
 
 namespace Avpvh\Admin\Settings_Pages;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Admin\Settings_Pages\Basic\OAuth_Grant;
 use Avpvh\Admin\Settings_Pages\Basic\OAuth_Revoke;
 use Avpvh\Admin\Settings_Pages\Basic\Root_Selection;
