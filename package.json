@@ -54,7 +54,7 @@
     "plugin-check": "wp-env start && wp-env run cli wp plugin check skaut-google-drive-gallery --ignore-codes=missing_composer_json_file; CODE=$?; wp-env stop; exit $CODE"
   },
   "engines": {
-    "npm": "^8.0.0"
+    "npm": "^11.0.0"
   },
   "dependencies": {
     "imagesloaded": "^5.0.0",

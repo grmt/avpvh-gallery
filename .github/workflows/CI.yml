@@ -5,6 +5,8 @@ on:
   pull_request:
 env:
   php-version: 8.3
+  node-version: 24.16.0
+  npm-version: 11.13.0
   cache-version: 1
 jobs:
   platform-check:
@@ -50,6 +52,11 @@ jobs:
         run: |
           composer install -n --prefer-dist
 
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.node-version }}
+
       - name: "Cache NPM dependencies"
         uses: actions/cache@v5
         with:
@@ -58,6 +65,10 @@ jobs:
           restore-keys: |
             npm-dependencies-${{ runner.os }}-${{ env.cache-version }}-${{ hashFiles('package.json') }}
             npm-dependencies-${{ runner.os }}-${{ env.cache-version }}-
+
+      - name: "Pin npm version"
+        run: |
+          npm install -g npm@${{ env.npm-version }}
 
       - name: "Install NPM dependencies"
         run: |
@@ -118,6 +129,11 @@ jobs:
         run: |
           composer install -n --prefer-dist
 
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.node-version }}
+
       - name: "Cache NPM dependencies"
         uses: actions/cache@v5
         with:
@@ -126,6 +142,10 @@ jobs:
           restore-keys: |
             npm-dependencies-${{ runner.os }}-${{ env.cache-version }}-${{ hashFiles('package.json') }}
             npm-dependencies-${{ runner.os }}-${{ env.cache-version }}-
+
+      - name: "Pin npm version"
+        run: |
+          npm install -g npm@${{ env.npm-version }}
 
       - name: "Install NPM dependencies"
         run: |
@@ -192,6 +212,11 @@ jobs:
         run: |
           composer update -n --prefer-dist
 
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.node-version }}
+
       - name: "Cache NPM dependencies"
         uses: actions/cache@v5
         with:
@@ -200,6 +225,10 @@ jobs:
           restore-keys: |
             npm-dependencies-${{ runner.os }}-${{ env.cache-version }}-${{ hashFiles('package.json') }}
             npm-dependencies-${{ runner.os }}-${{ env.cache-version }}-
+
+      - name: "Pin npm version"
+        run: |
+          npm install -g npm@${{ env.npm-version }}
 
       - name: "Install NPM dependencies"
         run: |
