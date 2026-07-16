@@ -3,7 +3,7 @@
 		"https://downloads.wordpress.org/plugin/plugin-check.latest-stable.zip"
 	],
 	"mappings": {
-		"wp-content/plugins/skaut-google-drive-gallery": "./dist"
+		"wp-content/plugins/avpvh-gallery": "./dist"
 	},
 	"testsEnvironment": false
 }

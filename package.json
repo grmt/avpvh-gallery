@@ -51,7 +51,7 @@
     "posttest:php:phpunit": "composer install",
     "test:php": "run-p -c --aggregate-output test:php:*",
     "test": "run-p -c --aggregate-output test:*",
-    "plugin-check": "wp-env start && wp-env run cli wp plugin check skaut-google-drive-gallery --ignore-codes=missing_composer_json_file; CODE=$?; wp-env stop; exit $CODE"
+    "plugin-check": "wp-env start && wp-env run cli wp plugin check avpvh-gallery --ignore-codes=missing_composer_json_file; CODE=$?; wp-env stop; exit $CODE"
   },
   "engines": {
     "npm": "^11.0.0"
