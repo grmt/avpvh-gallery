@@ -53,7 +53,7 @@ jobs:
           composer install -n --prefer-dist
 
       - name: "Setup Node.js"
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.node-version }}
 
@@ -130,7 +130,7 @@ jobs:
           composer install -n --prefer-dist
 
       - name: "Setup Node.js"
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.node-version }}
 
@@ -213,7 +213,7 @@ jobs:
           composer update -n --prefer-dist
 
       - name: "Setup Node.js"
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.node-version }}
 
