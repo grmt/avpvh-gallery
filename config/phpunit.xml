@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd" backupGlobals="false" bootstrap="../tests/bootstrap.php" cacheResult="false" colors="true" processIsolation="false" stopOnError="false" stopOnFailure="false" stopOnIncomplete="false" stopOnSkipped="false" stopOnRisky="false" timeoutForSmallTests="1" timeoutForMediumTests="10" timeoutForLargeTests="60">
-  <coverage processUncoveredFiles="true">
+  <coverage processUncoveredFiles="false">
     <include>
       <directory suffix=".php">../dist/</directory>
     </include>
