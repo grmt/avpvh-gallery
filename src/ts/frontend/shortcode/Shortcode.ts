@@ -194,8 +194,10 @@ export class Shortcode {
 				this.rateLimited = false;
 				Shortcode.syncSlideNaturalDimensions(e.slide);
 				const pswp = this.lightbox.pswp;
-				if (pswp !== undefined && e.slide === pswp.currSlide) {
-					this.startSlideshow(pswp);
+				if (pswp !== undefined) {
+					if (e.slide === pswp.currSlide) {
+						this.startSlideshow(pswp);
+					}
 				}
 			}
 		});
@@ -691,7 +693,7 @@ export class Shortcode {
 						}
 					);
 					el.addEventListener('click', () => {
-						const text = pathLine.textContent ?? '';
+						const text = pathLine.textContent;
 						void navigator.clipboard.writeText(text).then(() => {
 							const original = pathLine.textContent;
 							pathLine.textContent = 'Gekopieerd!';
@@ -1333,7 +1335,7 @@ export class Shortcode {
 		const ua = navigator.userAgent;
 		const isIOS = /iP(hone|ad|od)/.test(ua);
 		const isIPadOS =
-			// eslint-disable-next-line deprecation/deprecation -- no non-deprecated equivalent exists; userAgentData is unsupported in Safari
+			// eslint-disable-next-line @typescript-eslint/no-deprecated -- no non-deprecated equivalent exists; userAgentData is unsupported in Safari
 			navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
 		return (
 			(isIOS || isIPadOS) &&

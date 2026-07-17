@@ -20,9 +20,7 @@ export abstract class AvpvhSettingsComponent extends Component<
 		super(props);
 		const { editor, name } = this.props;
 		let value = editor.getAttribute(name) as string | undefined;
-		if (undefined === value) {
-			value = avpvhBlockLocalize[name].default;
-		}
+		value ??= avpvhBlockLocalize[name].default;
 		this.state = { value };
 	}
 

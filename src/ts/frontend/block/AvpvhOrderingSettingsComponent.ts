@@ -22,14 +22,9 @@ export class AvpvhOrderingSettingsComponent extends Component<
 		const { editor, name } = this.props;
 		let valueBy = editor.getAttribute(name + '_by') as string | undefined;
 		let valueOrder = editor.getAttribute(name + '_order') as
-			| string
-			| undefined;
-		if (undefined === valueBy) {
-			valueBy = avpvhBlockLocalize[name].default_by;
-		}
-		if (undefined === valueOrder) {
-			valueOrder = avpvhBlockLocalize[name].default_order;
-		}
+			string | undefined;
+		valueBy ??= avpvhBlockLocalize[name].default_by;
+		valueOrder ??= avpvhBlockLocalize[name].default_order;
 		this.state = { valueBy, valueOrder };
 	}
 

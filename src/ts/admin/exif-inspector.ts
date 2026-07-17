@@ -723,7 +723,7 @@ class ExifInspector {
 		const item = document.querySelector<HTMLElement>(
 			`.preview-item[data-size-key="${sizeKey}"]`
 		);
-		const text = item?.querySelector('h4')?.textContent?.trim();
+		const text = item?.querySelector('h4')?.textContent.trim();
 		return text !== undefined && text !== '' ? text : sizeKey;
 	}
 
@@ -748,7 +748,7 @@ class ExifInspector {
 	private static buildSortedPreviews(
 		thumbLink: string
 	): Array<{ key: string; label: string; url: string; sortPx: number }> {
-		const ps = Number(avpvhExifInspector.preview_size);
+		const ps = avpvhExifInspector.preview_size;
 		const gridH = Math.floor(1.25 * avpvhExifInspector.grid_height);
 		const gridUrl = thumbLink.replace(/=s\d+$/, `=h${String(gridH)}`);
 
@@ -850,10 +850,7 @@ class ExifInspector {
 		// Reset to 2-column header while loading so the table doesn't look broken
 		const table = document.querySelector<HTMLTableElement>('.exif-table');
 		if (table) {
-			let thead = table.querySelector('thead');
-			if (!thead) {
-				thead = table.createTHead();
-			}
+			const thead = table.querySelector('thead') ?? table.createTHead();
 			thead.innerHTML = '<tr><th>Veld</th><th>Waarde</th></tr>';
 		}
 		tbody.innerHTML =
@@ -2216,7 +2213,7 @@ class ExifInspector {
 						message?: string;
 					};
 					errorMsg = errorData.message ?? errorMsg;
-				} catch (e) {
+				} catch {
 					// Could not parse JSON error response
 				}
 				throw new Error(
@@ -2246,9 +2243,7 @@ class ExifInspector {
 					)
 					.catch(() => null);
 
-				const parentName =
-					(parentMeta as { file: FileData } | null)?.file.name ??
-					parentId;
+				const parentName = parentMeta?.file.name ?? parentId;
 				this.folderStack = [];
 				await this.loadFilesByFolderSelectingId(
 					parentId,
@@ -2301,7 +2296,7 @@ class ExifInspector {
 					code?: string;
 				};
 				errorMsg = errorData.message ?? errorMsg;
-			} catch (e) {
+			} catch {
 				// Could not parse JSON error response
 			}
 			throw new Error(
@@ -2968,7 +2963,7 @@ class ExifInspector {
 				};
 				this.folderTransformsBySize = data.corrections ?? {};
 			}
-		} catch (e) {
+		} catch {
 			/* non-fatal */
 		}
 		this.updateFolderCorrectionUi();
@@ -3370,7 +3365,7 @@ class ExifInspector {
 							}
 						}
 					}
-				} catch (_) {
+				} catch {
 					/* ignore per-file errors */
 				}
 			}
@@ -3405,7 +3400,7 @@ class ExifInspector {
 					code?: string;
 				};
 				errorMsg = errorData.message ?? errorMsg;
-			} catch (e) {
+			} catch {
 				// Could not parse JSON error response
 			}
 			throw new Error(
@@ -3462,7 +3457,7 @@ class ExifInspector {
 				select.appendChild(new Option(model, model));
 			}
 			select.disabled = false;
-		} catch (_) {
+		} catch {
 			if (epoch === this.modelOptionsEpoch) {
 				select.replaceChildren(
 					new Option('Modelindex niet beschikbaar', '')
@@ -3637,7 +3632,7 @@ class ExifInspector {
 				};
 				corrections = data.corrections ?? {};
 			}
-		} catch (e) {
+		} catch {
 			/* non-fatal */
 		}
 		if (this.currentFile !== file) {
@@ -4196,7 +4191,7 @@ class ExifInspector {
 		tbody: HTMLTableSectionElement
 	): void {
 		const sources = ['original', ...Object.keys(this.previewExifData)];
-		const ps = Number(avpvhExifInspector.preview_size);
+		const ps = avpvhExifInspector.preview_size;
 		const sourceLabels: Record<string, string> = {
 			original: 'Origineel',
 			grid: `Miniatuur (h${String(Math.floor(1.25 * avpvhExifInspector.grid_height))})`,
@@ -4208,10 +4203,7 @@ class ExifInspector {
 		};
 
 		// Rebuild thead with one column per source
-		let thead = table.querySelector('thead');
-		if (!thead) {
-			thead = table.createTHead();
-		}
+		const thead = table.querySelector('thead') ?? table.createTHead();
 		thead.innerHTML = '';
 		const headerRow = thead.insertRow();
 		const thField = document.createElement('th');
@@ -4821,16 +4813,18 @@ class ExifInspector {
 			item.querySelector('.vflip-btn')?.addEventListener('click', () => {
 				this.flipPreview(sizeKey, 'v');
 			});
-			item
-				.querySelector('.apply-all-btn')
-				?.addEventListener('click', () => {
+			item.querySelector('.apply-all-btn')?.addEventListener(
+				'click',
+				() => {
 					this.applyToAllSizes(sizeKey);
-				});
-			item
-				.querySelector('.reset-variant-btn')
-				?.addEventListener('click', () => {
+				}
+			);
+			item.querySelector('.reset-variant-btn')?.addEventListener(
+				'click',
+				() => {
 					void this.resetVariantCorrection(sizeKey);
-				});
+				}
+			);
 		}
 		this.updateCorrectionIndicators();
 	}
@@ -4983,8 +4977,7 @@ class ExifInspector {
 			activeOwnKeys.every((key) => {
 				const t = ExifInspector.maybe(this.transformsBySize[key]);
 				return (
-					t !== undefined &&
-					t.r === firstOwn.r &&
+					t?.r === firstOwn.r &&
 					t.h === firstOwn.h &&
 					t.v === firstOwn.v
 				);
