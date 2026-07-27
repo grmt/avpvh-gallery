@@ -857,6 +857,24 @@ class ExifInspector {
 		}
 	}
 
+	// Corrections load asynchronously after the preview panels are already rendered;
+	// disable editing until the real saved values are in, so a rotate/apply-all click
+	// can't compute its baseline from a stale/default transform and clobber an
+	// already-saved correction for a size the admin never touched.
+	private static setPreviewButtonsLoaded(loaded: boolean): void {
+		const container = document.getElementById('previews-container');
+		if (!container) {
+			return;
+		}
+		container
+			.querySelectorAll<HTMLButtonElement>(
+				'.rotate-btn, .hflip-btn, .vflip-btn, .apply-all-btn'
+			)
+			.forEach((btn) => {
+				btn.disabled = !loaded;
+			});
+	}
+
 	private static showExifLoading(): void {
 		const tbody = document.querySelector('.exif-table tbody');
 		if (!tbody) {
@@ -1682,6 +1700,22 @@ class ExifInspector {
 					.preview-image-wrap:hover .apply-all-btn,
 					.preview-image-wrap:hover .reset-variant-btn {
 						opacity: 1;
+					}
+
+					/* Touch devices have no persistent :hover state, so hover-reveal alone
+					   leaves these buttons unreachable — always show them here instead. */
+					@media (hover: none), (pointer: coarse) {
+						.rotate-btn, .hflip-btn, .vflip-btn, .apply-all-btn, .reset-variant-btn {
+							opacity: 1;
+						}
+					}
+
+					.rotate-btn:disabled,
+					.hflip-btn:disabled,
+					.vflip-btn:disabled,
+					.apply-all-btn:disabled {
+						opacity: 0.3 !important;
+						cursor: wait;
 					}
 
 					.photo-correction-overview {
@@ -3116,7 +3150,11 @@ class ExifInspector {
 	private async setPhotoFolderException(
 		ignoreFolder: boolean
 	): Promise<void> {
-		if (!this.currentFile || !this.folderMirrorActive()) {
+		if (
+			!this.currentFile ||
+			!this.folderMirrorActive() ||
+			!this.photoCorrectionsLoaded
+		) {
 			return;
 		}
 		const currentFileId = this.currentFile.id;
@@ -3658,6 +3696,7 @@ class ExifInspector {
 		this.applyAllPreviewTransforms();
 		ExifInspector.displayCorrectionsInTable(this.transformsBySize);
 		this.photoCorrectionsLoaded = true;
+		ExifInspector.setPreviewButtonsLoaded(true);
 		this.updateFolderCorrectionUi();
 		this.updateCorrectionIndicators();
 	}
@@ -4842,6 +4881,7 @@ class ExifInspector {
 			);
 		}
 		this.updateCorrectionIndicators();
+		ExifInspector.setPreviewButtonsLoaded(false);
 	}
 
 	private displayVideoPreviews(
@@ -4909,6 +4949,9 @@ class ExifInspector {
 	}
 
 	private rotatePreview(sizeKey: string): void {
+		if (!this.photoCorrectionsLoaded) {
+			return;
+		}
 		const cur = this.effectiveTransform(sizeKey);
 		const next = { ...cur, r: (cur.r + 90) % 360 };
 		this.transformsBySize[sizeKey] = next;
@@ -4922,6 +4965,9 @@ class ExifInspector {
 	}
 
 	private flipPreview(sizeKey: string, axis: 'h' | 'v'): void {
+		if (!this.photoCorrectionsLoaded) {
+			return;
+		}
 		const cur = this.effectiveTransform(sizeKey);
 		const next =
 			axis === 'h' ? { ...cur, h: !cur.h } : { ...cur, v: !cur.v };
@@ -4937,7 +4983,7 @@ class ExifInspector {
 
 	private applyToAllSizes(sourceSizeKey: string): void {
 		const container = document.getElementById('previews-container');
-		if (!container || !this.currentFile) {
+		if (!container || !this.currentFile || !this.photoCorrectionsLoaded) {
 			return;
 		}
 		const src = this.effectiveTransform(sourceSizeKey);
@@ -5066,7 +5112,9 @@ class ExifInspector {
 			const scope = item.querySelector<HTMLElement>('.correction-scope');
 			const reset = item.querySelector<HTMLElement>('.reset-variant-btn');
 			if (scope) {
-				if (own && ExifInspector.identityTransform(t)) {
+				if (!this.photoCorrectionsLoaded) {
+					scope.textContent = 'Correcties laden…';
+				} else if (own && ExifInspector.identityTransform(t)) {
 					scope.textContent = 'Deze foto · mapcorrectie genegeerd';
 				} else if (own) {
 					scope.textContent = sameOnAllFormats
