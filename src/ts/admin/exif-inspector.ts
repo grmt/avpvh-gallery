@@ -999,10 +999,6 @@ class ExifInspector {
 							</div>
 						</div>
 					</div>
-					<div id="folder-correction-bar" class="folder-correction-bar" style="display:none;">
-						<button id="folder-mirror-btn" type="button">Hele map spiegelen</button>
-						<span id="folder-correction-status">Nieuwe foto's erven deze correctie automatisch.</span>
-					</div>
 				</div>
 				</details>
 
@@ -1016,13 +1012,17 @@ class ExifInspector {
 							<a id="original-download-link" target="_blank" class="download-link" style="display:none;font-size:13px;">Origineel downloaden</a>
 							<button id="original-fullscreen-btn" type="button" class="fullscreen-btn" style="display:none;font-size:13px;">Volledig scherm (1920px)</button>
 							<p id="original-size"></p>
-						</div>
-						<div class="previews-section">
-							<h3>Voorbeeldformaten</h3>
 							<div class="photo-correction-overview">
 								<div id="photo-correction-summary"></div>
 								<button id="reset-photo-corrections" type="button" style="display:none;">Individuele correcties ongedaan maken</button>
 							</div>
+						</div>
+						<div id="folder-correction-bar" class="folder-correction-bar" style="display:none;">
+							<button id="folder-mirror-btn" type="button">Hele map spiegelen</button>
+							<span id="folder-correction-status">Nieuwe foto's erven deze correctie automatisch.</span>
+						</div>
+						<div class="previews-section">
+							<h3>Voorbeeldformaten</h3>
 							<div id="previews-container" class="previews-container"></div>
 						</div>
 
@@ -1052,7 +1052,7 @@ class ExifInspector {
 					}
 
 					.inspector-work-section {
-						margin: 0 0 22px;
+						margin: 0 0 10px;
 						padding: 18px;
 						background: #fff;
 						border: 1px solid #dcdcde;
@@ -1515,8 +1515,9 @@ class ExifInspector {
 					.original-actions {
 						display: flex;
 						align-items: center;
+						flex-wrap: wrap;
 						gap: 10px;
-						margin-bottom: 16px;
+						margin-bottom: 10px;
 					}
 
 					.original-actions .download-link {
@@ -1723,9 +1724,9 @@ class ExifInspector {
 						background: #f0f6fc;
 						border-left: 3px solid #2271b1;
 						display: flex;
+						flex: 1 1 260px;
 						gap: 12px;
 						justify-content: space-between;
-						margin-bottom: 12px;
 						padding: 8px 10px;
 					}
 
