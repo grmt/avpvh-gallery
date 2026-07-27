@@ -1724,9 +1724,10 @@ class ExifInspector {
 						background: #f0f6fc;
 						border-left: 3px solid #2271b1;
 						display: flex;
-						flex: 1 1 260px;
+						flex: 0 1 380px;
 						gap: 12px;
 						justify-content: space-between;
+						margin-left: auto;
 						padding: 8px 10px;
 					}
 
@@ -5045,7 +5046,7 @@ class ExifInspector {
 				);
 			});
 
-		const lines: Array<string> = [];
+		const lines: Array<{ text: string; emphasize?: boolean }> = [];
 		const rawExifOrientation =
 			this.fullExifData['IFD0:Orientation'] ??
 			this.fullExifData['Orientation'];
@@ -5055,28 +5056,35 @@ class ExifInspector {
 			exifOrientation >= 1 &&
 			exifOrientation <= 8
 		) {
-			lines.push(
-				`EXIF origineel: Orientation ${String(exifOrientation)} · ${ExifInspector.orientationDescription(exifOrientation)}`
-			);
+			lines.push({
+				text: `EXIF origineel: Orientation ${String(exifOrientation)} · ${ExifInspector.orientationDescription(exifOrientation)}`,
+			});
 		} else {
-			lines.push('EXIF origineel: geen Orientation-tag gevonden');
+			lines.push({
+				text: 'EXIF origineel: geen Orientation-tag gevonden',
+			});
 		}
 
 		if (sameOnAllFormats) {
-			lines.push(
-				`Handmatig: deze foto · alle formaten · ${ExifInspector.transformDescription(firstOwn)}`
-			);
+			lines.push({
+				text: `Handmatig: deze foto · alle formaten · ${ExifInspector.transformDescription(firstOwn)}`,
+				emphasize: true,
+			});
 		} else if (activeOwnKeys.length > 0) {
 			const labels = activeOwnKeys
 				.map((key) => ExifInspector.previewSizeLabel(key))
 				.join(', ');
-			lines.push(`Handmatig: deze foto · alleen ${labels}`);
+			lines.push({
+				text: `Handmatig: deze foto · alleen ${labels}`,
+				emphasize: true,
+			});
 		} else if (ownKeys.length > 0) {
-			lines.push(
-				'Handmatig: deze foto · mapcorrectie expliciet genegeerd'
-			);
+			lines.push({
+				text: 'Handmatig: deze foto · mapcorrectie expliciet genegeerd',
+				emphasize: true,
+			});
 		} else {
-			lines.push('Handmatig: geen individuele fotocorrectie');
+			lines.push({ text: 'Handmatig: geen individuele fotocorrectie' });
 		}
 
 		const folderKeys = Object.keys(this.folderTransformsBySize).filter(
@@ -5086,12 +5094,15 @@ class ExifInspector {
 			}
 		);
 		if (folderKeys.length > 0) {
-			lines.push(
-				`Mapcorrectie: hele map · ${folderKeys.map((key) => ExifInspector.previewSizeLabel(key)).join(', ')}`
-			);
+			lines.push({
+				text: `Mapcorrectie: hele map · ${folderKeys.map((key) => ExifInspector.previewSizeLabel(key)).join(', ')}`,
+			});
 		}
 		summary.innerHTML = lines
-			.map((line) => `<div>${ExifInspector.escapeHtml(line)}</div>`)
+			.map(
+				({ text, emphasize }) =>
+					`<div${emphasize === true ? ' style="color:#c00;font-weight:600"' : ''}>${ExifInspector.escapeHtml(text)}</div>`
+			)
 			.join('');
 		if (resetAll) {
 			resetAll.style.display = ownKeys.length > 0 ? '' : 'none';
