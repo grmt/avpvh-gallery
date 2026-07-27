@@ -149,7 +149,7 @@ final class Corrections_REST {
 						'size_key'  => $size_key,
 						'v_flip'    => 0,
 					),
-					array( '%s', '%s', '%d', '%d', '%d' )
+					array( '%s', '%d', '%d', '%s', '%d' )
 				);
 			} else {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
@@ -244,7 +244,7 @@ final class Corrections_REST {
 					'size_key' => $c['size_key'],
 					'v_flip'   => $c['v_flip'],
 				),
-				array( '%s', '%s', '%d', '%d', '%d' )
+				array( '%d', '%s', '%d', '%s', '%d' )
 			);
 		}
 

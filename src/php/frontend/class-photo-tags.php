@@ -79,7 +79,7 @@ final class Photo_Tags {
 				'member_name' => $member_name,
 				'region_data' => $region_data,
 			),
-			array( '%s', '%d', '%s', '%s', '%d', '%s' ),
+			array( '%s', '%d', '%s', '%d', '%s', '%s' ),
 			esc_html__( 'Failed to create tag', 'avpvh-gallery' )
 		);
 
@@ -250,7 +250,7 @@ final class Photo_Tags {
 				'tag_id'       => $tag_id,
 				'user_id'      => get_current_user_id(),
 			),
-			array( '%d', '%d', '%s', '%s' ),
+			array( '%s', '%s', '%d', '%d' ),
 			esc_html__( 'Failed to create comment', 'avpvh-gallery' )
 		);
 
@@ -297,7 +297,7 @@ final class Photo_Tags {
 					'tag_id'  => $tag_id,
 					'user_id' => $user_id,
 				),
-				array( '%d', '%d', '%s' )
+				array( '%s', '%d', '%d' )
 			);
 		} else {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- custom plugin table, no cache group defined.
@@ -309,7 +309,7 @@ final class Photo_Tags {
 					'tag_id'     => $tag_id,
 					'user_id'    => $user_id,
 				),
-				array( '%d', '%d', '%s', '%s' )
+				array( '%s', '%s', '%d', '%d' )
 			);
 		}
 

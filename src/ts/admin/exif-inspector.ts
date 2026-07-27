@@ -52,6 +52,8 @@ declare const avpvhExifInspector: {
 };
 
 class ExifInspector {
+	private static readonly SAVE_DEBOUNCE_MS = 500;
+
 	// Human-readable descriptions for common EXIF field keys (shown as tooltip on field name cell).
 	private static readonly EXIF_DESCRIPTIONS: Record<string, string> = {
 		// FILE section (PHP exif_read_data FILE block)
@@ -426,6 +428,16 @@ class ExifInspector {
 	private photoCorrectionsLoaded = false;
 	private embeddedThumb: { src: string; w: number; h: number } | null = null;
 	private readonly pendingCorrectionSaves = new Set<Promise<void>>();
+	private readonly debouncedSaves = new Map<
+		string,
+		{
+			timer: ReturnType<typeof setTimeout>;
+			fileId: string;
+			sizeKey: string;
+			transform: { r: number; h: boolean; v: boolean };
+			inherit: boolean;
+		}
+	>();
 	private excludedPhotoIds = new Set<string>();
 	private folderStack: Array<{ id: string; name: string }> = [];
 	private fullscreenViewerEl: HTMLDivElement | null = null;
@@ -447,6 +459,9 @@ class ExifInspector {
 		this.restUrl = avpvhExifInspector.rest_url;
 		this.nonce = avpvhExifInspector.nonce;
 		this.init();
+		window.addEventListener('beforeunload', () => {
+			this.flushPendingSaves();
+		});
 	}
 
 	// When the filter gives 0 results, fall back to all files so the user can still navigate.
@@ -4899,7 +4914,7 @@ class ExifInspector {
 		this.transformsBySize[sizeKey] = next;
 		this.applyAllPreviewTransforms();
 		if (this.currentFile) {
-			void this.saveTransform(this.currentFile.id, sizeKey, next);
+			this.queueSaveTransform(this.currentFile.id, sizeKey, next);
 		}
 		ExifInspector.displayCorrectionsInTable(this.transformsBySize);
 		this.updateFolderCorrectionUi();
@@ -4913,7 +4928,7 @@ class ExifInspector {
 		this.transformsBySize[sizeKey] = next;
 		this.applyAllPreviewTransforms();
 		if (this.currentFile) {
-			void this.saveTransform(this.currentFile.id, sizeKey, next);
+			this.queueSaveTransform(this.currentFile.id, sizeKey, next);
 		}
 		ExifInspector.displayCorrectionsInTable(this.transformsBySize);
 		this.updateFolderCorrectionUi();
@@ -4933,7 +4948,7 @@ class ExifInspector {
 				const sizeKey = item.getAttribute('data-size-key') ?? '';
 				this.transformsBySize[sizeKey] = { ...src };
 				ExifInspector.applyTransformToItem(item, src);
-				void this.saveTransform(file.id, sizeKey, src);
+				this.queueSaveTransform(file.id, sizeKey, src);
 			});
 		this.applyAllPreviewTransforms();
 		ExifInspector.displayCorrectionsInTable(this.transformsBySize);
@@ -5132,6 +5147,49 @@ class ExifInspector {
 			});
 	}
 
+	// Rotating is 3 clicks (0→90→180→270) to reach a quarter turn the other way, all
+	// fired within a second or so — only the final value after the click burst settles
+	// is worth a network round trip.
+	private queueSaveTransform(
+		fileId: string,
+		sizeKey: string,
+		t: { r: number; h: boolean; v: boolean },
+		inherit = false
+	): void {
+		const key = `${fileId}:${sizeKey}`;
+		const existing = this.debouncedSaves.get(key);
+		if (existing) {
+			clearTimeout(existing.timer);
+		}
+		const timer = setTimeout(() => {
+			this.debouncedSaves.delete(key);
+			void this.saveTransform(fileId, sizeKey, t, inherit);
+		}, ExifInspector.SAVE_DEBOUNCE_MS);
+		this.debouncedSaves.set(key, {
+			fileId,
+			inherit,
+			sizeKey,
+			timer,
+			transform: t,
+		});
+	}
+
+	// Sends any debounced-but-not-yet-fired saves immediately. Must run before
+	// navigating to another photo, resuming the slideshow, or unloading the page —
+	// otherwise a still-pending rotation is silently dropped.
+	private flushPendingSaves(): void {
+		this.debouncedSaves.forEach((entry, key) => {
+			clearTimeout(entry.timer);
+			this.debouncedSaves.delete(key);
+			void this.saveTransform(
+				entry.fileId,
+				entry.sizeKey,
+				entry.transform,
+				entry.inherit
+			);
+		});
+	}
+
 	private async saveTransform(
 		fileId: string,
 		sizeKey: string,
@@ -5153,10 +5211,19 @@ class ExifInspector {
 				inherit,
 			}),
 			credentials: 'include',
+			keepalive: true,
 		})
-			.then(() => undefined)
+			.then((response) => {
+				if (!response.ok) {
+					ExifInspector.showError(
+						`Opslaan van correctie mislukt (${String(response.status)}). Herlaad de pagina en probeer opnieuw.`
+					);
+				}
+			})
 			.catch(() => {
-				/* non-fatal */
+				ExifInspector.showError(
+					'Opslaan van correctie mislukt: geen verbinding met de server.'
+				);
 			})
 			.finally(() => this.pendingCorrectionSaves.delete(save));
 		this.pendingCorrectionSaves.add(save);
@@ -5433,6 +5500,7 @@ class ExifInspector {
 
 	private previousFile(): void {
 		if (this.currentFileIndex > 0) {
+			this.flushPendingSaves();
 			this.currentFileIndex--;
 			this.updateThumbSelection();
 			this.updateTableSelection();
@@ -5444,6 +5512,7 @@ class ExifInspector {
 		if (!this.currentFile) {
 			return;
 		}
+		this.flushPendingSaves();
 		await Promise.all(Array.from(this.pendingCorrectionSaves));
 		const command = {
 			type: 'avpvh-resume-slideshow',
@@ -5548,6 +5617,7 @@ class ExifInspector {
 
 	private nextFile(): void {
 		if (this.currentFileIndex < this.allFiles.length - 1) {
+			this.flushPendingSaves();
 			this.currentFileIndex++;
 			this.updateThumbSelection();
 			this.updateTableSelection();
