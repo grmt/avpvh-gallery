@@ -3978,7 +3978,20 @@ class ExifInspector {
 		});
 	}
 
+	// displayExifData() and loadCorrections() are two independent async fetches
+	// kicked off around the same time in displayCurrentFile(); whichever settles
+	// last determines what the EXIF table shows. renderExifTableBody() always
+	// wipes and rebuilds the table body (multiple early-return branches below),
+	// so if it settles after loadCorrections() has already appended correction
+	// rows via displayCorrectionsInTable(), those rows would otherwise vanish
+	// with nothing to re-add them. Re-applying corrections after every render
+	// keeps the table correct regardless of which fetch wins the race.
 	private displayExifData(): void {
+		this.renderExifTableBody();
+		ExifInspector.displayCorrectionsInTable(this.transformsBySize);
+	}
+
+	private renderExifTableBody(): void {
 		const tbody =
 			document.querySelector<HTMLTableSectionElement>(
 				'.exif-table tbody'
@@ -5047,6 +5060,24 @@ class ExifInspector {
 			});
 
 		const lines: Array<{ text: string; emphasize?: boolean }> = [];
+		const createdTime = this.currentFile?.createdTime;
+		if (createdTime !== undefined && createdTime !== '') {
+			const created = new Date(createdTime);
+			if (!isNaN(created.getTime())) {
+				lines.push({
+					text: `Geüpload naar Drive: ${created.toLocaleString(
+						'nl-NL',
+						{
+							year: 'numeric',
+							month: '2-digit',
+							day: '2-digit',
+							hour: '2-digit',
+							minute: '2-digit',
+						}
+					)}`,
+				});
+			}
+		}
 		const rawExifOrientation =
 			this.fullExifData['IFD0:Orientation'] ??
 			this.fullExifData['Orientation'];
