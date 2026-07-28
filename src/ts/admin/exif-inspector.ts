@@ -1009,13 +1009,13 @@ class ExifInspector {
 							<div><h2>Formaten vergelijken</h2><p>Bekijk het origineel, de voorbeeldformaten en miniaturen.</p></div>
 						</summary>
 						<div class="original-actions">
-							<a id="original-download-link" target="_blank" class="download-link" style="display:none;font-size:13px;">Origineel downloaden</a>
-							<button id="original-fullscreen-btn" type="button" class="fullscreen-btn" style="display:none;font-size:13px;">Volledig scherm (1920px)</button>
-							<p id="original-size"></p>
 							<div class="photo-correction-overview">
 								<div id="photo-correction-summary"></div>
 								<button id="reset-photo-corrections" type="button" style="display:none;">Individuele correcties ongedaan maken</button>
 							</div>
+							<a id="original-download-link" target="_blank" class="download-link" style="display:none;font-size:13px;">Origineel downloaden</a>
+							<button id="original-fullscreen-btn" type="button" class="fullscreen-btn" style="display:none;font-size:13px;">Volledig scherm (1920px)</button>
+							<p id="original-size"></p>
 						</div>
 						<div id="folder-correction-bar" class="folder-correction-bar" style="display:none;">
 							<button id="folder-mirror-btn" type="button">Hele map spiegelen</button>
@@ -1522,6 +1522,7 @@ class ExifInspector {
 
 					.original-actions .download-link {
 						margin-bottom: 0;
+						margin-left: auto;
 					}
 
 					.fullscreen-btn {
@@ -1727,7 +1728,6 @@ class ExifInspector {
 						flex: 0 1 380px;
 						gap: 12px;
 						justify-content: space-between;
-						margin-left: auto;
 						padding: 8px 10px;
 					}
 
@@ -3096,6 +3096,21 @@ class ExifInspector {
 			Object.prototype.hasOwnProperty.call(this.transformsBySize, sizeKey)
 		) {
 			return this.transformsBySize[sizeKey];
+		}
+		// Mirrors resolve_size_correction()'s fallback in class-images.php: a
+		// correction saved under the legacy `s{preview_size}` key (e.g. from
+		// before the config's preview_size matched this size, or from an older
+		// build) still counts as the effective lightbox correction.
+		if (sizeKey === 'lightbox') {
+			const previewKey = `s${String(avpvhExifInspector.preview_size)}`;
+			if (
+				Object.prototype.hasOwnProperty.call(
+					this.transformsBySize,
+					previewKey
+				)
+			) {
+				return this.transformsBySize[previewKey];
+			}
 		}
 		return (
 			this.folderTransformsBySize[sizeKey] ?? { r: 0, h: false, v: false }
@@ -5059,7 +5074,7 @@ class ExifInspector {
 				);
 			});
 
-		const lines: Array<{ text: string; emphasize?: boolean }> = [];
+		const lines: Array<{ text: string; color?: string }> = [];
 		const createdTime = this.currentFile?.createdTime;
 		if (createdTime !== undefined && createdTime !== '') {
 			const created = new Date(createdTime);
@@ -5075,6 +5090,7 @@ class ExifInspector {
 							minute: '2-digit',
 						}
 					)}`,
+					color: '#1a73e8',
 				});
 			}
 		}
@@ -5099,7 +5115,7 @@ class ExifInspector {
 		if (sameOnAllFormats) {
 			lines.push({
 				text: `Handmatig: deze foto · alle formaten · ${ExifInspector.transformDescription(firstOwn)}`,
-				emphasize: true,
+				color: '#c00',
 			});
 		} else if (activeOwnKeys.length > 0) {
 			const labels = activeOwnKeys
@@ -5107,12 +5123,12 @@ class ExifInspector {
 				.join(', ');
 			lines.push({
 				text: `Handmatig: deze foto · alleen ${labels}`,
-				emphasize: true,
+				color: '#c00',
 			});
 		} else if (ownKeys.length > 0) {
 			lines.push({
 				text: 'Handmatig: deze foto · mapcorrectie expliciet genegeerd',
-				emphasize: true,
+				color: '#c00',
 			});
 		} else {
 			lines.push({ text: 'Handmatig: geen individuele fotocorrectie' });
@@ -5131,8 +5147,8 @@ class ExifInspector {
 		}
 		summary.innerHTML = lines
 			.map(
-				({ text, emphasize }) =>
-					`<div${emphasize === true ? ' style="color:#c00;font-weight:600"' : ''}>${ExifInspector.escapeHtml(text)}</div>`
+				({ text, color }) =>
+					`<div${color !== undefined ? ` style="color:${color};font-weight:600"` : ''}>${ExifInspector.escapeHtml(text)}</div>`
 			)
 			.join('');
 		if (resetAll) {
