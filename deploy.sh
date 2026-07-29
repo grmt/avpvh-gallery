@@ -23,6 +23,7 @@ echo "Bumping version: ${current} → ${new_version}"
 
 # -- 2. Update PHP plugin header --------------------------------------------
 sed -i "s/^Version:.*$/Version:           ${new_version}/" "$PHP_FILE"
+sed -i "s/^Stable tag:.*$/Stable tag: ${new_version}/" "src/txt/readme.txt"
 
 # -- 3. Update package.json (version field) ---------------------------------
 # Use node so we don't mangle the JSON formatting
@@ -38,7 +39,7 @@ echo "Building..."
 npm run build
 
 # -- 5. Commit version bump -------------------------------------------------
-git add "$PHP_FILE" "$PKG_FILE"
+git add "$PHP_FILE" "$PKG_FILE" "src/txt/readme.txt"
 git commit -m "deploy: bump version to ${new_version}"
 
 # -- 6. Deploy to server ----------------------------------------------------
