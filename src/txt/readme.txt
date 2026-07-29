@@ -3,7 +3,7 @@ Contributors: grmt
 Tags: google drive, gallery, google drive gallery, image gallery, video gallery
 Requires at least: 6.5
 Tested up to: 7.0
-Stable tag: 2.13.14.42
+Stable tag: 2.13.14.43
 Requires PHP: 8.1
 License: MIT
 License URI: https://github.com/grmt/avpvh-gallery/blob/master/LICENSE
