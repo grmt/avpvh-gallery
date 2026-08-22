@@ -58,17 +58,9 @@ final class Media_Stream_REST {
 			'exif-inspector/download-original',
 			array(
 				'args'                => array(
-					'file_id'   => array(
+					'file_id' => array(
 						'required' => true,
 						'type'     => 'string',
-					),
-					'mime_type' => array(
-						'required' => true,
-						'type'     => 'string',
-					),
-					'size'      => array(
-						'required' => true,
-						'type'     => 'integer',
 					),
 				),
 				'callback'            => array( $this, 'download_original' ),

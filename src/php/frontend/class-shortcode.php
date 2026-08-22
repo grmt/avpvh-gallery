@@ -152,7 +152,7 @@ final class Shortcode {
 					? rest_url( 'avpvh-gallery/v1/exif-inspector/orientation' )
 					: '',
 				'grid_height'          => $options->get( 'grid_height' ),
-				'grid_spacing'         => $options->get( 'grid_spacing' ),
+				'grid_spacing'         => ( (int) $options->get( 'grid_spacing' ) === 10 ) ? 4 : $options->get( 'grid_spacing' ),
 				'is_admin'             => current_user_can( 'manage_options' ) ? 'true' : 'false',
 				'load_more'            => esc_html__( 'Load more', 'avpvh-gallery' ),
 				'navigation_icon_url'  => plugins_url( '/avpvh-gallery/frontend/images/' . $navigation_icon ),
@@ -192,8 +192,30 @@ final class Shortcode {
 		);
 
 		return '<div class="avpvh-gallery-container' . ( $branded_assets ? ' avpvh-gallery-branded' : '' ) .
+			self::build_align_class( $atts ) .
 			'" data-avpvh-hash="' . $hash .
 			'"><div class="avpvh-loading"><div></div></div></div>';
+	}
+
+	/**
+	 * Builds the extra CSS classes for the gallery container from the shortcode's `align` and `class` attributes.
+	 *
+	 * @param array<string, mixed> $atts A list of option overrides, as documented in the Options_Proxy class plus the `path` attribute, which is an array of directory names.
+	 *
+	 * @return string The extra CSS classes, each preceded by a space, or an empty string.
+	 */
+	private static function build_align_class( $atts ) {
+		$align_class = '';
+
+		if ( isset( $atts['align'] ) && '' !== $atts['align'] ) {
+			$align_class .= ' align' . sanitize_html_class( $atts['align'] );
+		}
+
+		if ( isset( $atts['class'] ) && '' !== $atts['class'] ) {
+			$align_class .= ' ' . sanitize_html_class( $atts['class'] );
+		}
+
+		return $align_class;
 	}
 
 	/**

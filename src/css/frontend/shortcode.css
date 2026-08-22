@@ -7,6 +7,34 @@ html.pswp-is-open body {
 
 .avpvh-gallery-container {
 	margin-bottom: 1em;
+	max-width: 100%;
+	width: 100%;
+}
+
+.avpvh-gallery-container.avpvh-mode-portrait {
+	margin-left: auto !important;
+	margin-right: auto !important;
+	max-width: 680px !important;
+	width: 100% !important;
+}
+
+/* Enable wide/full-width expansion on HD desktop/laptop screens */
+@media (width >= 1200px) {
+
+	.avpvh-gallery-container.alignwide {
+		margin-left: calc(50% - 45vw);
+		margin-right: calc(50% - 45vw);
+		max-width: 90vw;
+		width: 90vw;
+	}
+
+	.avpvh-gallery-container.alignfull,
+	.avpvh-gallery-container.alignexpanded {
+		margin-left: calc(50% - 49vw);
+		margin-right: calc(50% - 49vw);
+		max-width: 98vw;
+		width: 98vw;
+	}
 }
 
 .avpvh-breadcrumbs {
@@ -16,6 +44,38 @@ html.pswp-is-open body {
 	gap: 0.5em; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	margin-bottom: 1em;
 	padding: 8px 0;
+}
+
+.avpvh-mode-selector {
+	align-items: center; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	display: flex; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	gap: 6px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	margin-left: auto;
+}
+
+.avpvh-mode-btn {
+	background: #f0f0f1;
+	border: 1px solid #8c8f94;
+	border-radius: 4px; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	color: #2c3338;
+	cursor: pointer;
+	font-size: 12px;
+	line-height: 1.4;
+	padding: 3px 8px;
+	transition: all 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	user-select: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-mode-btn:hover {
+	background: #e0e0e0;
+	border-color: #50575e;
+}
+
+.avpvh-mode-btn.active {
+	background: #2271b1;
+	border-color: #2271b1;
+	color: #fff;
+	font-weight: 600;
 }
 
 .avpvh-breadcrumb-up,

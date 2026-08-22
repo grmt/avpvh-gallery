@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/member-ordering -- Disabled because PhotoSwipe v5 integration requires specific method declarations and helper methods */
 import $ from 'jquery';
-import { default as justifiedLayout } from 'justified-layout';
 import PhotoSwipe from 'photoswipe';
 import PhotoSwipeLightbox from 'photoswipe/lightbox';
 
@@ -81,6 +80,8 @@ export class Shortcode {
 	private rateLimited = false;
 	private screenWakeLock: WakeLockSentinel | null = null;
 	private screenWakeLockRequest: Promise<void> | null = null;
+	private isWideMode = false;
+	private isPortraitMode = false;
 
 	private slideNodes: Array<FolderNode> = [];
 	private currentNode: FolderNode | null = null;
@@ -97,6 +98,15 @@ export class Shortcode {
 		this.hash = hash;
 		this.shortHash = hash.substring(0, 8);
 		this.navigationIconUrl = avpvhShortcodeLocalize.navigation_icon_url;
+		try {
+			this.isWideMode =
+				localStorage.getItem('avpvh_gallery_wide') === '1';
+			this.isPortraitMode =
+				localStorage.getItem('avpvh_gallery_portrait') === '1';
+		} catch {
+			/* ignore */
+		}
+		this.updateModeButtonsUI();
 		this.container.toggleClass(
 			'avpvh-gallery-branded',
 			avpvhShortcodeLocalize.branded_assets === 'true'
@@ -138,6 +148,15 @@ export class Shortcode {
 		$(window).on('resize', () => {
 			this.reflow();
 		});
+		if (
+			typeof ResizeObserver !== 'undefined' &&
+			container instanceof HTMLElement
+		) {
+			const resizeObserver = new ResizeObserver(() => {
+				this.reflow();
+			});
+			resizeObserver.observe(container);
+		}
 	}
 
 	private createLightbox(): PhotoSwipeLightbox {
@@ -758,6 +777,10 @@ export class Shortcode {
 						Shortcode.applySlideRotation(pswp);
 					}
 				});
+				// The opening slide's own 'loadComplete'/'change' can fire before the
+				// listeners above are registered (see comment above) — apply the
+				// rotation/flip correction directly so it isn't skipped.
+				Shortcode.applySlideRotation(pswp);
 				// With loop:false PhotoSwipe rubber-bands at boundaries — no 'change'
 				// event fires. Detect backward boundary swipes via touchstart/touchend.
 				const onTouchStart = (e: TouchEvent): void => {
@@ -825,15 +848,35 @@ export class Shortcode {
 				// fullscreen transition completes can be missed, leaving the photo
 				// stuck at the old, smaller viewport size. Force a recalculation once
 				// the transition actually finishes.
-				document.addEventListener(
-					'fullscreenchange',
-					() => {
-						if (pswp?.isOpen === true) {
-							pswp.updateSize(true);
+				const forceUpdateSize = (): void => {
+					if (pswp?.isOpen === true) {
+						pswp.updateSize(true);
+						if (pswp.currSlide) {
+							Shortcode.syncSlideNaturalDimensions(
+								pswp.currSlide
+							);
+							Shortcode.applySlideRotation(pswp);
 						}
-					},
+					}
+				};
+
+				document.addEventListener('fullscreenchange', forceUpdateSize, {
+					once: true,
+				});
+				document.addEventListener(
+					'webkitfullscreenchange',
+					forceUpdateSize,
 					{ once: true }
 				);
+
+				pswp?.on('openingAnimationEnd', () => {
+					forceUpdateSize();
+				});
+
+				const speed =
+					parseInt(avpvhShortcodeLocalize.preview_speed, 10) || 300;
+				setTimeout(forceUpdateSize, speed + 100);
+
 				void pswpEl
 					.requestFullscreen({ navigationUI: 'hide' })
 					.catch(() => {
@@ -1971,23 +2014,31 @@ export class Shortcode {
 		hFlip: boolean;
 		vFlip: boolean;
 	} {
-		const rawRotation =
-			slideEl instanceof HTMLElement
-				? parseInt(slideEl.dataset['avpvhRotation'] ?? '0', 10)
-				: 0;
-		// Only act on clean quarter-turn values (90/180/270).
+		if (!(slideEl instanceof HTMLElement)) {
+			return { rotation: 0, hFlip: false, vFlip: false };
+		}
+		const rawRotation = parseInt(
+			slideEl.getAttribute('data-avpvh-rotation') ??
+				slideEl.dataset['avpvhRotation'] ??
+				'0',
+			10
+		);
 		const rotation: 0 | 90 | 180 | 270 =
 			90 === rawRotation || 180 === rawRotation || 270 === rawRotation
 				? rawRotation
 				: 0;
+		const hFlip =
+			slideEl.getAttribute('data-avpvh-hflip') === '1' ||
+			slideEl.dataset['avpvhHflip'] === '1' ||
+			slideEl.dataset['avpvhHFlip'] === '1';
+		const vFlip =
+			slideEl.getAttribute('data-avpvh-vflip') === '1' ||
+			slideEl.dataset['avpvhVflip'] === '1' ||
+			slideEl.dataset['avpvhVFlip'] === '1';
 		return {
 			rotation,
-			hFlip:
-				slideEl instanceof HTMLElement &&
-				'1' === slideEl.dataset['avpvhHflip'],
-			vFlip:
-				slideEl instanceof HTMLElement &&
-				'1' === slideEl.dataset['avpvhVflip'],
+			hFlip,
+			vFlip,
 		};
 	}
 
@@ -2409,21 +2460,27 @@ export class Shortcode {
 		for (const image of data.images ?? []) {
 			const el = document.createElement('a');
 			el.className = 'avpvh-grid-a';
+			const thumbRot = image.thumb_rotation ?? 0;
+			const lightRot = image.light_rotation ?? 0;
+			const effectiveRot = thumbRot !== 0 ? thumbRot : lightRot;
+			const swapsAxes = effectiveRot === 90 || effectiveRot === 270;
 			const previewDimensions = Shortcode.previewDimensions(
 				image.width,
-				image.height,
-				image.image
+				image.height
 			);
-			el.dataset['pswpWidth'] = String(previewDimensions.width);
-			el.dataset['pswpHeight'] = String(previewDimensions.height);
+			const pswpW = swapsAxes
+				? previewDimensions.height
+				: previewDimensions.width;
+			const pswpH = swapsAxes
+				? previewDimensions.width
+				: previewDimensions.height;
+			el.dataset['pswpWidth'] = String(pswpW);
+			el.dataset['pswpHeight'] = String(pswpH);
 			el.dataset['avpvhId'] = image.id;
 			el.dataset['avpvhCaption'] = image.description;
 			el.dataset['avpvhFullpath'] = prefix + image.name;
 			el.dataset['avpvhExif'] = Shortcode.formatExifString(image.exif);
 			const driveRot = image.rotation ?? 0;
-			// The derivative has no dependable EXIF orientation. Only the explicit
-			// WordPress correction may transform its pixels in the lightbox.
-			const lightRot = image.light_rotation ?? 0;
 			el.dataset['avpvhRotation'] = String(lightRot);
 			el.dataset['avpvhDriveRotation'] = String(driveRot);
 			el.dataset['avpvhThumbRotation'] = String(
@@ -2431,18 +2488,23 @@ export class Shortcode {
 			);
 			if (image.light_h_flip === true) {
 				el.dataset['avpvhHflip'] = '1';
+				el.setAttribute('data-avpvh-hflip', '1');
 			}
 			if (image.light_v_flip === true) {
 				el.dataset['avpvhVflip'] = '1';
+				el.setAttribute('data-avpvh-vflip', '1');
 			}
 			if (image.light_has_correction === true) {
 				el.dataset['avpvhHasCorrection'] = '1';
+				el.setAttribute('data-avpvh-has-correction', '1');
 			}
 			if (image.thumb_h_flip === true) {
 				el.dataset['avpvhThumbHflip'] = '1';
+				el.setAttribute('data-avpvh-thumb-hflip', '1');
 			}
 			if (image.thumb_v_flip === true) {
 				el.dataset['avpvhThumbVflip'] = '1';
+				el.setAttribute('data-avpvh-thumb-vflip', '1');
 			}
 			el.href = image.image;
 			if (avpvhShortcodeLocalize.is_admin === 'true') {
@@ -2491,23 +2553,145 @@ export class Shortcode {
 
 	private static previewDimensions(
 		width: number,
-		height: number,
-		previewUrl: string
+		height: number
 	): { width: number; height: number } {
 		const sourceWidth = width > 0 ? width : 2000;
 		const sourceHeight = height > 0 ? height : 1500;
-		const sizeMatch = /=[shw](\d+)(?:-c)?$/.exec(previewUrl);
-		if (sizeMatch === null) {
-			return { width: sourceWidth, height: sourceHeight };
-		}
-		const maxPreviewSize = parseInt(sizeMatch[1], 10);
-		const scale = Math.min(
-			1,
-			maxPreviewSize / Math.max(sourceWidth, sourceHeight)
-		);
 		return {
-			width: Math.max(1, Math.round(sourceWidth * scale)),
-			height: Math.max(1, Math.round(sourceHeight * scale)),
+			width: sourceWidth,
+			height: sourceHeight,
+		};
+	}
+
+	private static maxRowItemsFor(
+		isPortraitMode: boolean,
+		isWideMode: boolean,
+		hasPortrait: boolean
+	): number {
+		if (isPortraitMode) {
+			return 2;
+		}
+		if (isWideMode) {
+			return hasPortrait ? 3 : 4;
+		}
+		return hasPortrait ? 2 : 3;
+	}
+
+	private static targetHeightFor(
+		isPortraitMode: boolean,
+		isWideMode: boolean,
+		hasPortrait: boolean,
+		baseTargetHeight: number
+	): number {
+		if (isPortraitMode) {
+			return 380;
+		}
+		if (isWideMode) {
+			return hasPortrait ? 350 : 250;
+		}
+		return hasPortrait ? 320 : baseTargetHeight;
+	}
+
+	private static computeJustifiedLayout(
+		ratios: Array<number>,
+		containerWidth: number,
+		baseTargetHeight: number,
+		boxSpacing: number,
+		isWideMode: boolean,
+		isPortraitMode: boolean
+	): {
+		containerHeight: number;
+		boxes: Array<{
+			top: number;
+			left: number;
+			width: number;
+			height: number;
+		}>;
+	} {
+		const boxes: Array<{
+			top: number;
+			left: number;
+			width: number;
+			height: number;
+		}> = [];
+		if (ratios.length === 0 || containerWidth <= 0) {
+			return { containerHeight: 0, boxes: [] };
+		}
+
+		const topPadding = 10;
+		let currentTop = topPadding;
+		let i = 0;
+
+		while (i < ratios.length) {
+			const rowIndices: Array<number> = [i];
+			let hasPortrait = ratios[i] < 0.95;
+			let maxRowItems = Shortcode.maxRowItemsFor(
+				isPortraitMode,
+				isWideMode,
+				hasPortrait
+			);
+
+			if (containerWidth < 600) {
+				maxRowItems = Math.min(maxRowItems, 2);
+			}
+
+			let j = i + 1;
+			while (j < ratios.length && rowIndices.length < maxRowItems) {
+				const nextRatio = ratios[j];
+				if (nextRatio < 0.95) {
+					hasPortrait = true;
+				}
+				const targetMax = Shortcode.maxRowItemsFor(
+					isPortraitMode,
+					isWideMode,
+					hasPortrait
+				);
+				if (rowIndices.length >= targetMax) {
+					break;
+				}
+				rowIndices.push(j);
+				j++;
+			}
+
+			const totalGaps = (rowIndices.length - 1) * boxSpacing;
+			const availableWidth = containerWidth - totalGaps;
+			const rowSumRatio = rowIndices.reduce(
+				(sum, idx) => sum + ratios[idx],
+				0
+			);
+
+			let rowHeight = availableWidth / rowSumRatio;
+
+			const targetHeight = Shortcode.targetHeightFor(
+				isPortraitMode,
+				isWideMode,
+				hasPortrait,
+				baseTargetHeight
+			);
+
+			if (j === ratios.length && rowHeight > targetHeight * 1.35) {
+				rowHeight = targetHeight;
+			}
+
+			let currentLeft = 0;
+			for (const idx of rowIndices) {
+				const itemWidth = Math.round(ratios[idx] * rowHeight);
+				boxes[idx] = {
+					top: Math.round(currentTop),
+					left: Math.round(currentLeft),
+					width: itemWidth,
+					height: Math.round(rowHeight),
+				};
+				currentLeft += itemWidth + boxSpacing;
+			}
+
+			currentTop += rowHeight + boxSpacing;
+			i = j;
+		}
+
+		return {
+			containerHeight: Math.round(currentTop),
+			boxes,
 		};
 	}
 
@@ -2528,6 +2712,61 @@ export class Shortcode {
 			'',
 			this.pageQueryParameter.remove()
 		);
+	}
+
+	public toggleWideMode(enable?: boolean): void {
+		const next = enable ?? !this.isWideMode;
+		this.isWideMode = next;
+		if (next) {
+			this.isPortraitMode = false;
+		}
+		try {
+			localStorage.setItem(
+				'avpvh_gallery_wide',
+				this.isWideMode ? '1' : '0'
+			);
+			localStorage.setItem(
+				'avpvh_gallery_portrait',
+				this.isPortraitMode ? '1' : '0'
+			);
+		} catch {
+			/* ignore */
+		}
+		this.updateModeButtonsUI();
+		this.reflow();
+	}
+
+	public togglePortraitMode(enable?: boolean): void {
+		const next = enable ?? !this.isPortraitMode;
+		this.isPortraitMode = next;
+		if (next) {
+			this.isWideMode = false;
+		}
+		try {
+			localStorage.setItem(
+				'avpvh_gallery_portrait',
+				this.isPortraitMode ? '1' : '0'
+			);
+			localStorage.setItem(
+				'avpvh_gallery_wide',
+				this.isWideMode ? '1' : '0'
+			);
+		} catch {
+			/* ignore */
+		}
+		this.updateModeButtonsUI();
+		this.reflow();
+	}
+
+	private updateModeButtonsUI(): void {
+		this.container.toggleClass('alignwide avpvh-expanded', this.isWideMode);
+		this.container.toggleClass('avpvh-mode-portrait', this.isPortraitMode);
+		this.container
+			.find('.avpvh-mode-wide-btn')
+			.toggleClass('active', this.isWideMode);
+		this.container
+			.find('.avpvh-mode-portrait-btn')
+			.toggleClass('active', this.isPortraitMode);
 	}
 
 	public reflow(): void {
@@ -2563,7 +2802,13 @@ export class Shortcode {
 					ratio = parseFloat(pswpWidth) / parseFloat(pswpHeight);
 				} else {
 					const image = child.firstChild as HTMLImageElement;
-					ratio = image.naturalWidth / image.naturalHeight;
+					if (
+						image instanceof HTMLImageElement &&
+						image.naturalWidth > 0 &&
+						image.naturalHeight > 0
+					) {
+						ratio = image.naturalWidth / image.naturalHeight;
+					}
 				}
 				if (0 < $(child).find('svg').length) {
 					const bbox = (
@@ -2585,14 +2830,20 @@ export class Shortcode {
 		if (0 < ratios.length) {
 			this.container.find('.avpvh-loading').remove();
 		}
-		const positions = justifiedLayout(ratios, {
-			containerWidth: this.container.find('.avpvh-gallery').width(),
-			containerPadding: { top: 10, left: 0, right: 0, bottom: 0 },
-			boxSpacing: parseInt(avpvhShortcodeLocalize.grid_spacing),
-			targetRowHeight: parseInt(avpvhShortcodeLocalize.grid_height),
-			targetRowHeightTolerance: 0.15,
-			edgeCaseMinRowHeight: 0,
-		});
+		const baseHeight = parseInt(avpvhShortcodeLocalize.grid_height, 10);
+		const boxSpacing = parseInt(avpvhShortcodeLocalize.grid_spacing, 10);
+		const galleryEl = this.container.find('.avpvh-gallery');
+		const containerWidth = galleryEl.width() ?? 800;
+
+		const positions = Shortcode.computeJustifiedLayout(
+			ratios,
+			containerWidth,
+			baseHeight,
+			boxSpacing,
+			this.isWideMode,
+			this.isPortraitMode
+		);
+		galleryEl.height(positions.containerHeight);
 		let j = 0;
 		this.container
 			.find('.avpvh-gallery')
@@ -3027,6 +3278,20 @@ export class Shortcode {
 				this.findAdjacentFolder(this.path, dir);
 				return false;
 			});
+		this.container
+			.find('.avpvh-mode-wide-btn')
+			.off('click.avpvh')
+			.on('click.avpvh', () => {
+				this.toggleWideMode();
+				return false;
+			});
+		this.container
+			.find('.avpvh-mode-portrait-btn')
+			.off('click.avpvh')
+			.on('click.avpvh', () => {
+				this.togglePortraitMode();
+				return false;
+			});
 		this.container.find('.avpvh-more-button').on('click', () => {
 			this.add();
 			return false;
@@ -3174,10 +3439,16 @@ export class Shortcode {
 				'</a>';
 			field += '/';
 		});
+		const wideActive = this.isWideMode ? ' active' : '';
+		const portraitActive = this.isPortraitMode ? ' active' : '';
 		html +=
 			'<a class="avpvh-breadcrumb-sibling avpvh-breadcrumb-next" href="#" data-avpvh-dir="next" aria-label="Next folder">' +
 			siblingIcon('next') +
 			'</a>' +
+			'<div class="avpvh-mode-selector">' +
+			`<button type="button" class="avpvh-mode-btn avpvh-mode-wide-btn${wideActive}" title="Schakel tussen verbrede en normale gallery weergave">↔ Breed</button>` +
+			`<button type="button" class="avpvh-mode-btn avpvh-mode-portrait-btn${portraitActive}" title="Schakel tussen staande (portrait 3:4) en standaard rasterweergave">▯ Staand</button>` +
+			'</div>' +
 			'</div>';
 		return html;
 	}
@@ -3501,15 +3772,16 @@ export class Shortcode {
 	}
 
 	private renderImage(page: number, image: Image): string {
-		const { width, height } = Shortcode.previewDimensions(
-			image.width,
-			image.height,
-			image.image
-		);
 		const thumbRotation = image.thumb_rotation ?? 0;
 		// Never fall back to Drive's metadata rotation for the broken 1920px
 		// derivative; its WordPress lightbox correction is authoritative.
 		const lightRotation = image.light_rotation ?? 0;
+		const effectiveRot =
+			thumbRotation !== 0 ? thumbRotation : lightRotation;
+		const swapsAxes = effectiveRot === 90 || effectiveRot === 270;
+		const dims = Shortcode.previewDimensions(image.width, image.height);
+		const pswpWidth = swapsAxes ? dims.height : dims.width;
+		const pswpHeight = swapsAxes ? dims.width : dims.height;
 		const lightHFlip =
 			image.light_h_flip === true ? ' data-avpvh-hflip="1"' : '';
 		const lightVFlip =
@@ -3549,7 +3821,7 @@ export class Shortcode {
 				exifParts.push(Shortcode.formatExposure(image.exif.exposure));
 			}
 			if (image.exif.iso !== undefined) {
-				exifParts.push('ISO ' + String(image.exif.iso));
+				exifParts.push('ISO ' + String(image.exif.iso));
 			}
 		}
 		const exifAttr =
@@ -3571,10 +3843,10 @@ export class Shortcode {
 		return (
 			'<a class="avpvh-grid-a" ' +
 			'data-pswp-width="' +
-			width.toString() +
+			pswpWidth.toString() +
 			'" ' +
 			'data-pswp-height="' +
-			height.toString() +
+			pswpHeight.toString() +
 			'" ' +
 			'data-avpvh-id="' +
 			image.id +

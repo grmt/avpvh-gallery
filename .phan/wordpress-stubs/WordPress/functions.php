@@ -1103,6 +1103,15 @@ function remove_theme_mod( $name ) {
 }
 
 /**
+ * @param string $class
+ * @param string $fallback
+ *
+ * @return string
+ */
+function sanitize_html_class( $class, $fallback = '' ) {
+}
+
+/**
  * @param string $key
  *
  * @return string

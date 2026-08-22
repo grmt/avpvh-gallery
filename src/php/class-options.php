@@ -273,7 +273,7 @@ final class Options {
 		);
 		self::$grid_spacing   = new Integer_Option(
 			'grid_spacing',
-			10,
+			4,
 			'advanced',
 			'grid',
 			esc_html__( 'Item spacing', 'avpvh-gallery' )

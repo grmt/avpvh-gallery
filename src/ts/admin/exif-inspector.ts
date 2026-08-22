@@ -47,8 +47,10 @@ declare const avpvhExifInspector: {
 	rest_url: string;
 	root_id: string;
 	nonce: string;
-	grid_height: number;
-	preview_size: number;
+	// wp_localize_script() stringifies every value regardless of the PHP-side
+	// (int) cast — these arrive as numeric strings, not numbers.
+	grid_height: string;
+	preview_size: string;
 };
 
 class ExifInspector {
@@ -426,6 +428,10 @@ class ExifInspector {
 		{ r: number; h: boolean; v: boolean }
 	> = {};
 	private photoCorrectionsLoaded = false;
+	// Size keys whose preview card is temporarily showing Google's raw,
+	// uncorrected bytes (via the "Origineel/Resultaat" toggle) instead of the
+	// effective correction transform. Purely a display toggle — never saved.
+	private readonly showingOriginalSizeKeys = new Set<string>();
 	private embeddedThumb: { src: string; w: number; h: number } | null = null;
 	private readonly pendingCorrectionSaves = new Set<Promise<void>>();
 	private readonly debouncedSaves = new Map<
@@ -640,19 +646,19 @@ class ExifInspector {
 		// EXIF orientation tags (1-8) vs rotation degrees (0, 90, 180, 270)
 		const descriptions: Record<number, string> = {
 			// EXIF Orientation Tags
-			1: 'Normal',
-			2: 'Flipped (Horizontal)',
-			3: 'Rotated 180°',
-			4: 'Flipped (Vertical)',
-			5: 'Rotated 90° CCW + Flipped',
-			6: 'Rotated 90° CW',
-			7: 'Rotated 90° CW + Flipped',
-			8: 'Rotated 90° CCW',
+			1: 'Normaal',
+			2: 'Gespiegeld (Horizontaal / Links ↔ Rechts)',
+			3: 'Gedraaid 180°',
+			4: 'Gekanteld (Verticaal / Boven ↕ Onder)',
+			5: 'Gedraaid 90° CCW + Gespiegeld',
+			6: 'Gedraaid 90° CW',
+			7: 'Gedraaid 90° CW + Gespiegeld',
+			8: 'Gedraaid 90° CCW',
 			// Rotation Degrees (fallback)
-			0: 'Normal',
-			90: 'Rotated 90° CW',
-			180: 'Rotated 180°',
-			270: 'Rotated 90° CCW',
+			0: 'Normaal',
+			90: 'Gedraaid 90° CW',
+			180: 'Gedraaid 180°',
+			270: 'Gedraaid 90° CCW',
 		};
 		return descriptions[rotation] ?? `Unknown (${String(rotation)})`;
 	}
@@ -763,8 +769,14 @@ class ExifInspector {
 	private static buildSortedPreviews(
 		thumbLink: string
 	): Array<{ key: string; label: string; url: string; sortPx: number }> {
-		const ps = avpvhExifInspector.preview_size;
-		const gridH = Math.floor(1.25 * avpvhExifInspector.grid_height);
+		// wp_localize_script() stringifies every value regardless of the PHP-side
+		// (int) cast, so preview_size arrives here as "1920", not 1920. Without
+		// this coercion, `size === ps` below never matches and the entry for the
+		// configured lightbox size silently falls back to the legacy `s{size}`
+		// key instead of the canonical `lightbox` key — splitting one real-world
+		// image's correction across two unsynced database rows.
+		const ps = Number(avpvhExifInspector.preview_size);
+		const gridH = Math.floor(1.25 * Number(avpvhExifInspector.grid_height));
 		const gridUrl = thumbLink.replace(/=s\d+$/, `=h${String(gridH)}`);
 
 		const entries: Array<{
@@ -1049,6 +1061,123 @@ class ExifInspector {
 					.avpvh-exif-inspector {
 						padding: 20px;
 						max-width: 1600px;
+						width: 100%;
+						box-sizing: border-box;
+						overflow-x: hidden;
+					}
+
+					.exif-section {
+						margin-bottom: 30px;
+						max-width: 100%;
+						overflow-x: auto;
+						-webkit-overflow-scrolling: touch;
+					}
+
+					.preview-image-wrap > button {
+						position: absolute;
+						z-index: 2;
+						background: rgba(255, 255, 255, 0.85);
+						border: 1px solid #ccc;
+						border-radius: 50%;
+						width: 28px;
+						height: 28px;
+						font-size: 18px;
+						line-height: 1;
+						cursor: pointer;
+						opacity: 0;
+						transition: opacity .15s;
+						padding: 0;
+					}
+
+					.card-action-bar {
+						position: absolute;
+						top: 6px;
+						left: 6px;
+						right: 6px;
+						display: flex;
+						flex-wrap: wrap;
+						gap: 5px;
+						align-items: center;
+						justify-content: center;
+						background: transparent !important;
+						backdrop-filter: none !important;
+						padding: 0;
+						z-index: 20;
+						opacity: 1 !important;
+					}
+
+					.card-action-bar button,
+					.preview-image-wrap .card-action-bar button {
+						position: relative !important;
+						top: auto !important;
+						left: auto !important;
+						right: auto !important;
+						bottom: auto !important;
+						transform: none !important;
+						width: 30px !important;
+						height: 30px !important;
+						min-width: 30px !important;
+						min-height: 30px !important;
+						opacity: 1 !important;
+						display: inline-flex !important;
+						align-items: center !important;
+						justify-content: center !important;
+						background: #ffffff !important;
+						border: 1px solid #cccccc !important;
+						border-radius: 5px !important;
+						color: #111111 !important;
+						cursor: pointer !important;
+						font-size: 15px !important;
+						font-weight: 700 !important;
+						line-height: 1 !important;
+						padding: 0 !important;
+						box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+					}
+
+					.card-action-bar button:hover,
+					.preview-image-wrap .card-action-bar button:hover {
+						background: #f0f6ff !important;
+						border-color: #2271b1 !important;
+						color: #2271b1 !important;
+					}
+
+					.card-action-bar .apply-all-btn,
+					.preview-image-wrap .card-action-bar .apply-all-btn {
+						background: #2271b1 !important;
+						border-color: #2271b1 !important;
+						color: #ffffff !important;
+					}
+
+					.card-action-bar .apply-all-btn:hover,
+					.preview-image-wrap .card-action-bar .apply-all-btn:hover {
+						background: #135e96 !important;
+						color: #ffffff !important;
+					}
+
+					.card-action-bar .reset-variant-btn,
+					.preview-image-wrap .card-action-bar .reset-variant-btn {
+						background: #d63638 !important;
+						border-color: #d63638 !important;
+						color: #ffffff !important;
+					}
+
+					.card-action-bar .reset-variant-btn:hover,
+					.preview-image-wrap .card-action-bar .reset-variant-btn:hover {
+						background: #b32d2e !important;
+						color: #ffffff !important;
+					}
+
+					.card-action-bar .toggle-original-btn.active,
+					.preview-image-wrap .card-action-bar .toggle-original-btn.active {
+						background: #dba617 !important;
+						border-color: #dba617 !important;
+						color: #ffffff !important;
+					}
+
+					.card-action-bar .toggle-original-btn.active:hover,
+					.preview-image-wrap .card-action-bar .toggle-original-btn.active:hover {
+						background: #b8860b !important;
+						color: #ffffff !important;
 					}
 
 					.inspector-work-section {
@@ -1565,6 +1694,13 @@ class ExifInspector {
 						height: 100%;
 						opacity: 1;
 						pointer-events: auto;
+						cursor: grab;
+						user-select: none;
+						-webkit-user-select: none;
+					}
+
+					.inspector-fullscreen-viewer.is-dragging {
+						cursor: grabbing !important;
 					}
 
 					.inspector-fullscreen-image {
@@ -1572,6 +1708,13 @@ class ExifInspector {
 						max-height: 100%;
 						cursor: grab;
 						touch-action: none;
+						user-select: none;
+						-webkit-user-select: none;
+						-webkit-user-drag: none;
+					}
+
+					.inspector-fullscreen-image.is-dragging {
+						cursor: grabbing !important;
 					}
 
 					.inspector-fullscreen-toolbar {
@@ -1674,52 +1817,6 @@ class ExifInspector {
 						border: none;
 						border-radius: 3px;
 						width: 28px;
-						height: 28px;
-						font-size: 18px;
-						line-height: 1;
-						cursor: pointer;
-						opacity: 0;
-						transition: opacity .15s;
-						padding: 0;
-					}
-
-					.rotate-btn   { top: 4px; right: 4px; }
-					.hflip-btn    { top: 4px; left: 4px; }
-					.vflip-btn    { top: 50%; left: 50%; transform: translate(-50%,-50%); }
-					.apply-all-btn {
-						bottom: 4px; left: 50%; transform: translateX(-50%);
-						width: auto; padding: 0 6px; font-size: 11px; border-radius: 10px;
-						white-space: nowrap;
-					}
-					.reset-variant-btn {
-						bottom: 4px; left: 4px; width: auto; padding: 0 6px;
-						font-size: 11px; white-space: nowrap;
-					}
-
-					.preview-image-wrap:hover .rotate-btn,
-					.preview-image-wrap:hover .hflip-btn,
-					.preview-image-wrap:hover .vflip-btn,
-					.preview-image-wrap:hover .apply-all-btn,
-					.preview-image-wrap:hover .reset-variant-btn {
-						opacity: 1;
-					}
-
-					/* Touch devices have no persistent :hover state, so hover-reveal alone
-					   leaves these buttons unreachable — always show them here instead. */
-					@media (hover: none), (pointer: coarse) {
-						.rotate-btn, .hflip-btn, .vflip-btn, .apply-all-btn, .reset-variant-btn {
-							opacity: 1;
-						}
-					}
-
-					.rotate-btn:disabled,
-					.hflip-btn:disabled,
-					.vflip-btn:disabled,
-					.apply-all-btn:disabled {
-						opacity: 0.3 !important;
-						cursor: wait;
-					}
-
 					.photo-correction-overview {
 						align-items: center;
 						background: #f0f6fc;
@@ -1906,6 +2003,8 @@ class ExifInspector {
 
 		this.initSearch();
 		this.initFilterBar();
+		this.initTouchNavigation();
+		this.initKeyboardNavigation();
 
 		const params = new URLSearchParams(window.location.search);
 		const fileId = params.get('avpvh_file_id');
@@ -2228,6 +2327,13 @@ class ExifInspector {
 				ExifInspector.showLoading(false);
 				return;
 			}
+
+			// Unlike loadFilesByFolder()/loadFilesByFolderSelectingId(), this path
+			// previously skipped loading the folder-level correction default —
+			// leaving folderTransformsBySize at whatever a prior navigation left it
+			// (often empty on a fresh load), so effectiveTransform() silently fell
+			// back to identity instead of the real folder mirror/rotation.
+			await this.loadFolderCorrections(currentId);
 
 			this.startOrientationFetch();
 			this.applyFilter();
@@ -2636,10 +2742,14 @@ class ExifInspector {
 		// Scroll selected thumb into view
 		const selected = strip.querySelector('.file-thumb.selected');
 		if (selected) {
+			const savedScrollY = window.scrollY;
 			selected.scrollIntoView({
 				block: center ? 'center' : 'nearest',
 				inline: center ? 'center' : 'nearest',
 			});
+			if (!center && window.scrollY !== savedScrollY) {
+				window.scrollTo({ top: savedScrollY });
+			}
 		}
 	}
 
@@ -3113,7 +3223,13 @@ class ExifInspector {
 			}
 		}
 		return (
-			this.folderTransformsBySize[sizeKey] ?? { r: 0, h: false, v: false }
+			ExifInspector.maybe(this.folderTransformsBySize[sizeKey]) ??
+			ExifInspector.maybe(this.folderTransformsBySize['lightbox']) ??
+			ExifInspector.maybe(this.folderTransformsBySize['grid']) ?? {
+				r: 0,
+				h: false,
+				v: false,
+			}
 		);
 	}
 
@@ -4278,7 +4394,7 @@ class ExifInspector {
 		const ps = avpvhExifInspector.preview_size;
 		const sourceLabels: Record<string, string> = {
 			original: 'Origineel',
-			grid: `Miniatuur (h${String(Math.floor(1.25 * avpvhExifInspector.grid_height))})`,
+			grid: `Miniatuur (h${String(Math.floor(1.25 * Number(avpvhExifInspector.grid_height)))})`,
 			lightbox: `${String(ps)}px (Lightbox)`,
 			s256: '256px',
 			s512: '512px',
@@ -4363,7 +4479,37 @@ class ExifInspector {
 
 				const isOrientation =
 					key.endsWith(':Orientation') || key === 'Orientation';
-				if (val === undefined) {
+
+				if (isOrientation && src !== 'original') {
+					const sizeKey = src;
+					const own = Object.prototype.hasOwnProperty.call(
+						this.transformsBySize,
+						sizeKey
+					);
+					const inherited =
+						!own &&
+						Object.prototype.hasOwnProperty.call(
+							this.folderTransformsBySize,
+							sizeKey
+						);
+					const t = this.effectiveTransform(sizeKey);
+					const isIdentity = ExifInspector.identityTransform(t);
+
+					if (own && isIdentity) {
+						cell.innerHTML =
+							'<span style="color:#c00;font-weight:700">Handmatig: mapcorrectie genegeerd</span>';
+						cell.style.background = '#fde8e7';
+					} else if (own) {
+						cell.innerHTML = `<span style="color:#c00;font-weight:700">Handmatig: ${ExifInspector.escapeHtml(ExifInspector.transformDescription(t))}</span>`;
+						cell.style.background = '#fde8e7';
+					} else if (inherited && !isIdentity) {
+						cell.innerHTML = `<span style="color:#1a73e8;font-weight:600">Mapcorrectie: ${ExifInspector.escapeHtml(ExifInspector.transformDescription(t))}</span>`;
+						cell.style.background = '#e8f4fd';
+					} else {
+						cell.innerHTML =
+							'<span style="color:#777">Standaard (Geen correctie)</span>';
+					}
+				} else if (val === undefined) {
 					cell.textContent = '—';
 					cell.style.color = '#bbb';
 				} else {
@@ -4376,7 +4522,6 @@ class ExifInspector {
 						}
 						cell.style.fontWeight = 'bold';
 					} else if (String(val) === String(origVal)) {
-						// Same as original: show actual value but dimmed
 						if (isOrientation) {
 							cell.innerHTML = display;
 						} else {
@@ -4384,7 +4529,6 @@ class ExifInspector {
 						}
 						cell.style.color = '#999';
 					} else {
-						// Different from original: highlight yellow; blue if no original value
 						if (isOrientation) {
 							cell.innerHTML = display;
 						} else {
@@ -4575,12 +4719,27 @@ class ExifInspector {
 		const sizeInfo = document.getElementById('original-size');
 
 		if (downloadLink && this.currentFile.id) {
-			downloadLink.href =
+			let href =
 				this.restUrl +
 				'download-original?file_id=' +
 				encodeURIComponent(this.currentFile.id) +
 				'&_wpnonce=' +
 				encodeURIComponent(this.nonce);
+			if (
+				this.currentFile.mimeType !== undefined &&
+				this.currentFile.mimeType !== ''
+			) {
+				href +=
+					'&mime_type=' +
+					encodeURIComponent(this.currentFile.mimeType);
+			}
+			if (
+				this.currentFile.size !== undefined &&
+				this.currentFile.size !== ''
+			) {
+				href += '&size=' + encodeURIComponent(this.currentFile.size);
+			}
+			downloadLink.href = href;
 			downloadLink.textContent = `Origineel downloaden`;
 			downloadLink.style.display = 'inline-block';
 		} else if (downloadLink) {
@@ -4695,24 +4854,50 @@ class ExifInspector {
 				void document.exitFullscreen();
 			});
 
-		img.addEventListener(
+		img.draggable = false;
+		img.addEventListener('dragstart', (event) => {
+			event.preventDefault();
+		});
+
+		viewer.addEventListener(
 			'wheel',
 			(event) => {
+				if (
+					event.target instanceof HTMLElement &&
+					event.target.closest('.inspector-fullscreen-toolbar')
+				) {
+					return;
+				}
 				event.preventDefault();
 				this.adjustFullscreenZoom(event.deltaY < 0 ? 0.25 : -0.25);
 			},
 			{ passive: false }
 		);
 
-		img.addEventListener('pointerdown', (event) => {
+		const startDragging = (event: PointerEvent): void => {
+			if (
+				event.target instanceof HTMLElement &&
+				event.target.closest('.inspector-fullscreen-toolbar')
+			) {
+				return;
+			}
 			this.fullscreenDragging = true;
 			this.fullscreenDragStartX = event.clientX;
 			this.fullscreenDragStartY = event.clientY;
 			this.fullscreenPanStartX = this.fullscreenPanX;
 			this.fullscreenPanStartY = this.fullscreenPanY;
-			img.setPointerCapture(event.pointerId);
-		});
-		img.addEventListener('pointermove', (event) => {
+			viewer.classList.add('is-dragging');
+			img.classList.add('is-dragging');
+			try {
+				(event.target as HTMLElement).setPointerCapture(
+					event.pointerId
+				);
+			} catch {
+				/* ignore */
+			}
+		};
+
+		const moveDragging = (event: PointerEvent): void => {
 			if (!this.fullscreenDragging) {
 				return;
 			}
@@ -4723,12 +4908,61 @@ class ExifInspector {
 				this.fullscreenPanStartY +
 				(event.clientY - this.fullscreenDragStartY);
 			this.applyFullscreenTransform();
-		});
+		};
+
 		const stopDragging = (): void => {
 			this.fullscreenDragging = false;
+			viewer.classList.remove('is-dragging');
+			img.classList.remove('is-dragging');
 		};
-		img.addEventListener('pointerup', stopDragging);
-		img.addEventListener('pointercancel', stopDragging);
+
+		viewer.addEventListener('pointerdown', startDragging);
+		viewer.addEventListener('pointermove', moveDragging);
+		viewer.addEventListener('pointerup', stopDragging);
+		viewer.addEventListener('pointercancel', stopDragging);
+
+		document.addEventListener('keydown', (event) => {
+			if (document.fullscreenElement !== viewer) {
+				return;
+			}
+			const step = event.shiftKey ? 100 : 30;
+			switch (event.key) {
+				case 'ArrowLeft':
+					this.fullscreenPanX += step;
+					this.applyFullscreenTransform();
+					event.preventDefault();
+					break;
+				case 'ArrowRight':
+					this.fullscreenPanX -= step;
+					this.applyFullscreenTransform();
+					event.preventDefault();
+					break;
+				case 'ArrowUp':
+					this.fullscreenPanY += step;
+					this.applyFullscreenTransform();
+					event.preventDefault();
+					break;
+				case 'ArrowDown':
+					this.fullscreenPanY -= step;
+					this.applyFullscreenTransform();
+					event.preventDefault();
+					break;
+				case '+':
+				case '=':
+					this.adjustFullscreenZoom(0.25);
+					event.preventDefault();
+					break;
+				case '-':
+				case '_':
+					this.adjustFullscreenZoom(-0.25);
+					event.preventDefault();
+					break;
+				case '0':
+					this.resetFullscreenTransform();
+					event.preventDefault();
+					break;
+			}
+		});
 
 		viewer.appendChild(img);
 		viewer.appendChild(toolbar);
@@ -4758,12 +4992,13 @@ class ExifInspector {
 		if (!this.fullscreenImageEl) {
 			return;
 		}
-		const scaleX = (this.fullscreenFlipH ? -1 : 1) * this.fullscreenZoom;
-		const scaleY = (this.fullscreenFlipV ? -1 : 1) * this.fullscreenZoom;
+		const flipX = this.fullscreenFlipH ? -1 : 1;
+		const flipY = this.fullscreenFlipV ? -1 : 1;
 		this.fullscreenImageEl.style.transform =
 			`translate(${String(this.fullscreenPanX)}px, ${String(this.fullscreenPanY)}px) ` +
+			`scaleX(${String(flipX)}) scaleY(${String(flipY)}) ` +
 			`rotate(${String(this.fullscreenRotation)}deg) ` +
-			`scaleX(${String(scaleX)}) scaleY(${String(scaleY)})`;
+			`scale(${String(this.fullscreenZoom)})`;
 	}
 
 	private resetFullscreenTransform(): void {
@@ -4776,17 +5011,28 @@ class ExifInspector {
 		this.applyFullscreenTransform();
 	}
 
-	private openFullscreenImage(url: string): void {
+	private openFullscreenImage(url: string, sizeKey?: string): void {
 		const { viewer, img } = this.ensureFullscreenViewer();
 		this.resetFullscreenTransform();
+		if (sizeKey !== undefined && sizeKey !== '') {
+			const t = this.effectiveTransform(sizeKey);
+			this.fullscreenRotation = t.r;
+			this.fullscreenFlipH = t.h;
+			this.fullscreenFlipV = t.v;
+		}
 		img.src = url;
+		this.applyFullscreenTransform();
 		void viewer.requestFullscreen();
 	}
 
-	private bindEnlargeOnClick(img: HTMLImageElement, url: string): void {
+	private bindEnlargeOnClick(
+		img: HTMLImageElement,
+		url: string,
+		sizeKey?: string
+	): void {
 		img.classList.add('inspector-clickable-preview');
 		img.addEventListener('click', () => {
-			this.openFullscreenImage(url);
+			this.openFullscreenImage(url, sizeKey);
 		});
 	}
 
@@ -4856,12 +5102,15 @@ class ExifInspector {
 				<h4>${label}</h4>
 				<div class="correction-scope"></div>
 				<div class="preview-image-wrap">
+					<div class="card-action-bar">
+						<button class="hflip-btn" type="button" title="Spiegel horizontaal (links ↔ rechts)">↔</button>
+						<button class="vflip-btn" type="button" title="Kantel verticaal (boven ↕ onder)">↕</button>
+						<button class="rotate-btn" type="button" title="Roteer 90° rechtsom">↻</button>
+						<button class="apply-all-btn" type="button" title="Pas deze correctie toe op alle formaten voor deze foto & opslaan">⇒</button>
+						<button class="reset-variant-btn" type="button" title="Individuele correctie voor alleen deze variant verwijderen" style="display:none;">↺</button>
+						<button class="toggle-original-btn" type="button" title="Toon origineel (zonder correctie) t.o.v. resultaat">👁</button>
+					</div>
 					<img class="preview-image loading" alt="Preview ${label}" />
-					<button class="hflip-btn" type="button" title="Spiegel horizontaal (links-rechts)">↔</button>
-					<button class="rotate-btn" type="button" title="Roteer 90° rechtsom">↻</button>
-					<button class="vflip-btn" type="button" title="Spiegel verticaal (boven-onder)">↕</button>
-					<button class="apply-all-btn" type="button" title="Deze correctie voor deze foto op alle formaten toepassen">→ alle formaten</button>
-					<button class="reset-variant-btn" type="button" title="Individuele correctie voor alleen deze variant verwijderen" style="display:none;">Herstel variant</button>
 					<span class="rotation-badge" style="display:none;"></span>
 				</div>
 				<div class="timing-info">
@@ -4885,7 +5134,7 @@ class ExifInspector {
 			const img = item.querySelector('img');
 			if (img) {
 				this.fetchAndDisplayPreview(img, url, sizeKey);
-				this.bindEnlargeOnClick(img, url);
+				this.bindEnlargeOnClick(img, url, sizeKey);
 			}
 
 			item.querySelector('.rotate-btn')?.addEventListener('click', () => {
@@ -4909,9 +5158,43 @@ class ExifInspector {
 					void this.resetVariantCorrection(sizeKey);
 				}
 			);
+			item
+				.querySelector('.toggle-original-btn')
+				?.addEventListener('click', (event) => {
+					this.toggleOriginalPreview(
+						sizeKey,
+						event.currentTarget as HTMLButtonElement
+					);
+				});
 		}
+		this.showingOriginalSizeKeys.clear();
 		this.updateCorrectionIndicators();
 		ExifInspector.setPreviewButtonsLoaded(false);
+	}
+
+	// Purely a display toggle: shows Google's raw served bytes for this size
+	// (no CSS transform) so the correction's effect can be judged against the
+	// actual source instead of trusting the already-corrected result.
+	private toggleOriginalPreview(
+		sizeKey: string,
+		button: HTMLButtonElement
+	): void {
+		const item = button.closest<HTMLElement>('.preview-item');
+		if (!item) {
+			return;
+		}
+		if (this.showingOriginalSizeKeys.has(sizeKey)) {
+			this.showingOriginalSizeKeys.delete(sizeKey);
+			button.classList.remove('active');
+			ExifInspector.applyTransformToItem(
+				item,
+				this.effectiveTransform(sizeKey)
+			);
+		} else {
+			this.showingOriginalSizeKeys.add(sizeKey);
+			button.classList.add('active');
+			ExifInspector.applyTransformToItem(item, { r: 0, h: false, v: false });
+		}
 	}
 
 	private displayVideoPreviews(
@@ -4985,6 +5268,7 @@ class ExifInspector {
 		const cur = this.effectiveTransform(sizeKey);
 		const next = { ...cur, r: (cur.r + 90) % 360 };
 		this.transformsBySize[sizeKey] = next;
+		this.showingOriginalSizeKeys.delete(sizeKey);
 		this.applyAllPreviewTransforms();
 		if (this.currentFile) {
 			this.queueSaveTransform(this.currentFile.id, sizeKey, next);
@@ -5002,6 +5286,7 @@ class ExifInspector {
 		const next =
 			axis === 'h' ? { ...cur, h: !cur.h } : { ...cur, v: !cur.v };
 		this.transformsBySize[sizeKey] = next;
+		this.showingOriginalSizeKeys.delete(sizeKey);
 		this.applyAllPreviewTransforms();
 		if (this.currentFile) {
 			this.queueSaveTransform(this.currentFile.id, sizeKey, next);
@@ -5023,6 +5308,7 @@ class ExifInspector {
 			.forEach((item) => {
 				const sizeKey = item.getAttribute('data-size-key') ?? '';
 				this.transformsBySize[sizeKey] = { ...src };
+				this.showingOriginalSizeKeys.delete(sizeKey);
 				ExifInspector.applyTransformToItem(item, src);
 				this.queueSaveTransform(file.id, sizeKey, src);
 			});
@@ -5126,8 +5412,15 @@ class ExifInspector {
 				color: '#c00',
 			});
 		} else if (ownKeys.length > 0) {
+			// These rows are all identity overrides (rotation/flip cancel out to a
+			// no-op) — their only purpose is to opt specific formats out of the
+			// folder-wide correction, so name which ones rather than implying the
+			// override applies to the whole photo.
+			const labels = ownKeys
+				.map((key) => ExifInspector.previewSizeLabel(key))
+				.join(', ');
 			lines.push({
-				text: 'Handmatig: deze foto · mapcorrectie expliciet genegeerd',
+				text: `Handmatig: mapcorrectie genegeerd voor ${labels} (andere formaten volgen de mapcorrectie)`,
 				color: '#c00',
 			});
 		} else {
@@ -5157,32 +5450,53 @@ class ExifInspector {
 
 		for (const item of items) {
 			const sizeKey = item.dataset['sizeKey'] ?? '';
-			const own = Object.prototype.hasOwnProperty.call(
-				this.transformsBySize,
-				sizeKey
-			);
-			const inherited =
-				!own &&
+			// Mirrors effectiveTransform()'s own-vs-folder precedence exactly (including
+			// the legacy `s{preview_size}` fallback for `lightbox`) — checking
+			// folderTransformsBySize for an exact `sizeKey` match here would miss
+			// diagnostic-only sizes (s256/s512/s1024) that inherit the folder default
+			// via effectiveTransform()'s own fallback to `lightbox`/`grid`, wrongly
+			// showing "no correction" on a card that's actually being mirrored.
+			const legacyPreviewKey =
+				sizeKey === 'lightbox'
+					? `s${String(Number(avpvhExifInspector.preview_size))}`
+					: null;
+			const own =
 				Object.prototype.hasOwnProperty.call(
-					this.folderTransformsBySize,
+					this.transformsBySize,
 					sizeKey
-				);
+				) ||
+				(legacyPreviewKey !== null &&
+					Object.prototype.hasOwnProperty.call(
+						this.transformsBySize,
+						legacyPreviewKey
+					));
 			const t = this.effectiveTransform(sizeKey);
+			const inherited = !own && !ExifInspector.identityTransform(t);
 			const scope = item.querySelector<HTMLElement>('.correction-scope');
 			const reset = item.querySelector<HTMLElement>('.reset-variant-btn');
 			if (scope) {
 				if (!this.photoCorrectionsLoaded) {
 					scope.textContent = 'Correcties laden…';
+					scope.style.color = '#50575e';
+					scope.style.fontWeight = 'normal';
 				} else if (own && ExifInspector.identityTransform(t)) {
 					scope.textContent = 'Deze foto · mapcorrectie genegeerd';
+					scope.style.color = '#c00';
+					scope.style.fontWeight = '600';
 				} else if (own) {
 					scope.textContent = sameOnAllFormats
 						? `Deze foto · alle formaten · ${ExifInspector.transformDescription(t)}`
 						: `Deze foto · alleen deze variant · ${ExifInspector.transformDescription(t)}`;
-				} else if (inherited) {
+					scope.style.color = '#c00';
+					scope.style.fontWeight = '600';
+				} else if (inherited && !ExifInspector.identityTransform(t)) {
 					scope.textContent = `Hele map · deze variant · ${ExifInspector.transformDescription(t)}`;
+					scope.style.color = '#1a73e8';
+					scope.style.fontWeight = '600';
 				} else {
 					scope.textContent = 'Geen handmatige correctie';
+					scope.style.color = '#50575e';
+					scope.style.fontWeight = 'normal';
 				}
 			}
 			if (reset) {
@@ -5209,6 +5523,7 @@ class ExifInspector {
 		);
 		// eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- sizeKey is a controlled internal key ('grid'/'lightbox'/'sNNN'), not user input
 		delete this.transformsBySize[sizeKey];
+		this.showingOriginalSizeKeys.delete(sizeKey);
 		this.applyAllPreviewTransforms();
 		ExifInspector.displayCorrectionsInTable(this.transformsBySize);
 		this.updateFolderCorrectionUi();
@@ -5235,6 +5550,7 @@ class ExifInspector {
 			)
 		);
 		this.transformsBySize = {};
+		this.showingOriginalSizeKeys.clear();
 		this.applyAllPreviewTransforms();
 		ExifInspector.displayCorrectionsInTable(this.transformsBySize);
 		this.updateFolderCorrectionUi();
@@ -5249,7 +5565,9 @@ class ExifInspector {
 			)
 			.forEach((item) => {
 				const sizeKey = item.getAttribute('data-size-key') ?? '';
-				const t = this.effectiveTransform(sizeKey);
+				const t = this.showingOriginalSizeKeys.has(sizeKey)
+					? { r: 0, h: false, v: false }
+					: this.effectiveTransform(sizeKey);
 				ExifInspector.applyTransformToItem(item, t);
 			});
 	}
@@ -5605,13 +5923,129 @@ class ExifInspector {
 		`;
 	}
 
+	private initTouchNavigation(): void {
+		const container = document.querySelector<HTMLElement>(
+			'.avpvh-exif-inspector'
+		);
+		if (!container) {
+			return;
+		}
+
+		let startX = 0;
+		let startY = 0;
+		let startTime = 0;
+
+		container.addEventListener(
+			'touchstart',
+			(e: TouchEvent) => {
+				if (e.touches.length !== 1) {
+					return;
+				}
+				const touch = e.touches[0];
+				const target = e.target as HTMLElement | null;
+
+				// Skip swipe only for editable inputs/textareas or fullscreen viewer
+				if (
+					target &&
+					(target.closest(
+						'input, select, textarea, .inspector-fullscreen-viewer'
+					) !== null ||
+						target.isContentEditable)
+				) {
+					return;
+				}
+
+				startX = touch.clientX;
+				startY = touch.clientY;
+				startTime = Date.now();
+			},
+			{ passive: true }
+		);
+
+		container.addEventListener(
+			'touchend',
+			(e: TouchEvent) => {
+				if (startTime === 0) {
+					return;
+				}
+				const touch = e.changedTouches[0];
+				const dx = touch.clientX - startX;
+				const dy = touch.clientY - startY;
+				const duration = Date.now() - startTime;
+				startTime = 0;
+
+				// Swipe gesture: fast (<600ms), horizontal (|dx| >= 40px), and predominantly horizontal (|dx| > 1.5 * |dy|)
+				if (
+					duration < 600 &&
+					Math.abs(dx) >= 40 &&
+					Math.abs(dx) > Math.abs(dy) * 1.3
+				) {
+					const target = e.target as HTMLElement | null;
+					const tableWrap = target?.closest(
+						'.exif-section, #exif-table'
+					) as HTMLElement | null;
+
+					if (tableWrap && tableWrap.scrollWidth > tableWrap.clientWidth) {
+						const isSwipeLeft = dx < 0;
+						const isSwipeRight = dx > 0;
+						const canScrollRight =
+							tableWrap.scrollLeft <
+							tableWrap.scrollWidth - tableWrap.clientWidth - 15;
+						const canScrollLeft = tableWrap.scrollLeft > 15;
+
+						if (
+							(isSwipeLeft && canScrollRight) ||
+							(isSwipeRight && canScrollLeft)
+						) {
+							return; // Allow table horizontal scroll
+						}
+					}
+
+					if (dx < 0) {
+						// Swipe left -> Next photo
+						this.nextFile();
+					} else {
+						// Swipe right -> Previous photo
+						this.previousFile();
+					}
+				}
+			},
+			{ passive: true }
+		);
+	}
+
+	private initKeyboardNavigation(): void {
+		window.addEventListener('keydown', (e: KeyboardEvent) => {
+			const target = e.target as HTMLElement | null;
+			if (
+				target &&
+				target.closest(
+					'input, select, textarea, [contenteditable="true"]'
+				) !== null
+			) {
+				return;
+			}
+			if (e.key === 'ArrowLeft') {
+				e.preventDefault();
+				this.previousFile();
+			} else if (e.key === 'ArrowRight') {
+				e.preventDefault();
+				this.nextFile();
+			}
+		});
+	}
+
 	private previousFile(): void {
 		if (this.currentFileIndex > 0) {
+			const savedScrollY = window.scrollY;
 			this.flushPendingSaves();
 			this.currentFileIndex--;
 			this.updateThumbSelection();
 			this.updateTableSelection();
 			this.displayCurrentFile();
+			requestAnimationFrame(() => {
+				window.scrollTo({ top: savedScrollY });
+			});
 		}
 	}
 
@@ -5723,12 +6157,16 @@ class ExifInspector {
 	}
 
 	private nextFile(): void {
-		if (this.currentFileIndex < this.allFiles.length - 1) {
+		if (this.currentFileIndex < this.navFiles.length - 1) {
+			const savedScrollY = window.scrollY;
 			this.flushPendingSaves();
 			this.currentFileIndex++;
 			this.updateThumbSelection();
 			this.updateTableSelection();
 			this.displayCurrentFile();
+			requestAnimationFrame(() => {
+				window.scrollTo({ top: savedScrollY });
+			});
 		}
 	}
 }
