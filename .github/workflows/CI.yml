@@ -271,4 +271,4 @@ jobs:
           build-dir: avpvh-gallery
           ignore-codes: |
             missing_composer_json_file
-            offloading_files
+            PluginCheck.CodeAnalysis.Offloading.OffloadedContent
