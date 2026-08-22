@@ -3212,7 +3212,7 @@ class ExifInspector {
 		// before the config's preview_size matched this size, or from an older
 		// build) still counts as the effective lightbox correction.
 		if (sizeKey === 'lightbox') {
-			const previewKey = `s${String(avpvhExifInspector.preview_size)}`;
+			const previewKey = `s${avpvhExifInspector.preview_size}`;
 			if (
 				Object.prototype.hasOwnProperty.call(
 					this.transformsBySize,
@@ -4395,7 +4395,7 @@ class ExifInspector {
 		const sourceLabels: Record<string, string> = {
 			original: 'Origineel',
 			grid: `Miniatuur (h${String(Math.floor(1.25 * Number(avpvhExifInspector.grid_height)))})`,
-			lightbox: `${String(ps)}px (Lightbox)`,
+			lightbox: `${ps}px (Lightbox)`,
 			s256: '256px',
 			s512: '512px',
 			s1024: '1024px',
@@ -5158,14 +5158,15 @@ class ExifInspector {
 					void this.resetVariantCorrection(sizeKey);
 				}
 			);
-			item
-				.querySelector('.toggle-original-btn')
-				?.addEventListener('click', (event) => {
+			item.querySelector('.toggle-original-btn')?.addEventListener(
+				'click',
+				(event) => {
 					this.toggleOriginalPreview(
 						sizeKey,
 						event.currentTarget as HTMLButtonElement
 					);
-				});
+				}
+			);
 		}
 		this.showingOriginalSizeKeys.clear();
 		this.updateCorrectionIndicators();
@@ -5193,7 +5194,11 @@ class ExifInspector {
 		} else {
 			this.showingOriginalSizeKeys.add(sizeKey);
 			button.classList.add('active');
-			ExifInspector.applyTransformToItem(item, { r: 0, h: false, v: false });
+			ExifInspector.applyTransformToItem(item, {
+				r: 0,
+				h: false,
+				v: false,
+			});
 		}
 	}
 
@@ -5985,7 +5990,10 @@ class ExifInspector {
 						'.exif-section, #exif-table'
 					) as HTMLElement | null;
 
-					if (tableWrap && tableWrap.scrollWidth > tableWrap.clientWidth) {
+					if (
+						tableWrap &&
+						tableWrap.scrollWidth > tableWrap.clientWidth
+					) {
 						const isSwipeLeft = dx < 0;
 						const isSwipeRight = dx > 0;
 						const canScrollRight =
