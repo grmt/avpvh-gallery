@@ -20,6 +20,8 @@ use Avpvh\Frontend\Page;
 use Avpvh\Frontend\Photo_Tags;
 use Avpvh\Frontend\Shortcode;
 use Avpvh\Frontend\Video_Proxy;
+use Avpvh\Frontend\Image_Proxy;
+use Avpvh\Frontend\PDF_Proxy;
 use const PHP_URL_HOST;
 
 /**
@@ -46,6 +48,8 @@ final class Main {
 		new Page();
 		new Gallery();
 		new Video_Proxy();
+		new Image_Proxy();
+		new PDF_Proxy();
 		new Photo_Tags();
 		new Members_API();
 		new Settings_Pages();
