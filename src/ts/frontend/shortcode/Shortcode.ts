@@ -415,7 +415,10 @@ export class Shortcode {
 				videoEl.addEventListener('click', (ev) => {
 					ev.stopPropagation();
 					if (videoEl.paused) {
-						void videoEl.play();
+						videoEl.play().catch(() => {
+							// Aborted (e.g. paused/slide changed before playback
+							// started) — nothing to do.
+						});
 					} else {
 						videoEl.pause();
 					}
@@ -423,7 +426,10 @@ export class Shortcode {
 				btnPlay.addEventListener('click', (ev) => {
 					ev.stopPropagation();
 					if (videoEl.paused) {
-						void videoEl.play();
+						videoEl.play().catch(() => {
+							// Aborted (e.g. paused/slide changed before playback
+							// started) — nothing to do.
+						});
 					} else {
 						videoEl.pause();
 					}
