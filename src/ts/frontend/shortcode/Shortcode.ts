@@ -2452,7 +2452,18 @@ export class Shortcode {
 				};
 				return data.original_datetime ?? null;
 			})
-			.catch(() => null);
+			.catch(() => null)
+			.then((result) => {
+				// Only remember a real date permanently — a miss just means
+				// nobody has opened this photo in the EXIF Inspector yet
+				// (that's what populates the cache server-side), which can
+				// change at any moment, so don't keep the viewer from ever
+				// seeing the date show up later in the same page visit.
+				if (result === null) {
+					Shortcode.exifOriginalDateCache.delete(fileId);
+				}
+				return result;
+			});
 
 		Shortcode.exifOriginalDateCache.set(fileId, request);
 		return request;
