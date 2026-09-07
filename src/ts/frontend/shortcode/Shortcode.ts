@@ -823,6 +823,56 @@ export class Shortcode {
 						});
 					el.appendChild(exclusionButton);
 					el.appendChild(exclusionPanel);
+					// Looks up (and displays, if found) the current slide's cached EXIF
+					// date. Split out of update() so it can also be called from the
+					// visibilitychange listener below — switching back to this browser
+					// tab doesn't fire PhotoSwipe's 'change'/'loadComplete' events, so
+					// without this a date cached in the meantime (e.g. by opening the
+					// photo in the EXIF Inspector in another tab) would never appear
+					// until the viewer actually navigated to a different slide and back.
+					const refreshOriginalDate = (): void => {
+						const slideEl = instance.currSlide?.data.element;
+						const fileId =
+							slideEl instanceof HTMLElement
+								? (slideEl.dataset['avpvhId'] ?? '')
+								: '';
+						if (fileId === '') {
+							return;
+						}
+						void Shortcode.loadExifOriginalDate(fileId).then(
+							(originalDatetime) => {
+								if (
+									originalDatetime === null ||
+									instance.currSlide?.data.element !== slideEl
+								) {
+									return;
+								}
+								const formatted =
+									Shortcode.formatExifDate(originalDatetime);
+								if (formatted === '') {
+									return;
+								}
+								originalDateEl.textContent =
+									'Origineel: ' + formatted;
+								originalDateEl.style.display = '';
+							}
+						);
+					};
+					const onVisibilityChange = (): void => {
+						if ('visible' === document.visibilityState) {
+							refreshOriginalDate();
+						}
+					};
+					document.addEventListener(
+						'visibilitychange',
+						onVisibilityChange
+					);
+					instance.on('close', () => {
+						document.removeEventListener(
+							'visibilitychange',
+							onVisibilityChange
+						);
+					});
 					const update = (): void => {
 						pendingExifLoad = null;
 						const slideEl = instance.currSlide?.data.element;
@@ -929,30 +979,7 @@ export class Shortcode {
 							'true' === avpvhShortcodeLocalize.can_exclude_photos
 								? ''
 								: 'none';
-						if (fileId !== '') {
-							const dateSlideEl = slideEl;
-							void Shortcode.loadExifOriginalDate(fileId).then(
-								(originalDatetime) => {
-									if (
-										originalDatetime === null ||
-										instance.currSlide?.data.element !==
-											dateSlideEl
-									) {
-										return;
-									}
-									const formatted =
-										Shortcode.formatExifDate(
-											originalDatetime
-										);
-									if (formatted === '') {
-										return;
-									}
-									originalDateEl.textContent =
-										'Origineel: ' + formatted;
-									originalDateEl.style.display = '';
-								}
-							);
-						}
+						refreshOriginalDate();
 						if (!hasCorrection && fileId !== '') {
 							const orientationSlideEl = slideEl;
 							const portrait = displayedHeight > displayedWidth;
