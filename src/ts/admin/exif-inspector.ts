@@ -476,6 +476,24 @@ class ExifInspector {
 		return this.displayFiles.length > 0 ? this.displayFiles : this.allFiles;
 	}
 
+	// Recognizes a pasted Google Drive file link (the "Openen in Google Drive"
+	// button in the frontend lightbox links here) in any of Drive's common URL
+	// shapes, so it can be loaded directly by ID instead of typing a name path.
+	private static extractDriveFileId(input: string): string | null {
+		const patterns = [
+			/drive\.google\.com\/file\/d\/([^/?#]+)/,
+			/drive\.google\.com\/(?:uc|open)\?[^#]*\bid=([^&#]+)/,
+			/drive\.google\.com\/thumbnail\?[^#]*\bid=([^&#]+)/,
+		];
+		for (const pattern of patterns) {
+			const match = pattern.exec(input);
+			if (match) {
+				return decodeURIComponent(match[1]);
+			}
+		}
+		return null;
+	}
+
 	private static escapeHtml(text: string): string {
 		const div = document.createElement('div');
 		div.textContent = text;
@@ -927,7 +945,7 @@ class ExifInspector {
 				<details class="inspector-work-section inspector-navigation-section" open>
 					<summary class="inspector-work-heading">
 						<span class="inspector-work-number">1</span>
-					<div><h2>Navigeren en selecteren</h2><p>Zoek een foto of video, of laad deze via het bestandspad.</p></div>
+					<div><h2>Navigeren en selecteren</h2><p>Zoek een foto of video, laad deze via het bestandspad, of plak een Google Drive-link.</p></div>
 					</summary>
 				<div class="search-section">
 					<label>Zoeken:
@@ -2249,6 +2267,12 @@ class ExifInspector {
 
 		if (!path) {
 			return; // nothing to load
+		}
+
+		const driveFileId = ExifInspector.extractDriveFileId(path);
+		if (driveFileId !== null) {
+			await this.loadFileById(driveFileId);
+			return;
 		}
 
 		// Save the path for next time

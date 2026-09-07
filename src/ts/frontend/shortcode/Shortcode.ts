@@ -575,9 +575,54 @@ export class Shortcode {
 					exifInspectorLink.addEventListener('click', (e) => {
 						e.stopPropagation();
 					});
+					// Open the current photo/video's original Google Drive
+					// location in a new tab -- admin-only, same audience as
+					// the EXIF Inspector link above.
+					const driveLink = document.createElement('a');
+					driveLink.className = 'avpvh-pswp-drive-link';
+					driveLink.title = 'Openen in Google Drive';
+					driveLink.target = '_blank';
+					driveLink.rel = 'noopener noreferrer';
+					driveLink.style.display = 'none';
+					driveLink.innerHTML =
+						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M7.71 3.5 1.15 15l3.43 5.99 6.56-11.51-3.43-5.98Zm1.65 0 6.57 11.48h6.92L15.86 3.5H9.36ZM4.31 21h13.38l3.16-5.51H7.87L4.31 21Z"/></svg>';
+					driveLink.addEventListener('click', (e) => {
+						e.stopPropagation();
+					});
+					// Copies the same URL driveLink points to, for pasting
+					// elsewhere (chat, email, a document) without needing to
+					// open the tab and copy the address bar.
+					const driveCopyButton = document.createElement('button');
+					driveCopyButton.type = 'button';
+					driveCopyButton.className = 'avpvh-pswp-drive-copy';
+					driveCopyButton.title = 'Google Drive-link kopiëren';
+					driveCopyButton.style.display = 'none';
+					driveCopyButton.innerHTML =
+						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1Zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2Zm0 16H8V7h11v14Z"/></svg>';
+					driveCopyButton.addEventListener('click', (e) => {
+						e.stopPropagation();
+						if (driveLink.href === '') {
+							return;
+						}
+						void navigator.clipboard
+							.writeText(driveLink.href)
+							.then(() => {
+								driveCopyButton.innerHTML =
+									'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17Z"/></svg>';
+								driveCopyButton.title = 'Gekopieerd!';
+								setTimeout(() => {
+									driveCopyButton.innerHTML =
+										'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1Zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2Zm0 16H8V7h11v14Z"/></svg>';
+									driveCopyButton.title =
+										'Google Drive-link kopiëren';
+								}, 1200);
+							});
+					});
 					el.appendChild(pathLine);
 					el.appendChild(exifLine);
 					el.appendChild(exifInspectorLink);
+					el.appendChild(driveLink);
+					el.appendChild(driveCopyButton);
 
 					// Exclude-from-gallery control -- only visible to admins or
 					// "boek" group members (Exclusion_Permission on the PHP side).
@@ -925,6 +970,20 @@ export class Shortcode {
 							exifInspectorLink.style.display = '';
 						} else {
 							exifInspectorLink.style.display = 'none';
+						}
+						if (
+							fileId !== '' &&
+							avpvhShortcodeLocalize.is_admin === 'true'
+						) {
+							driveLink.href =
+								'https://drive.google.com/file/d/' +
+								fileId +
+								'/view';
+							driveLink.style.display = '';
+							driveCopyButton.style.display = '';
+						} else {
+							driveLink.style.display = 'none';
+							driveCopyButton.style.display = 'none';
 						}
 					};
 					instance.on('change', update);

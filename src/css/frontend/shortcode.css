@@ -854,6 +854,37 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	opacity: 1;
 }
 
+.avpvh-pswp-drive-link {
+	color: #fff;
+	display: inline-block;
+	margin-left: 6px;
+	margin-top: 4px;
+	opacity: 0.6;
+	text-decoration: none;
+	vertical-align: middle;
+}
+
+.avpvh-pswp-drive-link:hover {
+	opacity: 1;
+}
+
+.avpvh-pswp-drive-copy {
+	background: none;
+	border: none;
+	color: #fff;
+	cursor: pointer;
+	display: inline-block;
+	margin-left: 6px;
+	margin-top: 4px;
+	opacity: 0.6;
+	padding: 0;
+	vertical-align: middle;
+}
+
+.avpvh-pswp-drive-copy:hover {
+	opacity: 1;
+}
+
 .avpvh-pswp-exclusion-button {
 	background: none;
 	border: none;
