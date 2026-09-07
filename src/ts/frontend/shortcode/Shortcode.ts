@@ -83,6 +83,12 @@ export class Shortcode {
 	// URL). While set, the auto-slideshow stays paused so we don't keep firing
 	// doomed requests; it clears again as soon as a full-size image loads.
 	private rateLimited = false;
+	// Automatically retries the current slide's image after DRIVE_ERROR_RETRY_MS
+	// while it's showing the Drive-load-error notice, so a transient failure
+	// (rate-limit, ORB block) clears itself and the slideshow resumes without
+	// the viewer needing to click "Opnieuw proberen".
+	private driveErrorRetryTimer: ReturnType<typeof setTimeout> | null = null;
+	private static readonly DRIVE_ERROR_RETRY_MS = 8000;
 	private screenWakeLock: WakeLockSentinel | null = null;
 	private screenWakeLockRequest: Promise<void> | null = null;
 	private isWideMode = false;
@@ -202,7 +208,10 @@ export class Shortcode {
 		//  • Pause the auto-slideshow so we stop firing doomed full-size requests;
 		//    it resumes once a full-size image loads again.
 		lightbox.on('loadError', (e) => {
-			const content = e.content as unknown as { type?: string };
+			const content = e.content as unknown as {
+				type?: string;
+				index: number;
+			};
 			if ('image' !== content.type) {
 				return;
 			}
@@ -211,11 +220,18 @@ export class Shortcode {
 				clearTimeout(this.slideshowTimer);
 				this.slideshowTimer = null;
 			}
+			if (e.slide === lightbox.pswp?.currSlide) {
+				this.scheduleDriveErrorRetry(lightbox, content.index);
+			}
 		});
 		lightbox.on('loadComplete', (e) => {
 			// A real full-size image loaded — Google is serving us again.
 			if (true !== e.isError) {
 				this.rateLimited = false;
+				if (this.driveErrorRetryTimer !== null) {
+					clearTimeout(this.driveErrorRetryTimer);
+					this.driveErrorRetryTimer = null;
+				}
 				Shortcode.syncSlideNaturalDimensions(e.slide);
 				const pswp = this.lightbox.pswp;
 				if (pswp !== undefined) {
@@ -262,7 +278,9 @@ export class Shortcode {
 			title.textContent = 'Google Drive kon de afbeelding niet laden';
 			const detail = document.createElement('div');
 			detail.className = 'avpvh-pswp-drive-error-detail';
-			detail.textContent = 'Dit is meestal een tijdelijk probleem.';
+			detail.textContent =
+				'Dit is meestal een tijdelijk probleem — we proberen het ' +
+				'automatisch opnieuw.';
 			const retryButton = document.createElement('button');
 			retryButton.type = 'button';
 			retryButton.className = 'avpvh-pswp-drive-error-retry';
@@ -1541,6 +1559,26 @@ export class Shortcode {
 			this.folderNavigating = true;
 			this.navigateToAdjacentFolder('prev', pswp);
 		}
+	}
+
+	// Retries a slide that just failed to load after DRIVE_ERROR_RETRY_MS,
+	// as long as it's still the one being viewed. If the retry fails again,
+	// the loadError handler calls back in here and schedules another round —
+	// this only stops once the slide loads successfully (loadComplete clears
+	// driveErrorRetryTimer) or the viewer navigates away (checked below).
+	private scheduleDriveErrorRetry(
+		lightbox: PhotoSwipeLightbox,
+		index: number
+	): void {
+		if (this.driveErrorRetryTimer !== null) {
+			clearTimeout(this.driveErrorRetryTimer);
+		}
+		this.driveErrorRetryTimer = setTimeout(() => {
+			this.driveErrorRetryTimer = null;
+			if (lightbox.pswp?.currIndex === index) {
+				lightbox.pswp.refreshSlideContent(index);
+			}
+		}, Shortcode.DRIVE_ERROR_RETRY_MS);
 	}
 
 	private startSlideshow(pswp: PhotoSwipe): void {
