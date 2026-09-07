@@ -494,6 +494,22 @@ class ExifInspector {
 		return null;
 	}
 
+	// Like `extractDriveFileId()`, but also recognizes folder links
+	// (`drive.google.com/drive/folders/<id>`, incl. the `/u/0/` variant) —
+	// used by the dedicated "Google Drive-link" box, which can point at
+	// either a file or a folder.
+	private static extractDriveId(input: string): string | null {
+		const fileId = ExifInspector.extractDriveFileId(input);
+		if (fileId !== null) {
+			return fileId;
+		}
+		const match =
+			/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/([^/?#]+)/.exec(
+				input
+			);
+		return match ? decodeURIComponent(match[1]) : null;
+	}
+
 	private static escapeHtml(text: string): string {
 		const div = document.createElement('div');
 		div.textContent = text;
@@ -558,22 +574,6 @@ class ExifInspector {
 					e.stopPropagation();
 				});
 			});
-	}
-
-	// Rejoins the #path-boxes segment inputs into the hidden #path-input,
-	// which stays the single source of truth `loadFile()` reads.
-	private static syncPathBoxesToHiddenInput(): void {
-		const container = document.getElementById('path-boxes');
-		const pathInput = document.getElementById(
-			'path-input'
-		) as HTMLInputElement | null;
-		if (!container || !pathInput) {
-			return;
-		}
-		const values = Array.from(
-			container.querySelectorAll<HTMLInputElement>('.path-box-input')
-		).map((el) => el.value);
-		pathInput.value = values.join('/');
 	}
 
 	// Widens an indexed-access result (Record/Array lookups, which TypeScript
@@ -1041,10 +1041,17 @@ class ExifInspector {
 				</div>
 
 				<div class="path-input-section">
-					<label style="display:block;margin-bottom:4px;">Bestandspad:</label>
-					<div id="path-boxes" class="path-boxes"></div>
-					<input type="hidden" id="path-input" value="${ExifInspector.escapeHtml(lastPath)}" />
+					<label>Bestandspad:
+						<input type="text" id="path-input" placeholder="e.g., 01-Opgravingen / 1976 Grobbendonk / PICT0250.JPG" value="${ExifInspector.escapeHtml(lastPath)}" />
+					</label>
 					<button id="load-btn" type="button">Laden</button>
+				</div>
+
+				<div class="drive-link-input-section">
+					<label>Google Drive-link:
+						<input type="text" id="drive-link-input" placeholder="Plak hier een Google Drive-link naar een map of bestand…" />
+					</label>
+					<button id="drive-link-load-btn" type="button">Openen</button>
 				</div>
 
 				<div id="loading" style="display: none;">Laden...</div>
@@ -1512,7 +1519,14 @@ class ExifInspector {
 					}
 
 					.path-input-section {
-						margin-bottom: 20px;
+						margin-bottom: 8px;
+					}
+
+					.path-input-section input {
+						width: 100%;
+						max-width: 500px;
+						padding: 8px;
+						font-size: 14px;
 					}
 
 					.path-input-section button {
@@ -1521,52 +1535,20 @@ class ExifInspector {
 						cursor: pointer;
 					}
 
-					.path-boxes {
-						display: flex;
-						flex-wrap: wrap;
-						align-items: center;
-						gap: 4px;
-						margin-bottom: 8px;
+					.drive-link-input-section {
+						margin-bottom: 20px;
 					}
 
-					.path-box-group {
-						display: inline-flex;
-						align-items: center;
-						gap: 1px;
+					.drive-link-input-section input {
+						width: 100%;
+						max-width: 500px;
+						padding: 8px;
+						font-size: 14px;
 					}
 
-					.path-box-input {
-						padding: 6px 8px;
-						font-size: 13px;
-						border: 1px solid #ccc;
-						border-radius: 3px;
-						width: 150px;
-					}
-
-					.path-box-remove {
-						border: none;
-						background: transparent;
-						color: #999;
-						cursor: pointer;
-						font-size: 15px;
-						line-height: 1;
-						padding: 2px 4px;
-					}
-
-					.path-box-remove:hover {
-						color: #d63638;
-					}
-
-					.path-box-sep {
-						color: #aaa;
-					}
-
-					.path-box-add {
-						padding: 5px 10px;
-						font-size: 12px;
-						border: 1px solid #ccc;
-						border-radius: 3px;
-						background: #f5f5f5;
+					.drive-link-input-section button {
+						padding: 8px 16px;
+						margin-left: 10px;
 						cursor: pointer;
 					}
 
@@ -2147,15 +2129,40 @@ class ExifInspector {
 				void this.savePhotoExclusion();
 			});
 
-		const initialPathInput = document.getElementById(
+		const pathInput = document.getElementById(
 			'path-input'
 		) as HTMLInputElement | null;
-		this.renderPathBoxes(
-			(initialPathInput?.value ?? '')
-				.split('/')
-				.map((p) => p.trim())
-				.filter((p) => p)
-		);
+		if (pathInput) {
+			pathInput.addEventListener('keypress', (e) => {
+				if (e.key === 'Enter') {
+					void this.loadFile();
+				}
+			});
+		}
+
+		const driveLinkInput = document.getElementById(
+			'drive-link-input'
+		) as HTMLInputElement | null;
+		const loadDriveLink = (): void => {
+			const value = driveLinkInput?.value.trim() ?? '';
+			const driveFileOrFolderId = ExifInspector.extractDriveId(value);
+			if (driveFileOrFolderId === null) {
+				ExifInspector.showError(
+					'Geen geldige Google Drive-link herkend'
+				);
+				return;
+			}
+			ExifInspector.clearError();
+			void this.loadByDriveId(driveFileOrFolderId);
+		};
+		document
+			.getElementById('drive-link-load-btn')
+			?.addEventListener('click', loadDriveLink);
+		driveLinkInput?.addEventListener('keypress', (e) => {
+			if (e.key === 'Enter') {
+				loadDriveLink();
+			}
+		});
 
 		this.initSearch();
 		this.initFilterBar();
@@ -2440,88 +2447,6 @@ class ExifInspector {
 		});
 	}
 
-	// Renders one editable box per path segment (folder(s) + filename) in
-	// #path-boxes, plus a trailing "+" to append another segment. The single
-	// hidden #path-input stays the source of truth `loadFile()` reads — each
-	// box keeps it in sync on every edit, so the rest of the path-loading
-	// logic (slash-splitting, the Drive-link paste detection, etc.) needs no
-	// changes.
-	private renderPathBoxes(parts: Array<string>): void {
-		const container = document.getElementById('path-boxes');
-		if (!container) {
-			return;
-		}
-		const segments = parts.length > 0 ? parts : [''];
-		container.innerHTML = '';
-
-		segments.forEach((value, idx) => {
-			if (idx > 0) {
-				const sep = document.createElement('span');
-				sep.className = 'path-box-sep';
-				sep.textContent = '/';
-				container.appendChild(sep);
-			}
-			const group = document.createElement('span');
-			group.className = 'path-box-group';
-
-			const box = document.createElement('input');
-			box.type = 'text';
-			box.className = 'path-box-input';
-			box.value = value;
-			box.placeholder =
-				idx === segments.length - 1 && segments.length > 1
-					? 'Bestandsnaam'
-					: 'Map (of plak een Drive-link)';
-			box.addEventListener('input', () => {
-				ExifInspector.syncPathBoxesToHiddenInput();
-			});
-			box.addEventListener('keypress', (e) => {
-				if (e.key === 'Enter') {
-					void this.loadFile();
-				}
-			});
-			group.appendChild(box);
-
-			const remove = document.createElement('button');
-			remove.type = 'button';
-			remove.className = 'path-box-remove';
-			remove.title = 'Dit padonderdeel verwijderen';
-			remove.setAttribute('aria-label', 'Verwijderen');
-			remove.textContent = '×';
-			remove.addEventListener('click', () => {
-				const remaining = Array.from(
-					container.querySelectorAll<HTMLInputElement>(
-						'.path-box-input'
-					)
-				)
-					.map((el) => el.value)
-					.filter((_, i) => i !== idx);
-				this.renderPathBoxes(remaining);
-			});
-			group.appendChild(remove);
-
-			container.appendChild(group);
-		});
-
-		const addBtn = document.createElement('button');
-		addBtn.type = 'button';
-		addBtn.className = 'path-box-add';
-		addBtn.title = 'Nog een padonderdeel toevoegen';
-		addBtn.textContent = '+';
-		addBtn.addEventListener('click', () => {
-			const current = Array.from(
-				container.querySelectorAll<HTMLInputElement>('.path-box-input')
-			).map((el) => el.value);
-			this.renderPathBoxes([...current, '']);
-			container
-				.querySelectorAll<HTMLInputElement>('.path-box-input')
-				[current.length].focus();
-		});
-		container.appendChild(addBtn);
-
-		ExifInspector.syncPathBoxesToHiddenInput();
-	}
-
 	private async loadFile(): Promise<void> {
 		const pathInput = document.getElementById(
 			'path-input'
@@ -2713,6 +2638,41 @@ class ExifInspector {
 				`Fout: ${error instanceof Error ? error.message : 'Onbekende fout'}`
 			);
 		} finally {
+			ExifInspector.showLoading(false);
+		}
+	}
+
+	// Resolves a pasted Drive ID's type (folder vs. file) and loads it via
+	// the matching existing flow. Used by the "Google Drive-link" box, which
+	// can point at either.
+	private async loadByDriveId(id: string): Promise<void> {
+		ExifInspector.showLoading(true);
+		try {
+			const response = await fetch(`${this.restUrl}file-data`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-WP-Nonce': this.nonce,
+				},
+				body: JSON.stringify({ file_id: id }),
+				credentials: 'include',
+			});
+			if (!response.ok) {
+				throw new Error(
+					`Niet gevonden (HTTP ${String(response.status)})`
+				);
+			}
+			const data = (await response.json()) as { file: FileData };
+			if (data.file.mimeType === 'application/vnd.google-apps.folder') {
+				this.folderStack = [];
+				await this.loadFilesByFolder(data.file.id, data.file.name);
+			} else {
+				await this.loadFileById(id);
+			}
+		} catch (error) {
+			ExifInspector.showError(
+				`Fout: ${error instanceof Error ? error.message : 'Onbekende fout'}`
+			);
 			ExifInspector.showLoading(false);
 		}
 	}
@@ -4023,15 +3983,18 @@ class ExifInspector {
 		this.updateThumbSelection();
 		this.updateTableSelection();
 
-		// Update path boxes with current folder stack + filename
-		{
+		// Update path input with current folder stack + filename
+		const pathInputEl = document.getElementById(
+			'path-input'
+		) as HTMLInputElement | null;
+		if (pathInputEl) {
 			const currentFile = this.currentFile;
 			const parts = [
 				...this.folderStack.map((f) => f.name),
 				currentFile.name,
 			];
-			this.renderPathBoxes(parts);
-			const path = parts.join('/');
+			const path = parts.join(' / ');
+			pathInputEl.value = path;
 			localStorage.setItem('avpvh_exif_inspector_last_path', path);
 			// Also save the innermost folder ID so "Laden" can navigate directly
 			// when the folder was reached via search (folderStack has no full ancestor chain).
