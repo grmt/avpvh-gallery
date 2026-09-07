@@ -576,6 +576,84 @@ class ExifInspector {
 			});
 	}
 
+	// Populates the "Google Drive-link" box's read-only folder/file rows for
+	// whatever's currently loaded, so the links can be copied or opened
+	// without digging through Drive — the reverse direction of that same
+	// box's paste-a-link-to-load feature.
+	private static updateCurrentDriveLinks(
+		file: FileData,
+		folderStack: Array<{ id: string; name: string }>
+	): void {
+		const container = document.getElementById('drive-link-current');
+		const folderInput = document.getElementById(
+			'drive-link-current-folder'
+		) as HTMLInputElement | null;
+		const folderOpen = document.getElementById(
+			'drive-link-current-folder-open'
+		) as HTMLAnchorElement | null;
+		const fileInput = document.getElementById(
+			'drive-link-current-file'
+		) as HTMLInputElement | null;
+		const fileOpen = document.getElementById(
+			'drive-link-current-file-open'
+		) as HTMLAnchorElement | null;
+		if (
+			!container ||
+			!folderInput ||
+			!folderOpen ||
+			!fileInput ||
+			!fileOpen
+		) {
+			return;
+		}
+
+		const folderId = ExifInspector.maybe(
+			folderStack[folderStack.length - 1]
+		)?.id;
+		const resolvedFolderId = folderId ?? file.parents?.[0];
+		if (resolvedFolderId !== undefined && resolvedFolderId !== '') {
+			const url = ExifInspector.driveFolderUrl(resolvedFolderId);
+			folderInput.value = url;
+			folderOpen.href = url;
+			folderInput.parentElement?.style.setProperty('display', '');
+		} else {
+			folderInput.value = '';
+			folderInput.parentElement?.style.setProperty('display', 'none');
+		}
+
+		const fileUrl = ExifInspector.driveFileUrl(file.id);
+		fileInput.value = fileUrl;
+		fileOpen.href = fileUrl;
+
+		container.style.display = 'flex';
+	}
+
+	// Wires a "Kopieer" button to copy the value of a readonly text input to
+	// the clipboard, with brief "Gekopieerd!" feedback.
+	private static wireCopyButton(buttonId: string, inputId: string): void {
+		const button = document.getElementById(
+			buttonId
+		) as HTMLButtonElement | null;
+		const input = document.getElementById(
+			inputId
+		) as HTMLInputElement | null;
+		if (!button || !input) {
+			return;
+		}
+		button.addEventListener('click', () => {
+			if (input.value === '') {
+				return;
+			}
+			void navigator.clipboard.writeText(input.value).then(() => {
+				const original = button.textContent;
+				button.textContent = 'Gekopieerd!';
+				setTimeout(() => {
+					button.textContent = original;
+				}, 1200);
+			});
+		});
+	}
+
 	// Widens an indexed-access result (Record/Array lookups, which TypeScript
 	// treats as always-defined without `noUncheckedIndexedAccess`) back to an
 	// honest `T | undefined` so callers keep the runtime-necessary null check.
@@ -1052,6 +1130,20 @@ class ExifInspector {
 						<input type="text" id="drive-link-input" placeholder="Plak hier een Google Drive-link naar een map of bestand…" />
 					</label>
 					<button id="drive-link-load-btn" type="button">Openen</button>
+					<div id="drive-link-current" class="drive-link-current" style="display:none;">
+						<div class="drive-link-current-row">
+							<span class="drive-link-current-label">Map:</span>
+							<input type="text" id="drive-link-current-folder" class="drive-link-current-value" readonly />
+							<button type="button" id="drive-link-current-folder-copy" class="drive-link-current-copy">Kopieer</button>
+							<a id="drive-link-current-folder-open" class="drive-link-icon" href="#" target="_blank" rel="noopener noreferrer">↗ Openen</a>
+						</div>
+						<div class="drive-link-current-row">
+							<span class="drive-link-current-label">Foto:</span>
+							<input type="text" id="drive-link-current-file" class="drive-link-current-value" readonly />
+							<button type="button" id="drive-link-current-file-copy" class="drive-link-current-copy">Kopieer</button>
+							<a id="drive-link-current-file-open" class="drive-link-icon" href="#" target="_blank" rel="noopener noreferrer">↗ Openen</a>
+						</div>
+					</div>
 				</div>
 
 				<div id="loading" style="display: none;">Laden...</div>
@@ -1549,6 +1641,46 @@ class ExifInspector {
 					.drive-link-input-section button {
 						padding: 8px 16px;
 						margin-left: 10px;
+						cursor: pointer;
+					}
+
+					.drive-link-current {
+						margin-top: 10px;
+						display: flex;
+						flex-direction: column;
+						gap: 6px;
+					}
+
+					.drive-link-current-row {
+						display: flex;
+						align-items: center;
+						gap: 6px;
+					}
+
+					.drive-link-current-label {
+						font-size: 12px;
+						color: #666;
+						width: 34px;
+						flex-shrink: 0;
+					}
+
+					.drive-link-current-value {
+						flex: 1 1 auto;
+						max-width: 420px;
+						padding: 5px 8px;
+						font-size: 12px;
+						border: 1px solid #ddd;
+						border-radius: 3px;
+						background: #f9f9f9;
+						color: #555;
+					}
+
+					.drive-link-current-copy {
+						padding: 4px 10px;
+						font-size: 12px;
+						border: 1px solid #ccc;
+						border-radius: 3px;
+						background: #f5f5f5;
 						cursor: pointer;
 					}
 
@@ -2163,6 +2295,14 @@ class ExifInspector {
 				loadDriveLink();
 			}
 		});
+		ExifInspector.wireCopyButton(
+			'drive-link-current-folder-copy',
+			'drive-link-current-folder'
+		);
+		ExifInspector.wireCopyButton(
+			'drive-link-current-file-copy',
+			'drive-link-current-file'
+		);
 
 		this.initSearch();
 		this.initFilterBar();
@@ -4012,6 +4152,11 @@ class ExifInspector {
 				);
 			}
 		}
+
+		ExifInspector.updateCurrentDriveLinks(
+			this.currentFile,
+			this.folderStack
+		);
 
 		// Update nav buttons
 		const prevBtn = document.getElementById(
