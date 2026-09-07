@@ -26,4 +26,5 @@ declare const avpvhShortcodeLocalize: {
 	exif_orientation_url: string;
 	can_exclude_photos: string;
 	exclusion_url: string;
+	exif_date_url: string;
 };

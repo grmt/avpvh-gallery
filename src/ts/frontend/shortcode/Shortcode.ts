@@ -47,6 +47,10 @@ export class Shortcode {
 		string,
 		Promise<number | null>
 	>();
+	private static readonly exifOriginalDateCache = new Map<
+		string,
+		Promise<string | null>
+	>();
 
 	private readonly container: JQuery;
 	private readonly hash: string;
@@ -545,6 +549,11 @@ export class Shortcode {
 					const exifLine = document.createElement('div');
 					exifLine.className = 'avpvh-pswp-path-exif';
 					const exifText = document.createElement('span');
+					const originalDateEl = document.createElement('span');
+					originalDateEl.className = 'avpvh-pswp-original-date';
+					originalDateEl.title =
+						'Werkelijke opnamedatum uit de EXIF-gegevens van de originele foto';
+					originalDateEl.style.display = 'none';
 					const orientationIcon = document.createElement('span');
 					orientationIcon.className = 'avpvh-pswp-orientation-icon';
 					orientationIcon.style.setProperty(
@@ -552,6 +561,7 @@ export class Shortcode {
 						'invert(1)'
 					);
 					exifLine.appendChild(exifText);
+					exifLine.appendChild(originalDateEl);
 					exifLine.appendChild(orientationIcon);
 					// EXIF Inspector link — only visible to wp-admin users
 					const exifInspectorLink = document.createElement('a');
@@ -821,6 +831,7 @@ export class Shortcode {
 							orientationIcon.style.display = '';
 						}
 						exifLine.style.display = '';
+						originalDateEl.style.display = 'none';
 						const fileId =
 							slideEl instanceof HTMLElement
 								? (slideEl.dataset['avpvhId'] ?? '')
@@ -842,6 +853,30 @@ export class Shortcode {
 							'true' === avpvhShortcodeLocalize.can_exclude_photos
 								? ''
 								: 'none';
+						if (fileId !== '') {
+							const dateSlideEl = slideEl;
+							void Shortcode.loadExifOriginalDate(fileId).then(
+								(originalDatetime) => {
+									if (
+										originalDatetime === null ||
+										instance.currSlide?.data.element !==
+											dateSlideEl
+									) {
+										return;
+									}
+									const formatted =
+										Shortcode.formatExifDate(
+											originalDatetime
+										);
+									if (formatted === '') {
+										return;
+									}
+									originalDateEl.textContent =
+										'Origineel: ' + formatted;
+									originalDateEl.style.display = '';
+								}
+							);
+						}
 						if (!hasCorrection && fileId !== '') {
 							const orientationSlideEl = slideEl;
 							const portrait = displayedHeight > displayedWidth;
@@ -2279,6 +2314,37 @@ export class Shortcode {
 			.catch(() => null);
 
 		Shortcode.exifOrientationCache.set(fileId, request);
+		return request;
+	}
+
+	// Public — unlike loadExifOrientation(), this never gates on an admin-only
+	// localized URL. The endpoint itself is a pure cache read (see
+	// Exif_Date_REST), so it is cheap enough to call for every visitor.
+	private static async loadExifOriginalDate(
+		fileId: string
+	): Promise<string | null> {
+		const cached = Shortcode.exifOriginalDateCache.get(fileId);
+		if (cached !== undefined) {
+			return cached;
+		}
+
+		const url =
+			avpvhShortcodeLocalize.exif_date_url +
+			'?file_id=' +
+			encodeURIComponent(fileId);
+		const request = fetch(url, { credentials: 'include' })
+			.then(async (response): Promise<string | null> => {
+				if (!response.ok) {
+					return null;
+				}
+				const data = (await response.json()) as {
+					original_datetime?: string | null;
+				};
+				return data.original_datetime ?? null;
+			})
+			.catch(() => null);
+
+		Shortcode.exifOriginalDateCache.set(fileId, request);
 		return request;
 	}
 

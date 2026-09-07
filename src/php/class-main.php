@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use Avpvh\Admin\Settings_Pages;
 use Avpvh\Admin\TinyMCE_Plugin;
 use Avpvh\Frontend\Block;
+use Avpvh\Frontend\Exif_Date_REST;
 use Avpvh\Frontend\Gallery;
 use Avpvh\Frontend\Members_API;
 use Avpvh\Frontend\Page;
@@ -48,6 +49,7 @@ final class Main {
 		new Video_Proxy();
 		new Photo_Tags();
 		new Members_API();
+		new Exif_Date_REST();
 		new Settings_Pages();
 		new TinyMCE_Plugin();
 	}

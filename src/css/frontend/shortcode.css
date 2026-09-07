@@ -814,6 +814,10 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	vertical-align: middle;
 }
 
+.avpvh-pswp-original-date {
+	margin-left: 6px;
+}
+
 .avpvh-orientation-chain,
 .avpvh-orientation-state,
 .avpvh-orientation-move {

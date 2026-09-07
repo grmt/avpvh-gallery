@@ -17,6 +17,7 @@ use Avpvh\Exceptions\API_Exception;
 use Avpvh\Exceptions\Not_Found_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Frontend\API_Fields;
+use DateTime;
 use Requests_Utility_CaseInsensitiveDictionary;
 use Throwable;
 use WP_Error;
@@ -193,6 +194,8 @@ final class Exif_Data_REST {
 
 			list( $flat_exif, $thumb_base64, $thumb_w, $thumb_h ) = self::extract_exif_and_thumbnail( $temp_file );
 
+			self::cache_original_datetime( $file_id, $flat_exif );
+
 			return new WP_REST_Response(
 				array(
 					'corrections'      => self::corrections_for_file( $file_id ),
@@ -307,6 +310,35 @@ final class Exif_Data_REST {
 		return 'https://www.googleapis.com/drive/v3/files/' .
 			rawurlencode( $file_id ) .
 			'?alt=media&supportsAllDrives=true';
+	}
+
+	/**
+	 * Caches a file's true EXIF DateTimeOriginal, so the public lightbox
+	 * (Frontend\Exif_Date_REST) can show it without ever downloading the
+	 * original itself. Called every time an admin inspects a photo here,
+	 * unconditionally overwriting any previously cached value.
+	 *
+	 * @param string               $file_id   Google Drive file ID.
+	 * @param array<string, mixed> $flat_exif Flattened `SECTION:key` EXIF data, as returned by
+	 *                                        extract_exif_and_thumbnail()/flatten_exif_sections().
+	 *
+	 * @return void
+	 */
+	private static function cache_original_datetime( $file_id, array $flat_exif ) {
+		$raw    = isset( $flat_exif['EXIF:DateTimeOriginal'] ) ? $flat_exif['EXIF:DateTimeOriginal'] : null;
+		$parsed = is_string( $raw ) ? DateTime::createFromFormat( 'Y:m:d H:i:s', $raw ) : false;
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'agallery_photo_exif_dates';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
+		$wpdb->replace(
+			$table,
+			array(
+				'image_id'          => $file_id,
+				'original_datetime' => false !== $parsed ? $parsed->format( 'Y-m-d H:i:s' ) : null,
+			),
+			array( '%s', '%s' )
+		);
 	}
 
 	/**

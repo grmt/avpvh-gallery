@@ -20,7 +20,7 @@ final class Photo_Corrections_DB {
 	 * Schema version stored in wp_options.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility -- visibility modifiers on class constants require PHP 7.1; plugin supports PHP 5.6+.
-	const SCHEMA_VERSION = 9;
+	const SCHEMA_VERSION = 10;
 
 	/**
 	 * Runs schema migration if needed; hooked to admin_init.
@@ -44,6 +44,8 @@ final class Photo_Corrections_DB {
 	 * Schema v7: migrates the configured sNNNN correction key to lightbox.
 	 * Schema v8: adds per-photo gallery exclusions with private moderation reasons.
 	 * Schema v9: records whether an excluded Drive item is an image or video.
+	 * Schema v10: adds a cache of each photo's true EXIF DateTimeOriginal, since
+	 * reading it requires downloading part of the original file from Drive.
 	 *
 	 * @return void
 	 */
@@ -55,6 +57,7 @@ final class Photo_Corrections_DB {
 		$table           = $wpdb->prefix . 'agallery_photo_corrections';
 		$folder_table    = $wpdb->prefix . 'agallery_folder_corrections';
 		$exclusion_table = $wpdb->prefix . 'agallery_photo_exclusions';
+		$exif_date_table = $wpdb->prefix . 'agallery_photo_exif_dates';
 
 		self::maybe_migrate_legacy_rotation_columns( $table, $charset_collate );
 
@@ -93,6 +96,14 @@ final class Photo_Corrections_DB {
 ) {$charset_collate};";
 		dbDelta( $exclusion_sql );
 
+		$exif_date_sql = "CREATE TABLE {$exif_date_table} (
+  image_id VARCHAR(255) NOT NULL,
+  original_datetime DATETIME NULL,
+  checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (image_id)
+) {$charset_collate};";
+		dbDelta( $exif_date_sql );
+
 		// MySQL clamped previously saved 270-degree values to TINYINT's maximum.
 		// Since the API only accepts quarter turns, every stored 255 is a damaged 270.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
@@ -126,12 +137,15 @@ final class Photo_Corrections_DB {
 		$table           = $wpdb->prefix . 'agallery_photo_corrections';
 		$folder_table    = $wpdb->prefix . 'agallery_folder_corrections';
 		$exclusion_table = $wpdb->prefix . 'agallery_photo_exclusions';
+		$exif_date_table = $wpdb->prefix . 'agallery_photo_exif_dates';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name cannot be a placeholder; uninstall-time schema drop of a custom plugin table.
 		$wpdb->query( "DROP TABLE IF EXISTS {$table}" );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name cannot be a placeholder; uninstall-time schema drop of a custom plugin table.
 		$wpdb->query( "DROP TABLE IF EXISTS {$folder_table}" );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name cannot be a placeholder; uninstall-time schema drop of a custom plugin table.
 		$wpdb->query( "DROP TABLE IF EXISTS {$exclusion_table}" );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name cannot be a placeholder; uninstall-time schema drop of a custom plugin table.
+		$wpdb->query( "DROP TABLE IF EXISTS {$exif_date_table}" );
 		delete_option( 'avpvh_corrections_schema' );
 	}
 

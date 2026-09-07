@@ -188,6 +188,7 @@ final class Shortcode {
 			),
 			'error_trace_header'   => esc_html__( 'Stack trace:', 'avpvh-gallery' ),
 			'exclusion_url'        => rest_url( 'avpvh-gallery/v1/exif-inspector/exclusion' ),
+			'exif_date_url'        => rest_url( 'avpvh-gallery/v1/exif-date' ),
 			'exif_inspector_url'   => current_user_can( 'manage_options' )
 				? admin_url( 'admin.php?page=avpvh_exif_inspector' )
 				: '',
