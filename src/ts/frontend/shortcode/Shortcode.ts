@@ -636,7 +636,7 @@ export class Shortcode {
 						'Uitsluiten van gallery en diavoorstelling';
 					exclusionButton.style.display = 'none';
 					exclusionButton.innerHTML =
-						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M3 6h18v2H3V6zm2 4h14l-1.5 11h-11L5 10zm5-7h4v2h-4V3z"/></svg>';
+						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L12 13.41l-6.29 6.3-1.42-1.42L10.59 12 4.29 5.71 5.71 4.29 12 10.59l6.29-6.3z"/></svg>';
 					const exclusionPanel = document.createElement('div');
 					exclusionPanel.className = 'avpvh-pswp-exclusion-panel';
 					exclusionPanel.style.display = 'none';
@@ -776,6 +776,12 @@ export class Shortcode {
 										return;
 									}
 									setExclusionStatus('Opgeslagen.', false);
+									if (excluded) {
+										this.removeFromGridAndAdvance(
+											instance,
+											fileId
+										);
+									}
 								})
 								.catch((error: unknown) => {
 									if (exclusionFileId !== fileId) {
@@ -3085,6 +3091,31 @@ export class Shortcode {
 		this.container
 			.find('.avpvh-mode-portrait-btn')
 			.toggleClass('active', this.isPortraitMode);
+	}
+
+	// After successfully excluding the photo/video currently shown in the
+	// lightbox: drop its thumbnail from the background grid immediately
+	// (rather than requiring a page refresh to see the effect) and move on
+	// to the next slide — staying on a slide that was just excluded is
+	// confusing, and this also matches a triage workflow of excluding
+	// several photos in a row.
+	private removeFromGridAndAdvance(
+		instance: PhotoSwipe,
+		fileId: string
+	): void {
+		const items =
+			(instance.options.dataSource as { items?: Array<HTMLElement> })
+				.items ?? [];
+		const gridItem = items.find(
+			(item) => item.dataset['avpvhId'] === fileId
+		);
+		gridItem?.remove();
+		this.reflow();
+		if (instance.currIndex < instance.getNumItems() - 1) {
+			instance.next();
+		} else {
+			instance.close();
+		}
 	}
 
 	public reflow(): void {
