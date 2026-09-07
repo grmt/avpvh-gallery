@@ -83,12 +83,13 @@ export class Shortcode {
 	// URL). While set, the auto-slideshow stays paused so we don't keep firing
 	// doomed requests; it clears again as soon as a full-size image loads.
 	private rateLimited = false;
-	// Automatically retries the current slide's image after DRIVE_ERROR_RETRY_MS
-	// while it's showing the Drive-load-error notice, so a transient failure
-	// (rate-limit, ORB block) clears itself and the slideshow resumes without
-	// the viewer needing to click "Opnieuw proberen".
+	// Automatically retries the current slide's image, at the same pace as
+	// the slideshow itself (SLIDESHOW_DELAY_MS), while it's showing the
+	// Drive-load-error notice — so a transient failure (rate-limit, ORB
+	// block) clears itself and the slideshow resumes without the viewer
+	// needing to click "Opnieuw proberen", and without lagging noticeably
+	// behind the show's normal per-photo timing.
 	private driveErrorRetryTimer: ReturnType<typeof setTimeout> | null = null;
-	private static readonly DRIVE_ERROR_RETRY_MS = 8000;
 	private screenWakeLock: WakeLockSentinel | null = null;
 	private screenWakeLockRequest: Promise<void> | null = null;
 	private isWideMode = false;
@@ -1561,9 +1562,9 @@ export class Shortcode {
 		}
 	}
 
-	// Retries a slide that just failed to load after DRIVE_ERROR_RETRY_MS,
-	// as long as it's still the one being viewed. If the retry fails again,
-	// the loadError handler calls back in here and schedules another round —
+	// Retries a slide that just failed to load after SLIDESHOW_DELAY_MS, as
+	// long as it's still the one being viewed. If the retry fails again, the
+	// loadError handler calls back in here and schedules another round —
 	// this only stops once the slide loads successfully (loadComplete clears
 	// driveErrorRetryTimer) or the viewer navigates away (checked below).
 	private scheduleDriveErrorRetry(
@@ -1578,7 +1579,7 @@ export class Shortcode {
 			if (lightbox.pswp?.currIndex === index) {
 				lightbox.pswp.refreshSlideContent(index);
 			}
-		}, Shortcode.DRIVE_ERROR_RETRY_MS);
+		}, this.SLIDESHOW_DELAY_MS);
 	}
 
 	private startSlideshow(pswp: PhotoSwipe): void {
