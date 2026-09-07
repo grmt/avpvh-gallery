@@ -262,11 +262,17 @@ export class Shortcode {
 			title.textContent = 'Google Drive kon de afbeelding niet laden';
 			const detail = document.createElement('div');
 			detail.className = 'avpvh-pswp-drive-error-detail';
-			detail.textContent =
-				'Dit is een tijdelijk probleem bij Google. ' +
-				'Vernieuw de pagina om het opnieuw te proberen.';
+			detail.textContent = 'Dit is meestal een tijdelijk probleem.';
+			const retryButton = document.createElement('button');
+			retryButton.type = 'button';
+			retryButton.className = 'avpvh-pswp-drive-error-retry';
+			retryButton.textContent = 'Opnieuw proberen';
+			retryButton.addEventListener('click', () => {
+				lightbox.pswp?.refreshSlideContent(content.index);
+			});
 			notice.appendChild(title);
 			notice.appendChild(detail);
+			notice.appendChild(retryButton);
 			wrapper.appendChild(notice);
 			return wrapper;
 		});

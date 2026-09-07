@@ -1000,3 +1000,18 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	font-size: 12px;
 	opacity: 0.8;
 }
+
+.avpvh-pswp-drive-error-retry {
+	background: rgb(255, 255, 255, 12%);
+	border: 1px solid rgb(255, 255, 255, 30%);
+	border-radius: 4px;
+	color: #fff;
+	cursor: pointer;
+	font-size: 12px;
+	margin-top: 12px;
+	padding: 6px 14px;
+}
+
+.avpvh-pswp-drive-error-retry:hover {
+	background: rgb(255, 255, 255, 22%);
+}
