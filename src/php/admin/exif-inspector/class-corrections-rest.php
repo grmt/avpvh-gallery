@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Frontend\Exclusion_Permission;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -76,6 +77,9 @@ final class Corrections_REST {
 			)
 		);
 
+		// Narrower than the rest of the EXIF Inspector (Exif_Inspector_Permission,
+		// admins only): also lets "boek" group members reach this one route from
+		// the frontend lightbox — see Exclusion_Permission's own docblock.
 		register_rest_route(
 			'avpvh-gallery/v1',
 			'exif-inspector/exclusion',
@@ -83,12 +87,12 @@ final class Corrections_REST {
 				array(
 					'callback'            => array( $this, 'get_exclusion' ),
 					'methods'             => 'GET',
-					'permission_callback' => array( Exif_Inspector_Permission::class, 'check' ),
+					'permission_callback' => array( Exclusion_Permission::class, 'check' ),
 				),
 				array(
 					'callback'            => array( $this, 'save_exclusion' ),
 					'methods'             => 'POST',
-					'permission_callback' => array( Exif_Inspector_Permission::class, 'check' ),
+					'permission_callback' => array( Exclusion_Permission::class, 'check' ),
 				),
 			)
 		);

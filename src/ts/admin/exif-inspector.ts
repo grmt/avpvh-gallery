@@ -1,3 +1,4 @@
+import { fetchExclusion, saveExclusion } from '../exclusion';
 import {
 	getOrientationIconUrl,
 	renderExifOrientationChain,
@@ -3887,28 +3888,18 @@ class ExifInspector {
 		}
 		const file = this.currentFile;
 		try {
-			const response = await fetch(
-				`${this.restUrl}exclusion?file_id=${encodeURIComponent(file.id)}`,
-				{
-					headers: { 'X-WP-Nonce': this.nonce },
-					credentials: 'include',
-				}
+			const state = await fetchExclusion(
+				`${this.restUrl}exclusion`,
+				this.nonce,
+				file.id
 			);
-			if (!response.ok) {
-				throw new Error(`HTTP ${String(response.status)}`);
-			}
-			const data = (await response.json()) as {
-				excluded?: boolean;
-				reasons?: Array<string>;
-				note?: string;
-			};
 			if (this.currentFile !== file) {
 				return;
 			}
 			this.renderPhotoExclusion(
-				data.excluded === true,
-				data.reasons ?? [],
-				data.note ?? ''
+				state.excluded,
+				state.reasons,
+				state.note
 			);
 		} catch {
 			if (this.currentFile === file) {
@@ -3961,30 +3952,14 @@ class ExifInspector {
 			button.disabled = true;
 		}
 		try {
-			const response = await fetch(`${this.restUrl}exclusion`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-WP-Nonce': this.nonce,
-				},
-				credentials: 'include',
-				body: JSON.stringify({
-					file_id: file.id,
-					folder_id: folderId,
-					mime_type: file.mimeType ?? '',
-					excluded,
-					reasons,
-					note,
-				}),
+			await saveExclusion(`${this.restUrl}exclusion`, this.nonce, {
+				fileId: file.id,
+				folderId,
+				mimeType: file.mimeType ?? '',
+				excluded,
+				reasons,
+				note,
 			});
-			if (!response.ok) {
-				const error = (await response.json().catch(() => null)) as {
-					message?: string;
-				} | null;
-				throw new Error(
-					error?.message ?? `HTTP ${String(response.status)}`
-				);
-			}
 			if (this.currentFile !== file) {
 				return;
 			}

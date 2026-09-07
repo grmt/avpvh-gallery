@@ -24,4 +24,6 @@ declare const avpvhShortcodeLocalize: {
 	is_admin: string;
 	exif_inspector_url: string;
 	exif_orientation_url: string;
+	can_exclude_photos: string;
+	exclusion_url: string;
 };

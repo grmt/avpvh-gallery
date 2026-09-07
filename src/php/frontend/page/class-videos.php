@@ -64,11 +64,11 @@ final class Videos {
 			$pagination_helper,
 			$options->get( 'image_ordering' )
 		)->then(
-			static function ( $raw_videos ) use ( $options ) {
+			static function ( $raw_videos ) use ( $options, $parent_id ) {
 				$raw_videos         = self::filter_excluded( $raw_videos );
 				$videos             = array_map(
-					static function ( $video ) use ( $options ) {
-						return self::format_video( $video, $options );
+					static function ( $video ) use ( $options, $parent_id ) {
+						return self::format_video( $video, $options, $parent_id );
 					},
 					$raw_videos
 				);
@@ -110,10 +110,11 @@ final class Videos {
 	 *
 	 * @param array<string, mixed> $video The raw Google Drive video record.
 	 * @param Options_Proxy        $options The configuration of the gallery.
+	 * @param string               $parent_id The Drive folder ID the video was listed from.
 	 *
 	 * @return array<string, mixed> The normalized video record (without a resolved `src`).
 	 */
-	private static function format_video( $video, $options ) {
+	private static function format_video( $video, $options, $parent_id ) {
 		$metadata  = array_key_exists( 'videoMediaMetadata', $video ) ? $video['videoMediaMetadata'] : array();
 		$thumbnail = ! is_null( $video['thumbnailLink'] )
 			? substr( $video['thumbnailLink'], 0, -4 ) . 'h' . floor(
@@ -125,6 +126,7 @@ final class Videos {
 			'duration'  => array_key_exists( 'durationMillis', $metadata )
 				? (int) round( ( (int) $metadata['durationMillis'] ) / 1000 )
 				: 0,
+			'folder_id' => $parent_id,
 			'height'    => array_key_exists( 'height', $metadata ) ? $metadata['height'] : '0',
 			'id'        => $video['id'],
 			'mimeType'  => $video['mimeType'],

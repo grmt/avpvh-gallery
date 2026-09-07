@@ -180,12 +180,14 @@ final class Shortcode {
 			'ajax_url'             => admin_url( 'admin-ajax.php' ),
 			'branded_assets'       => $branded_assets ? 'true' : 'false',
 			'breadcrumbs_top'      => esc_html__( 'Gallery', 'avpvh-gallery' ),
+			'can_exclude_photos'   => Exclusion_Permission::check() ? 'true' : 'false',
 			'empty_gallery'        => esc_html__( 'The gallery is empty.', 'avpvh-gallery' ),
 			'error_header'         => esc_html__(
 				'The AVPVH Gallery plugin has encountered an error. Error message:',
 				'avpvh-gallery'
 			),
 			'error_trace_header'   => esc_html__( 'Stack trace:', 'avpvh-gallery' ),
+			'exclusion_url'        => rest_url( 'avpvh-gallery/v1/exif-inspector/exclusion' ),
 			'exif_inspector_url'   => current_user_can( 'manage_options' )
 				? admin_url( 'admin.php?page=avpvh_exif_inspector' )
 				: '',

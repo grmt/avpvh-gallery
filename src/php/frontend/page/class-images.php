@@ -93,8 +93,8 @@ final class Images {
 			static function ( $image_response ) use ( $options, $parent_id ) {
 				$image_response = self::filter_excluded( $image_response );
 				$images         = array_map(
-					static function ( $image ) use ( $options ) {
-						return self::format_image( $image, $options );
+					static function ( $image ) use ( $options, $parent_id ) {
+						return self::format_image( $image, $options, $parent_id );
 					},
 					$image_response
 				);
@@ -118,12 +118,13 @@ final class Images {
 	 *
 	 * @param array<string, mixed> $image The raw Google Drive image record.
 	 * @param Options_Proxy        $options The configuration of the gallery.
+	 * @param string               $parent_id The Drive folder ID the image was listed from.
 	 *
-	 * @return array{description: string, exif: array<string, mixed>, height: int, id: string, image: string, name: string, rotation: int, thumbnail: string, width: int} The normalized image record.
+	 * @return array{description: string, exif: array<string, mixed>, folder_id: string, height: int, id: string, image: string, name: string, rotation: int, thumbnail: string, width: int} The normalized image record.
 	 *
 	 * @SuppressWarnings("PHPMD.CyclomaticComplexity")
 	 */
-	private static function format_image( $image, $options ) {
+	private static function format_image( $image, $options, $parent_id ) {
 		$metadata = array_key_exists( 'imageMediaMetadata', $image ) && is_array( $image['imageMediaMetadata'] )
 			? $image['imageMediaMetadata']
 			: array();
@@ -137,6 +138,7 @@ final class Images {
 		return array(
 			'description' => array_key_exists( 'description', $image ) ? esc_attr( $image['description'] ) : '',
 			'exif'        => self::format_exif( $metadata ),
+			'folder_id'   => $parent_id,
 			'height'      => $height,
 			'id'          => $image['id'],
 			'image'       => substr( $image['thumbnailLink'], 0, -3 ) . $options->get( 'preview_size' ),

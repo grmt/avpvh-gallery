@@ -3,6 +3,7 @@ import $ from 'jquery';
 import PhotoSwipe from 'photoswipe';
 import PhotoSwipeLightbox from 'photoswipe/lightbox';
 
+import { fetchExclusion, saveExclusion } from '../../exclusion';
 import { isError } from '../../isError';
 import {
 	renderCorrectionOrientationChain,
@@ -567,6 +568,175 @@ export class Shortcode {
 					el.appendChild(pathLine);
 					el.appendChild(exifLine);
 					el.appendChild(exifInspectorLink);
+
+					// Exclude-from-gallery control -- only visible to admins or
+					// "boek" group members (Exclusion_Permission on the PHP side).
+					// Shares its save/load logic with the admin EXIF Inspector via
+					// src/ts/exclusion.ts, so excluding behaves identically no
+					// matter which UI triggers it.
+					const exclusionButton = document.createElement('button');
+					exclusionButton.type = 'button';
+					exclusionButton.className = 'avpvh-pswp-exclusion-button';
+					exclusionButton.title =
+						'Uitsluiten van gallery en diavoorstelling';
+					exclusionButton.style.display = 'none';
+					exclusionButton.innerHTML =
+						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M3 6h18v2H3V6zm2 4h14l-1.5 11h-11L5 10zm5-7h4v2h-4V3z"/></svg>';
+					const exclusionPanel = document.createElement('div');
+					exclusionPanel.className = 'avpvh-pswp-exclusion-panel';
+					exclusionPanel.style.display = 'none';
+					exclusionPanel.innerHTML =
+						'<label class="avpvh-pswp-exclusion-toggle">' +
+						'<input type="checkbox" class="avpvh-pswp-exclusion-checkbox" />' +
+						'<strong>Uitsluiten van gallery en diavoorstelling</strong>' +
+						'</label>' +
+						'<div class="avpvh-pswp-exclusion-reasons" style="display:none;">' +
+						'<label><input type="checkbox" value="poor_quality" /> Slechte kwaliteit</label><label><input type="checkbox" value="duplicate" /> Dubbel</label><label><input type="checkbox" value="privacy_objection" /> Bezwaar van afgebeelde personen</label><label><input type="checkbox" value="children" /> Kinderen</label><label><input type="checkbox" value="missing" /> Ontbrekend</label><label><input type="checkbox" value="other" /> Anders</label>' +
+						'<label class="avpvh-pswp-exclusion-note">Toelichting (alleen zichtbaar voor beheerders)' +
+						'<textarea rows="2" maxlength="1000"></textarea>' +
+						'</label>' +
+						'</div>' +
+						'<div class="avpvh-pswp-exclusion-actions">' +
+						'<button type="button" class="avpvh-pswp-exclusion-save">Wijziging opslaan</button>' +
+						'<span class="avpvh-pswp-exclusion-status"></span>' +
+						'</div>';
+					const exclusionCheckbox =
+						exclusionPanel.querySelector<HTMLInputElement>(
+							'.avpvh-pswp-exclusion-checkbox'
+						);
+					const exclusionReasonsDiv =
+						exclusionPanel.querySelector<HTMLElement>(
+							'.avpvh-pswp-exclusion-reasons'
+						);
+					const exclusionNote =
+						exclusionPanel.querySelector<HTMLTextAreaElement>(
+							'.avpvh-pswp-exclusion-note textarea'
+						);
+					const exclusionStatus =
+						exclusionPanel.querySelector<HTMLElement>(
+							'.avpvh-pswp-exclusion-status'
+						);
+					let exclusionFileId = '';
+					let exclusionFolderId = '';
+					let exclusionMimeType = 'image/*';
+					const setExclusionStatus = (
+						text: string,
+						hasError: boolean
+					): void => {
+						if (exclusionStatus === null) {
+							return;
+						}
+						exclusionStatus.textContent = text;
+						exclusionStatus.style.color = hasError ? '#ff8a80' : '';
+					};
+					exclusionCheckbox?.addEventListener('change', () => {
+						if (exclusionReasonsDiv !== null) {
+							exclusionReasonsDiv.style.display =
+								exclusionCheckbox.checked ? '' : 'none';
+						}
+					});
+					exclusionButton.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const opening = exclusionPanel.style.display === 'none';
+						exclusionPanel.style.display = opening ? '' : 'none';
+						if (!opening || exclusionFileId === '') {
+							return;
+						}
+						const fileId = exclusionFileId;
+						setExclusionStatus('Laden...', false);
+						void fetchExclusion(
+							avpvhShortcodeLocalize.exclusion_url,
+							avpvhShortcodeLocalize.rest_nonce,
+							fileId
+						)
+							.then((state) => {
+								if (exclusionFileId !== fileId) {
+									return;
+								}
+								if (exclusionCheckbox !== null) {
+									exclusionCheckbox.checked = state.excluded;
+								}
+								if (exclusionReasonsDiv !== null) {
+									exclusionReasonsDiv.style.display =
+										state.excluded ? '' : 'none';
+								}
+								exclusionPanel
+									.querySelectorAll<HTMLInputElement>(
+										'.avpvh-pswp-exclusion-reasons input[type="checkbox"]'
+									)
+									.forEach((input) => {
+										input.checked = state.reasons.includes(
+											input.value
+										);
+									});
+								if (exclusionNote !== null) {
+									exclusionNote.value = state.note;
+								}
+								setExclusionStatus('', false);
+							})
+							.catch(() => {
+								setExclusionStatus(
+									'Status kon niet worden geladen.',
+									true
+								);
+							});
+					});
+					exclusionPanel
+						.querySelector('.avpvh-pswp-exclusion-save')
+						?.addEventListener('click', (e) => {
+							e.stopPropagation();
+							if (exclusionFileId === '') {
+								return;
+							}
+							const fileId = exclusionFileId;
+							const excluded =
+								exclusionCheckbox?.checked === true;
+							const reasons = Array.from(
+								exclusionPanel.querySelectorAll<HTMLInputElement>(
+									'.avpvh-pswp-exclusion-reasons input[type="checkbox"]:checked'
+								)
+							).map((input) => input.value);
+							if (excluded && reasons.length === 0) {
+								setExclusionStatus(
+									'Kies minimaal een reden.',
+									true
+								);
+								return;
+							}
+							setExclusionStatus('Opslaan...', false);
+							void saveExclusion(
+								avpvhShortcodeLocalize.exclusion_url,
+								avpvhShortcodeLocalize.rest_nonce,
+								{
+									fileId,
+									folderId: exclusionFolderId,
+									mimeType: exclusionMimeType,
+									excluded,
+									reasons,
+									note: exclusionNote?.value ?? '',
+								}
+							)
+								.then(() => {
+									if (exclusionFileId !== fileId) {
+										return;
+									}
+									setExclusionStatus('Opgeslagen.', false);
+								})
+								.catch((error: unknown) => {
+									if (exclusionFileId !== fileId) {
+										return;
+									}
+									setExclusionStatus(
+										'Opslaan mislukt: ' +
+											(error instanceof Error
+												? error.message
+												: 'onbekende fout'),
+										true
+									);
+								});
+						});
+					el.appendChild(exclusionButton);
+					el.appendChild(exclusionPanel);
 					const update = (): void => {
 						pendingExifLoad = null;
 						const slideEl = instance.currSlide?.data.element;
@@ -655,6 +825,23 @@ export class Shortcode {
 							slideEl instanceof HTMLElement
 								? (slideEl.dataset['avpvhId'] ?? '')
 								: '';
+						exclusionFileId = fileId;
+						exclusionFolderId =
+							slideEl instanceof HTMLElement
+								? (slideEl.dataset['avpvhFolderId'] ?? '')
+								: '';
+						exclusionMimeType =
+							slideEl instanceof HTMLElement
+								? (slideEl.dataset['avpvhVideoMime'] ??
+									'image/*')
+								: 'image/*';
+						exclusionPanel.style.display = 'none';
+						setExclusionStatus('', false);
+						exclusionButton.style.display =
+							fileId !== '' &&
+							'true' === avpvhShortcodeLocalize.can_exclude_photos
+								? ''
+								: 'none';
 						if (!hasCorrection && fileId !== '') {
 							const orientationSlideEl = slideEl;
 							const portrait = displayedHeight > displayedWidth;
@@ -3857,6 +4044,9 @@ export class Shortcode {
 			'data-avpvh-id="' +
 			image.id +
 			'" ' +
+			'data-avpvh-folder-id="' +
+			escapeHtml(image.folder_id) +
+			'" ' +
 			'data-avpvh-caption="' +
 			escapeHtml(image.description) +
 			'" ' +
@@ -3923,6 +4113,9 @@ export class Shortcode {
 			'data-pswp-type="video" ' +
 			'data-avpvh-id="' +
 			video.id +
+			'" ' +
+			'data-avpvh-folder-id="' +
+			escapeHtml(video.folder_id) +
 			'" ' +
 			'data-avpvh-page="' +
 			page.toString() +
