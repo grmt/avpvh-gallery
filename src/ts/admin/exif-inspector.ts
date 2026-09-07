@@ -500,6 +500,66 @@ class ExifInspector {
 		return div.innerHTML;
 	}
 
+	private static driveFolderUrl(id: string): string {
+		return `https://drive.google.com/drive/folders/${encodeURIComponent(id)}`;
+	}
+
+	private static driveFileUrl(id: string): string {
+		return `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`;
+	}
+
+	// Builds a small "open in Drive" icon-link as an HTML string, for use inside
+	// innerHTML-built markup (search results, the file table). Since a plain
+	// mousedown/click on the icon would otherwise bubble up to the row's own
+	// "select/load this item" listener, callers must run the resulting markup's
+	// container through `wireDriveLinkIcons()` after setting innerHTML so the icon
+	// can open Drive without also triggering the row selection.
+	private static driveLinkIconHtml(url: string, title: string): string {
+		return (
+			`<a class="drive-link-icon" href="${ExifInspector.escapeHtml(url)}" ` +
+			`target="_blank" rel="noopener noreferrer" ` +
+			`title="${ExifInspector.escapeHtml(title)}">↗ Drive</a>`
+		);
+	}
+
+	// Counterpart to `driveLinkIconHtml()` for DOM-built markup (the subfolder picker).
+	private static createDriveLinkIcon(
+		url: string,
+		title: string
+	): HTMLAnchorElement {
+		const a = document.createElement('a');
+		a.className = 'drive-link-icon';
+		a.href = url;
+		a.target = '_blank';
+		a.rel = 'noopener noreferrer';
+		a.title = title;
+		a.textContent = '↗ Drive';
+		a.addEventListener('mousedown', (e) => {
+			e.stopPropagation();
+		});
+		a.addEventListener('click', (e) => {
+			e.stopPropagation();
+		});
+		return a;
+	}
+
+	// Stops propagation on `.drive-link-icon` anchors within `container` so
+	// clicking one opens Drive without also triggering the row/item's own
+	// select-or-load click handler. Call after any innerHTML assignment that
+	// may contain icons built via `driveLinkIconHtml()`.
+	private static wireDriveLinkIcons(container: ParentNode): void {
+		container
+			.querySelectorAll<HTMLAnchorElement>('.drive-link-icon')
+			.forEach((a) => {
+				a.addEventListener('mousedown', (e) => {
+					e.stopPropagation();
+				});
+				a.addEventListener('click', (e) => {
+					e.stopPropagation();
+				});
+			});
+	}
+
 	// Widens an indexed-access result (Record/Array lookups, which TypeScript
 	// treats as always-defined without `noUncheckedIndexedAccess`) back to an
 	// honest `T | undefined` so callers keep the runtime-necessary null check.
@@ -955,8 +1015,12 @@ class ExifInspector {
 						</div>
 					</label>
 					<label style="font-size:12px;margin-left:10px;white-space:nowrap;">
-						<input type="checkbox" id="search-folders-only" />
+						<input type="checkbox" id="search-folders-only" checked />
 						Alleen mappen
+					</label>
+					<label style="font-size:12px;margin-left:10px;white-space:nowrap;">
+						<input type="checkbox" id="search-subfolders-only" />
+						Alleen in huidige map
 					</label>
 				</div>
 
@@ -997,6 +1061,7 @@ class ExifInspector {
 					<div id="folder-thumbs" style="display:none;"></div>
 					<div class="file-header">
 						<h2 id="file-name" role="button" tabindex="0" title="Toon het actieve bestand in de iconenlijst"></h2>
+						<a id="file-drive-link" class="drive-link-icon" href="#" target="_blank" rel="noopener noreferrer" style="display:none;">↗ Drive</a>
 						<div class="file-nav">
 							<button id="prev-btn" disabled>&larr; Vorige</button>
 							<span id="file-count"></span>
@@ -1414,6 +1479,20 @@ class ExifInspector {
 						padding: 8px 12px;
 						font-size: 13px;
 						color: #888;
+					}
+
+					.drive-link-icon {
+						display: inline-block;
+						margin-left: 6px;
+						text-decoration: none;
+						color: #0073aa;
+						font-size: 12px;
+						opacity: 0.7;
+					}
+
+					.drive-link-icon:hover {
+						opacity: 1;
+						text-decoration: underline;
 					}
 
 					.path-input-section {
@@ -2103,7 +2182,12 @@ class ExifInspector {
 							: '';
 					li.innerHTML =
 						`<div style="display:flex;justify-content:space-between;align-items:center">` +
-						`<span>📁 <strong>${ExifInspector.escapeHtml(f.name)}</strong></span>` +
+						`<span>📁 <strong>${ExifInspector.escapeHtml(f.name)}</strong>` +
+						ExifInspector.driveLinkIconHtml(
+							ExifInspector.driveFolderUrl(f.id),
+							`"${f.name}" openen in Google Drive`
+						) +
+						`</span>` +
 						`<span style="font-size:11px;color:#666">Laad media →</span>` +
 						`</div>${parentHint}`;
 					li.title = `Alle foto's en video's uit map "${f.name}" laden`;
@@ -2130,7 +2214,12 @@ class ExifInspector {
 						li.className = 'search-result-item';
 						const isVideo =
 							f.mimeType?.startsWith('video/') === true;
-						li.textContent = `${isVideo ? '▶ ' : '▧ '}${f.name}`;
+						li.innerHTML =
+							`<span>${isVideo ? '▶ ' : '▧ '}${ExifInspector.escapeHtml(f.name)}</span>` +
+							ExifInspector.driveLinkIconHtml(
+								ExifInspector.driveFileUrl(f.id),
+								`"${f.name}" openen in Google Drive`
+							);
 						li.setAttribute('data-file-id', f.id);
 						li.addEventListener('mousedown', (e) => {
 							e.preventDefault();
@@ -2142,7 +2231,87 @@ class ExifInspector {
 					});
 				}
 			}
+			ExifInspector.wireDriveLinkIcons(list);
 			list.style.display = 'block';
+		};
+
+		const subfoldersOnlyChk = document.getElementById(
+			'search-subfolders-only'
+		) as HTMLInputElement | null;
+
+		const showLoading = (): void => {
+			list.innerHTML = '';
+			const li = document.createElement('li');
+			li.className = 'search-result-empty';
+			li.textContent = 'Zoeken…';
+			list.appendChild(li);
+			list.style.display = 'block';
+		};
+
+		const runSearch = (q: string): void => {
+			if (searchAbort !== null) {
+				searchAbort.abort();
+			}
+			searchAbort = new AbortController();
+			const { signal } = searchAbort;
+			showLoading();
+			const foldersOnly = foldersOnlyChk?.checked ?? false;
+			const scopeId =
+				(subfoldersOnlyChk?.checked ?? false) &&
+				this.folderStack.length > 0
+					? this.folderStack[this.folderStack.length - 1]?.id
+					: undefined;
+			const params = new URLSearchParams({ q });
+			if (foldersOnly) {
+				params.set('folders_only', '1');
+			}
+			if (scopeId !== undefined && scopeId !== '') {
+				params.set('scope_id', scopeId);
+			}
+			void fetch(`${this.restUrl}search?${params.toString()}`, {
+				headers: { 'X-WP-Nonce': this.nonce },
+				signal,
+			})
+				.then(
+					async (r) =>
+						r.json() as Promise<{
+							files?: Array<{
+								id: string;
+								name: string;
+								mimeType?: string;
+							}>;
+							folders?: Array<{ id: string; name: string }>;
+						}>
+				)
+				.then((data) => {
+					if (
+						(data as Record<string, unknown>)['unavailable'] ===
+						true
+					) {
+						const li = document.createElement('li');
+						li.className = 'search-result-empty';
+						li.textContent =
+							'Zoeken tijdelijk niet beschikbaar — probeer opnieuw';
+						list.innerHTML = '';
+						list.appendChild(li);
+						list.style.display = 'block';
+						return;
+					}
+					lastResults = {
+						files: data.files ?? [],
+						folders: data.folders ?? [],
+					};
+					showResults(lastResults.files, lastResults.folders);
+				})
+				.catch((err: unknown) => {
+					if (
+						err instanceof DOMException &&
+						'AbortError' === err.name
+					) {
+						return;
+					}
+					hideResults();
+				});
 		};
 
 		input.addEventListener('input', () => {
@@ -2156,63 +2325,18 @@ class ExifInspector {
 			}
 
 			debounceTimer = setTimeout(() => {
-				if (searchAbort !== null) {
-					searchAbort.abort();
-				}
-				searchAbort = new AbortController();
-				const { signal } = searchAbort;
-				void fetch(this.restUrl + 'search?q=' + encodeURIComponent(q), {
-					headers: { 'X-WP-Nonce': this.nonce },
-					signal,
-				})
-					.then(
-						async (r) =>
-							r.json() as Promise<{
-								files?: Array<{
-									id: string;
-									name: string;
-									mimeType?: string;
-								}>;
-								folders?: Array<{ id: string; name: string }>;
-							}>
-					)
-					.then((data) => {
-						if (
-							(data as Record<string, unknown>)['unavailable'] ===
-							true
-						) {
-							const li = document.createElement('li');
-							li.className = 'search-result-empty';
-							li.textContent =
-								'Zoeken tijdelijk niet beschikbaar — probeer opnieuw';
-							list.innerHTML = '';
-							list.appendChild(li);
-							list.style.display = 'block';
-							return;
-						}
-						lastResults = {
-							files: data.files ?? [],
-							folders: data.folders ?? [],
-						};
-						showResults(lastResults.files, lastResults.folders);
-					})
-					.catch((err: unknown) => {
-						if (
-							err instanceof DOMException &&
-							'AbortError' === err.name
-						) {
-							return;
-						}
-						hideResults();
-					});
+				runSearch(q);
 			}, 500);
 		});
 
-		foldersOnlyChk?.addEventListener('change', () => {
-			if (lastResults) {
-				showResults(lastResults.files, lastResults.folders);
+		const rerunIfActive = (): void => {
+			const q = input.value.trim();
+			if (q.length >= 3) {
+				runSearch(q);
 			}
-		});
+		};
+		foldersOnlyChk?.addEventListener('change', rerunIfActive);
+		subfoldersOnlyChk?.addEventListener('change', rerunIfActive);
 		input.addEventListener('blur', () => {
 			setTimeout(hideResults, 150);
 		});
@@ -2606,7 +2730,7 @@ class ExifInspector {
 			html +=
 				`<tr class="file-table-row${isSel ? ' file-table-selected' : ''}${this.excludedPhotoIds.has(file.id) ? ' photo-excluded' : ''}" data-file-id="${ExifInspector.escapeHtml(file.id)}">` +
 				`<td style="color:#aaa;text-align:right;width:2.5em;">${String(overallIdx)}</td>` +
-				`<td title="${ExifInspector.escapeHtml(file.name)}" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.excludedPhotoIds.has(file.id) ? '<span style="color:#d63638;font-weight:700;" aria-label="Uitgesloten">✕</span> ' : ''}${ExifInspector.escapeHtml(file.name)}</td>` +
+				`<td title="${ExifInspector.escapeHtml(file.name)}" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.excludedPhotoIds.has(file.id) ? '<span style="color:#d63638;font-weight:700;" aria-label="Uitgesloten">✕</span> ' : ''}${ExifInspector.escapeHtml(file.name)}${ExifInspector.driveLinkIconHtml(ExifInspector.driveFileUrl(file.id), `"${file.name}" openen in Google Drive`)}</td>` +
 				`<td>${isVideo ? '▶ Video' : '▧ Foto'}</td>` +
 				`<td>${ExifInspector.escapeHtml(cam)}</td>` +
 				`<td${!isVideo && orient !== 1 ? ' style="color:#b04000;font-weight:500;"' : ''}>${isVideo ? 'n.v.t.' : ExifInspector.orientLabel(orient)}</td>` +
@@ -2616,6 +2740,7 @@ class ExifInspector {
 		html += '</tbody></table>';
 		container.innerHTML = html;
 		container.style.display = 'block';
+		ExifInspector.wireDriveLinkIcons(container);
 
 		container
 			.querySelectorAll<HTMLTableRowElement>('.file-table-row')
@@ -2887,17 +3012,27 @@ class ExifInspector {
 				: sortedFolders;
 			grid.innerHTML = '';
 			visible.forEach((sf) => {
+				const wrap = document.createElement('span');
+				wrap.style.cssText =
+					'display:inline-flex;align-items:center;border:1px solid #ccc;border-radius:3px;background:#f0f6ff;white-space:nowrap;';
 				const btn = document.createElement('button');
 				btn.type = 'button';
 				btn.style.cssText =
-					'padding:5px 10px;cursor:pointer;border:1px solid #ccc;border-radius:3px;background:#f0f6ff;font-size:13px;white-space:nowrap;';
+					'padding:5px 10px;cursor:pointer;border:none;background:transparent;font-size:13px;';
 				btn.textContent = `📁 ${sf.name}`;
 				btn.title = `Laad media uit ${sf.name}`;
 				btn.addEventListener(
 					'click',
 					() => void this.loadFilesByFolder(sf.id, sf.name)
 				);
-				grid.appendChild(btn);
+				wrap.appendChild(btn);
+				wrap.appendChild(
+					ExifInspector.createDriveLinkIcon(
+						ExifInspector.driveFolderUrl(sf.id),
+						`"${sf.name}" openen in Google Drive`
+					)
+				);
+				grid.appendChild(wrap);
 			});
 			countEl.textContent = q
 				? `${String(visible.length)} van ${String(subfolders.length)} mappen`
@@ -3726,6 +3861,16 @@ class ExifInspector {
 			fileName.appendChild(
 				document.createTextNode(this.currentFile.name)
 			);
+		}
+		const fileDriveLink = document.getElementById(
+			'file-drive-link'
+		) as HTMLAnchorElement | null;
+		if (fileDriveLink) {
+			fileDriveLink.href = ExifInspector.driveFileUrl(
+				this.currentFile.id
+			);
+			fileDriveLink.title = `"${this.currentFile.name}" openen in Google Drive`;
+			fileDriveLink.style.display = 'inline-block';
 		}
 		const exclusionLabel = document.getElementById('media-exclusion-label');
 		if (exclusionLabel) {
