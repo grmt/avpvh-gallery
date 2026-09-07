@@ -999,6 +999,7 @@ class ExifInspector {
 									<label><input type="checkbox" name="photo-exclusion-reason" value="duplicate" /> Dubbel</label>
 									<label><input type="checkbox" name="photo-exclusion-reason" value="privacy_objection" /> Bezwaar van afgebeelde personen</label>
 									<label><input type="checkbox" name="photo-exclusion-reason" value="children" /> Kinderen</label>
+									<label><input type="checkbox" name="photo-exclusion-reason" value="missing" /> Ontbrekend</label>
 									<label><input type="checkbox" name="photo-exclusion-reason" value="other" /> Anders</label>
 								</div>
 								<label class="photo-exclusion-note">Toelichting (alleen zichtbaar voor beheerders)
