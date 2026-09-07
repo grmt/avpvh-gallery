@@ -852,8 +852,7 @@ export class Shortcode {
 								if (formatted === '') {
 									return;
 								}
-								originalDateEl.textContent =
-									'Origineel: ' + formatted;
+								originalDateEl.textContent = formatted;
 								originalDateEl.style.display = '';
 							}
 						);
