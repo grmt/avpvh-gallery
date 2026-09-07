@@ -16,6 +16,10 @@ rsync -av --omit-dir-times --exclude='vendor/' dist/ grmt@avpvh.nl:/opt/docker/v
 
 SSH key is auto-selected from `~/.ssh/` (no explicit `-i` needed). Directory-timestamp warnings can be ignored — the files themselves transfer correctly.
 
+## Git workflow
+
+Never commit directly to `main`. Always create a new branch first (e.g. `fix/short-description`, `feature/short-description`), commit there, and push that branch. This applies even to small fixes that would otherwise match the repo's older history of direct-to-`main` "deploy: bump version" commits — that historical pattern is no longer the convention to follow.
+
 ## Build / lint / test
 
 `npm run build` is the single entry point — it composes Gulp (CSS, vendored npm/Composer deps, PHP file copy) with four Vite bundles in parallel and writes everything to `dist/`. The plugin always runs out of `dist/`; `src/` is never loaded directly (see [tests/bootstrap.php](tests/bootstrap.php#L33) — even PHPUnit requires the dist).
