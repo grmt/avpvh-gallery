@@ -24,4 +24,5 @@ declare const avpvhShortcodeLocalize: {
 	is_admin: string;
 	exif_inspector_url: string;
 	exif_orientation_url: string;
+	exif_date_url: string;
 };
