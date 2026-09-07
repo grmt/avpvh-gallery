@@ -61,6 +61,12 @@ export class Shortcode {
 	private lastPage = 1;
 	private getEpoch = 0;
 	private loading = false;
+	// Safety net for `loading`: imagesLoaded() only fires once every image in the
+	// batch has settled (loaded or errored). If the tab was backgrounded long
+	// enough for the browser to suspend one of those requests indefinitely, that
+	// callback never runs and `loading` would otherwise stay stuck true forever,
+	// silently wedging scroll-triggered pagination until a full page reload.
+	private loadingFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 	private currentPathNames = '';
 	private slideshowTimer: ReturnType<typeof setTimeout> | null = null;
 	private idleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -90,6 +96,7 @@ export class Shortcode {
 
 	private readonly SLIDESHOW_DELAY_MS = 4000;
 	private readonly IDLE_HIDE_MS = 3000;
+	private readonly LOADING_FALLBACK_MS = 20000;
 
 	private readonly navigationIconUrl: string;
 
@@ -3327,9 +3334,20 @@ export class Shortcode {
 			});
 
 		this.loading = true;
+		if (this.loadingFallbackTimer !== null) {
+			clearTimeout(this.loadingFallbackTimer);
+		}
+		this.loadingFallbackTimer = setTimeout(() => {
+			this.loadingFallbackTimer = null;
+			this.loading = false;
+		}, this.LOADING_FALLBACK_MS);
 		void this.container
 			.find('.avpvh-gallery')
 			.imagesLoaded({ background: true }, () => {
+				if (this.loadingFallbackTimer !== null) {
+					clearTimeout(this.loadingFallbackTimer);
+					this.loadingFallbackTimer = null;
+				}
 				this.loading = false;
 				this.fixPhotoSwipeDimensions();
 				ShortcodeRegistry.reflowAll();
