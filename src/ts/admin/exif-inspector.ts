@@ -560,6 +560,22 @@ class ExifInspector {
 			});
 	}
 
+	// Rejoins the #path-boxes segment inputs into the hidden #path-input,
+	// which stays the single source of truth `loadFile()` reads.
+	private static syncPathBoxesToHiddenInput(): void {
+		const container = document.getElementById('path-boxes');
+		const pathInput = document.getElementById(
+			'path-input'
+		) as HTMLInputElement | null;
+		if (!container || !pathInput) {
+			return;
+		}
+		const values = Array.from(
+			container.querySelectorAll<HTMLInputElement>('.path-box-input')
+		).map((el) => el.value);
+		pathInput.value = values.join('/');
+	}
+
 	// Widens an indexed-access result (Record/Array lookups, which TypeScript
 	// treats as always-defined without `noUncheckedIndexedAccess`) back to an
 	// honest `T | undefined` so callers keep the runtime-necessary null check.
@@ -1025,9 +1041,9 @@ class ExifInspector {
 				</div>
 
 				<div class="path-input-section">
-					<label>Bestandspad:
-						<input type="text" id="path-input" placeholder="e.g., 01-Opgravingen / 1976 Grobbendonk / PICT0250.JPG" value="${ExifInspector.escapeHtml(lastPath)}" />
-					</label>
+					<label style="display:block;margin-bottom:4px;">Bestandspad:</label>
+					<div id="path-boxes" class="path-boxes"></div>
+					<input type="hidden" id="path-input" value="${ExifInspector.escapeHtml(lastPath)}" />
 					<button id="load-btn" type="button">Laden</button>
 				</div>
 
@@ -1499,16 +1515,58 @@ class ExifInspector {
 						margin-bottom: 20px;
 					}
 
-					.path-input-section input {
-						width: 100%;
-						max-width: 500px;
-						padding: 8px;
-						font-size: 14px;
-					}
-
 					.path-input-section button {
 						padding: 8px 16px;
 						margin-left: 10px;
+						cursor: pointer;
+					}
+
+					.path-boxes {
+						display: flex;
+						flex-wrap: wrap;
+						align-items: center;
+						gap: 4px;
+						margin-bottom: 8px;
+					}
+
+					.path-box-group {
+						display: inline-flex;
+						align-items: center;
+						gap: 1px;
+					}
+
+					.path-box-input {
+						padding: 6px 8px;
+						font-size: 13px;
+						border: 1px solid #ccc;
+						border-radius: 3px;
+						width: 150px;
+					}
+
+					.path-box-remove {
+						border: none;
+						background: transparent;
+						color: #999;
+						cursor: pointer;
+						font-size: 15px;
+						line-height: 1;
+						padding: 2px 4px;
+					}
+
+					.path-box-remove:hover {
+						color: #d63638;
+					}
+
+					.path-box-sep {
+						color: #aaa;
+					}
+
+					.path-box-add {
+						padding: 5px 10px;
+						font-size: 12px;
+						border: 1px solid #ccc;
+						border-radius: 3px;
+						background: #f5f5f5;
 						cursor: pointer;
 					}
 
@@ -2089,16 +2147,15 @@ class ExifInspector {
 				void this.savePhotoExclusion();
 			});
 
-		const pathInput = document.getElementById(
+		const initialPathInput = document.getElementById(
 			'path-input'
 		) as HTMLInputElement | null;
-		if (pathInput) {
-			pathInput.addEventListener('keypress', (e) => {
-				if (e.key === 'Enter') {
-					void this.loadFile();
-				}
-			});
-		}
+		this.renderPathBoxes(
+			(initialPathInput?.value ?? '')
+				.split('/')
+				.map((p) => p.trim())
+				.filter((p) => p)
+		);
 
 		this.initSearch();
 		this.initFilterBar();
@@ -2381,6 +2438,88 @@ class ExifInspector {
 				);
 			}
 		});
+	}
+
+	// Renders one editable box per path segment (folder(s) + filename) in
+	// #path-boxes, plus a trailing "+" to append another segment. The single
+	// hidden #path-input stays the source of truth `loadFile()` reads — each
+	// box keeps it in sync on every edit, so the rest of the path-loading
+	// logic (slash-splitting, the Drive-link paste detection, etc.) needs no
+	// changes.
+	private renderPathBoxes(parts: Array<string>): void {
+		const container = document.getElementById('path-boxes');
+		if (!container) {
+			return;
+		}
+		const segments = parts.length > 0 ? parts : [''];
+		container.innerHTML = '';
+
+		segments.forEach((value, idx) => {
+			if (idx > 0) {
+				const sep = document.createElement('span');
+				sep.className = 'path-box-sep';
+				sep.textContent = '/';
+				container.appendChild(sep);
+			}
+			const group = document.createElement('span');
+			group.className = 'path-box-group';
+
+			const box = document.createElement('input');
+			box.type = 'text';
+			box.className = 'path-box-input';
+			box.value = value;
+			box.placeholder =
+				idx === segments.length - 1 && segments.length > 1
+					? 'Bestandsnaam'
+					: 'Map (of plak een Drive-link)';
+			box.addEventListener('input', () => {
+				ExifInspector.syncPathBoxesToHiddenInput();
+			});
+			box.addEventListener('keypress', (e) => {
+				if (e.key === 'Enter') {
+					void this.loadFile();
+				}
+			});
+			group.appendChild(box);
+
+			const remove = document.createElement('button');
+			remove.type = 'button';
+			remove.className = 'path-box-remove';
+			remove.title = 'Dit padonderdeel verwijderen';
+			remove.setAttribute('aria-label', 'Verwijderen');
+			remove.textContent = '×';
+			remove.addEventListener('click', () => {
+				const remaining = Array.from(
+					container.querySelectorAll<HTMLInputElement>(
+						'.path-box-input'
+					)
+				)
+					.map((el) => el.value)
+					.filter((_, i) => i !== idx);
+				this.renderPathBoxes(remaining);
+			});
+			group.appendChild(remove);
+
+			container.appendChild(group);
+		});
+
+		const addBtn = document.createElement('button');
+		addBtn.type = 'button';
+		addBtn.className = 'path-box-add';
+		addBtn.title = 'Nog een padonderdeel toevoegen';
+		addBtn.textContent = '+';
+		addBtn.addEventListener('click', () => {
+			const current = Array.from(
+				container.querySelectorAll<HTMLInputElement>('.path-box-input')
+			).map((el) => el.value);
+			this.renderPathBoxes([...current, '']);
+			container
+				.querySelectorAll<HTMLInputElement>('.path-box-input')
+				[current.length].focus();
+		});
+		container.appendChild(addBtn);
+
+		ExifInspector.syncPathBoxesToHiddenInput();
 	}
 
 	private async loadFile(): Promise<void> {
@@ -3884,18 +4023,15 @@ class ExifInspector {
 		this.updateThumbSelection();
 		this.updateTableSelection();
 
-		// Update path input with current folder stack + filename
-		const pathInput = document.getElementById(
-			'path-input'
-		) as HTMLInputElement | null;
-		if (pathInput) {
+		// Update path boxes with current folder stack + filename
+		{
 			const currentFile = this.currentFile;
 			const parts = [
 				...this.folderStack.map((f) => f.name),
 				currentFile.name,
 			];
-			const path = parts.join(' / ');
-			pathInput.value = path;
+			this.renderPathBoxes(parts);
+			const path = parts.join('/');
 			localStorage.setItem('avpvh_exif_inspector_last_path', path);
 			// Also save the innermost folder ID so "Laden" can navigate directly
 			// when the folder was reached via search (folderStack has no full ancestor chain).
