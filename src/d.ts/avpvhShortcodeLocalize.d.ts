@@ -27,4 +27,6 @@ declare const avpvhShortcodeLocalize: {
 	can_exclude_photos: string;
 	exclusion_url: string;
 	exif_date_url: string;
+	subject_tags: Record<string, string>;
+	subject_tags_url: string;
 };

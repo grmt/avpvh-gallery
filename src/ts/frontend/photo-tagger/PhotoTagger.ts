@@ -42,6 +42,24 @@ export class PhotoTagger {
 	private currentImageId = '';
 	private readonly annotationMap = new Map<string, TagData>();
 
+	// Fetches the current tags for a specific photo directly — unlike
+	// loadAndRenderTags(), doesn't depend on (or update) currentImageId/
+	// annotationMap, so callers (e.g. a tags panel listing) can use it
+	// without disturbing the MutationObserver-driven overlay state.
+	public static async listTags(imageId: string): Promise<Array<TagData>> {
+		try {
+			const response = await fetch(
+				`/wp-admin/admin-ajax.php?action=gallery_tag_list&image_id=${encodeURIComponent(imageId)}`
+			);
+			const data = (await response.json()) as TagListResponse;
+			return data.success && undefined !== data.data
+				? data.data.tags
+				: [];
+		} catch {
+			return [];
+		}
+	}
+
 	private static displayTags(tags: Array<TagData>): void {
 		// Render tags as visual overlays on the image
 		const pswpImg = document.querySelector<HTMLElement>('.pswp__img');
@@ -194,10 +212,14 @@ export class PhotoTagger {
 		return this.membersCache;
 	}
 
+	// `candidates`, when given (e.g. an activity's known participants),
+	// is shown instead of the full membership list — narrower and more
+	// relevant when it's available.
 	public showMemberSelector(
 		x: number,
 		y: number,
-		callback: (memberId: number) => void
+		callback: (memberId: number) => void,
+		candidates?: Array<Member>
 	): void {
 		const overlay = document.createElement('div');
 		overlay.className = 'avpvh-member-selector-overlay';
@@ -205,16 +227,18 @@ export class PhotoTagger {
 		overlay.style.top = `${String(y)}px`;
 
 		const select = document.createElement('select');
-		select.innerHTML = '<option value="">-- Select member --</option>';
-		this.membersCache.forEach((m) => {
+		select.innerHTML = '<option value="">— Kies lid —</option>';
+		(candidates ?? this.membersCache).forEach((m) => {
 			const opt = document.createElement('option');
 			opt.value = String(m.id);
-			opt.textContent = `${m.name} (${'active' === m.status ? 'Active' : 'Ex'})`;
+			opt.textContent =
+				'active' === m.status ? m.name : `${m.name} (oud-lid)`;
 			select.appendChild(opt);
 		});
 
 		const btn = document.createElement('button');
-		btn.textContent = 'Tag';
+		btn.type = 'button';
+		btn.textContent = 'Taggen';
 		btn.onclick = (): void => {
 			const memberId = parseInt(select.value, 10);
 			if (memberId > 0) {
@@ -223,13 +247,46 @@ export class PhotoTagger {
 			}
 		};
 
+		const cancelBtn = document.createElement('button');
+		cancelBtn.type = 'button';
+		cancelBtn.textContent = 'Annuleren';
+		cancelBtn.onclick = (): void => {
+			overlay.remove();
+		};
+
 		overlay.appendChild(select);
 		overlay.appendChild(btn);
+		overlay.appendChild(cancelBtn);
 
 		const container = document.querySelector('.pswp__container');
 		if (container) {
 			container.appendChild(overlay);
 		}
+	}
+
+	// Best-effort: the participants of the activity matching the photo's
+	// folder, narrower and more relevant than the full membership list.
+	// Falls back to the full list when there's no matching taggable
+	// activity (or the request fails).
+	public async getCandidates(folderId: string): Promise<Array<Member>> {
+		try {
+			const response = await fetch(
+				`/wp-admin/admin-ajax.php?action=gallery_tag_candidates&folder_id=${encodeURIComponent(folderId)}`
+			);
+			if (response.ok) {
+				const data = (await response.json()) as {
+					success?: boolean;
+					data?: { members?: Array<Member> };
+				};
+				const members = data.data?.members ?? [];
+				if (members.length > 0) {
+					return members.map((m) => ({ ...m, status: 'active' }));
+				}
+			}
+		} catch {
+			// Network error — fall through to the full membership list.
+		}
+		return this.membersCache;
 	}
 
 	private async loadMembers(): Promise<void> {

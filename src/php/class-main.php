@@ -20,6 +20,7 @@ use Avpvh\Frontend\Members_API;
 use Avpvh\Frontend\Page;
 use Avpvh\Frontend\Photo_Tags;
 use Avpvh\Frontend\Shortcode;
+use Avpvh\Frontend\Subject_Tags;
 use Avpvh\Frontend\Video_Proxy;
 use const PHP_URL_HOST;
 
@@ -50,6 +51,7 @@ final class Main {
 		new Photo_Tags();
 		new Members_API();
 		new Exif_Date_REST();
+		new Subject_Tags();
 		new Settings_Pages();
 		new TinyMCE_Plugin();
 	}

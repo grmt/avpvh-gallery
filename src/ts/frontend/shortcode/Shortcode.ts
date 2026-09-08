@@ -10,6 +10,7 @@ import {
 	renderExifOrientationChain,
 } from '../../orientationVisualization';
 import { printError } from '../../printError';
+import { fetchSubjectTags, toggleSubjectTag } from '../../subject-tags';
 import { PhotoTagger } from '../photo-tagger/PhotoTagger';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
@@ -823,6 +824,190 @@ export class Shortcode {
 						});
 					el.appendChild(exclusionButton);
 					el.appendChild(exclusionPanel);
+
+					// Tags: a fixed subject/category checklist (rubriek "graven") plus
+					// who's in the photo. Shares exclusionFileId/exclusionFolderId
+					// (kept in sync by update() below) rather than tracking its own —
+					// both concern "the currently displayed slide".
+					const tagsButton = document.createElement('button');
+					tagsButton.type = 'button';
+					tagsButton.className = 'avpvh-pswp-tags-button';
+					tagsButton.title = 'Tags';
+					tagsButton.style.display = 'none';
+					tagsButton.innerHTML =
+						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5c-1.1 0-2 .89-2 2v10c0 1.1.9 2 2 2h11c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>';
+					const tagsPanel = document.createElement('div');
+					tagsPanel.className = 'avpvh-pswp-tags-panel';
+					tagsPanel.style.display = 'none';
+
+					const subjectTagsList = document.createElement('div');
+					subjectTagsList.className = 'avpvh-pswp-subject-tags';
+					Object.entries(avpvhShortcodeLocalize.subject_tags).forEach(
+						([slug, label]) => {
+							const optionLabel = document.createElement('label');
+							const checkbox = document.createElement('input');
+							checkbox.type = 'checkbox';
+							checkbox.value = slug;
+							checkbox.addEventListener('change', (e) => {
+								e.stopPropagation();
+								if (exclusionFileId === '') {
+									return;
+								}
+								const fileId = exclusionFileId;
+								const wasChecked = checkbox.checked;
+								void toggleSubjectTag(
+									avpvhShortcodeLocalize.subject_tags_url,
+									avpvhShortcodeLocalize.rest_nonce,
+									fileId,
+									slug,
+									wasChecked
+								).catch(() => {
+									if (exclusionFileId === fileId) {
+										checkbox.checked = !wasChecked;
+									}
+								});
+							});
+							optionLabel.appendChild(checkbox);
+							optionLabel.appendChild(
+								document.createTextNode(' ' + label)
+							);
+							subjectTagsList.appendChild(optionLabel);
+						}
+					);
+
+					const personTagsList = document.createElement('ul');
+					personTagsList.className = 'avpvh-pswp-person-tags-list';
+					const addPersonTagBtn = document.createElement('button');
+					addPersonTagBtn.type = 'button';
+					addPersonTagBtn.className = 'avpvh-pswp-add-person-tag';
+					addPersonTagBtn.textContent = '+ Persoon taggen';
+					const personTagsSection = document.createElement('div');
+					personTagsSection.className = 'avpvh-pswp-person-tags';
+					personTagsSection.appendChild(personTagsList);
+					personTagsSection.appendChild(addPersonTagBtn);
+
+					tagsPanel.appendChild(subjectTagsList);
+					tagsPanel.appendChild(personTagsSection);
+
+					const refreshTagsPanel = (): void => {
+						if (exclusionFileId === '') {
+							return;
+						}
+						const fileId = exclusionFileId;
+						void fetchSubjectTags(
+							avpvhShortcodeLocalize.subject_tags_url,
+							fileId
+						)
+							.then((active) => {
+								if (exclusionFileId !== fileId) {
+									return;
+								}
+								subjectTagsList
+									.querySelectorAll<HTMLInputElement>(
+										'input[type="checkbox"]'
+									)
+									.forEach((cb) => {
+										cb.checked = active.includes(cb.value);
+									});
+							})
+							.catch(() => {
+								// Leave checkboxes as-is — nothing more useful to do here.
+							});
+
+						void PhotoTagger.listTags(fileId).then((tags) => {
+							if (exclusionFileId !== fileId) {
+								return;
+							}
+							personTagsList.innerHTML = '';
+							tags.forEach((tag) => {
+								const li = document.createElement('li');
+								const nameSpan = document.createElement('span');
+								nameSpan.textContent = tag.member_name;
+								const delBtn = document.createElement('button');
+								delBtn.type = 'button';
+								delBtn.className =
+									'avpvh-pswp-person-tag-delete';
+								delBtn.title = 'Tag verwijderen';
+								delBtn.textContent = '×';
+								delBtn.addEventListener('click', (e) => {
+									e.stopPropagation();
+									void this.photoTagger
+										.deleteTag(tag.id)
+										.then(refreshTagsPanel);
+								});
+								li.appendChild(nameSpan);
+								li.appendChild(delBtn);
+								personTagsList.appendChild(li);
+							});
+						});
+					};
+
+					tagsButton.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const opening = tagsPanel.style.display === 'none';
+						tagsPanel.style.display = opening ? '' : 'none';
+						if (opening) {
+							refreshTagsPanel();
+						}
+					});
+
+					// Enters "click a point on the photo to tag someone" mode: the
+					// next click on the image (instead of its usual UI-toggle
+					// behavior) captures a position, offers a member picker
+					// (narrowed to the matching activity's participants when
+					// known — see PhotoTagger.getCandidates()), and saves a small
+					// fixed-size region around that point.
+					addPersonTagBtn.addEventListener('click', (e) => {
+						e.stopPropagation();
+						if (exclusionFileId === '') {
+							return;
+						}
+						const fileId = exclusionFileId;
+						const folderId = exclusionFolderId;
+						const pswpImg =
+							document.querySelector<HTMLElement>('.pswp__img');
+						const parent = pswpImg?.parentElement;
+						if (!parent) {
+							return;
+						}
+						addPersonTagBtn.textContent = 'Klik op de foto…';
+						const onImgClick = (clickEvent: MouseEvent): void => {
+							clickEvent.stopPropagation();
+							clickEvent.preventDefault();
+							parent.removeEventListener(
+								'click',
+								onImgClick,
+								true
+							);
+							addPersonTagBtn.textContent = '+ Persoon taggen';
+							const rect = parent.getBoundingClientRect();
+							const x = clickEvent.clientX - rect.left;
+							const y = clickEvent.clientY - rect.top;
+							void this.photoTagger
+								.getCandidates(folderId)
+								.then((candidates) => {
+									this.photoTagger.showMemberSelector(
+										clickEvent.clientX,
+										clickEvent.clientY,
+										(memberId) => {
+											void this.photoTagger
+												.addTag(fileId, memberId, {
+													x: x - 30,
+													y: y - 30,
+													width: 60,
+													height: 60,
+												})
+												.then(refreshTagsPanel);
+										},
+										candidates
+									);
+								});
+						};
+						parent.addEventListener('click', onImgClick, true);
+					});
+
+					el.appendChild(tagsButton);
+					el.appendChild(tagsPanel);
 					// Looks up (and displays, if found) the current slide's cached EXIF
 					// date. Split out of update() so it can also be called from the
 					// visibilitychange listener below — switching back to this browser
@@ -978,6 +1163,8 @@ export class Shortcode {
 							'true' === avpvhShortcodeLocalize.can_exclude_photos
 								? ''
 								: 'none';
+						tagsPanel.style.display = 'none';
+						tagsButton.style.display = fileId !== '' ? '' : 'none';
 						refreshOriginalDate();
 						if (!hasCorrection && fileId !== '') {
 							const orientationSlideEl = slideEl;

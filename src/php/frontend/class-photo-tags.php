@@ -7,6 +7,10 @@
 
 namespace Avpvh\Frontend;
 
+use Avpvh\API_Client;
+use Avpvh\API_Facade;
+use Throwable;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
@@ -27,6 +31,27 @@ final class Photo_Tags {
 		add_action( 'wp_ajax_gallery_tag_delete', array( $this, 'ajax_delete_tag' ) );
 		add_action( 'wp_ajax_gallery_comment_add', array( $this, 'ajax_add_comment' ) );
 		add_action( 'wp_ajax_gallery_reaction_add', array( $this, 'ajax_add_reaction' ) );
+		add_action( 'wp_ajax_gallery_tag_candidates', array( $this, 'ajax_tag_candidates' ) );
+	}
+
+	/**
+	 * AJAX handler: suggests members to tag for a photo, narrowed to the
+	 * participants of the activity matching the photo's folder (if any is
+	 * marked gallery_taggable in avpvh-members) — falls back to an empty
+	 * list (the client then falls back to the full membership list) when
+	 * there's no match.
+	 *
+	 * @return void
+	 */
+	public function ajax_tag_candidates() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup, no state change to protect with a nonce.
+		$folder_id = sanitize_text_field( wp_unslash( (string) ( $_GET['folder_id'] ?? '' ) ) );
+
+		if ( ! $folder_id ) {
+			wp_send_json_error( array( 'message' => esc_html__( 'Invalid folder ID', 'avpvh-gallery' ) ), 400 );
+		}
+
+		wp_send_json_success( array( 'members' => self::participants_for_folder( $folder_id ) ) );
 	}
 
 	/**
@@ -344,5 +369,24 @@ final class Photo_Tags {
 		}
 
 		return $wpdb->insert_id;
+	}
+
+	/**
+	 * Best-effort: resolves the folder's Drive name and looks up its matching
+	 * activity's participants. Never fails the caller.
+	 *
+	 * @param string $folder_id Google Drive folder ID.
+	 *
+	 * @return array<array{id: int, name: string}>
+	 */
+	private static function participants_for_folder( $folder_id ) {
+		try {
+			$results     = API_Client::execute( array( API_Facade::get_file_name( $folder_id ) ) );
+			$folder_name = is_string( $results[0] ) ? $results[0] : '';
+
+			return '' !== $folder_name ? Activity_Participants::for_folder_name( $folder_name ) : array();
+		} catch ( Throwable ) {
+			return array();
+		}
 	}
 }
