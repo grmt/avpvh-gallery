@@ -16,54 +16,92 @@ use WP_REST_Request;
 use WP_REST_Response;
 
 /**
- * Fixed-vocabulary "what's in this photo" checklist tags (rubriek "graven"),
- * independent of who's in the photo. Each tag is a simple boolean per photo
- * — checked or not — so the REST API is a read (all active slugs for a
- * photo) and a single-tag toggle, matching the checkbox UI in the lightbox.
+ * Fixed-vocabulary "what's in this photo" checklist tags, grouped into
+ * rubrieken (currently "graven" and "kamp"), independent of who's in the
+ * photo. Each tag is a simple boolean per photo — checked or not — so the
+ * REST API is a read (all active slugs for a photo) and a single-tag
+ * toggle, matching the checkbox UI in the lightbox. The rubriek grouping is
+ * purely a display/organization concern: storage stays flat
+ * (image_id, tag_slug), so a slug is only ever listed under one rubriek.
  *
  * @phan-constructor-used-for-side-effects
  */
 final class Subject_Tags {
 
 	/**
-	 * The fixed vocabulary: slug => Dutch label. Flat for now (rubriek
-	 * "graven" is the only category); a category dimension can be added
-	 * later without changing the storage shape (image_id, tag_slug).
+	 * The fixed vocabulary, grouped by rubriek: rubriek => (slug => Dutch label).
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility, SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- no-modifier matches the convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION); the "multi constant" error is a PHPCSUtils false positive on this single constant's multi-line array value (confuses the array's "=>" pairs for constant separators).
-	const TAGS = array(
-		'archeoloog_maakt_foto' => 'Archeoloog maakt foto',
-		'belletje'              => 'Belletje',
-		'coupe'                 => 'Coupe',
-		'fibula'                => 'Fibula',
-		'hand_met_vondst'       => 'Hand met vondst',
-		'intekenen'             => 'Intekenen',
-		'kan'                   => 'Kan',
-		'kinderen'              => 'Kinderen',
-		'kruiwagen'             => 'Kruiwagen',
-		'kwadrant'              => 'Kwadrant',
-		'metaal'                => 'Metaal',
-		'meten'                 => 'Meten',
-		'munt'                  => 'Munt',
-		'muur'                  => 'Muur',
-		'opruimen'              => 'Opruimen',
-		'overzicht'             => 'Overzicht',
-		'paalgat'               => 'Paalgat',
-		'pauze'                 => 'Pauze',
-		'potje'                 => 'Potje',
-		'profiel'               => 'Profiel',
-		'reconstructie'         => 'Reconstructie',
-		'regen'                 => 'Regen',
-		'rondleiding'           => 'Rondleiding',
-		'schaal'                => 'Schaal',
-		'schaduw'               => 'Schaduw',
-		'schaven'               => 'Schaven',
-		'scherf'                => 'Scherf',
-		'schop'                 => 'Schop',
-		'troffel'               => 'Troffel',
-		'vlak'                  => 'Vlak',
-		'vondst'                => 'Vondst',
-		'zeven'                 => 'Zeven',
+	const CATEGORIES = array(
+		'graven' => array(
+			'archeoloog_maakt_foto' => 'Archeoloog maakt foto',
+			'belletje'              => 'Belletje',
+			'coupe'                 => 'Coupe',
+			'fibula'                => 'Fibula',
+			'hand_met_vondst'       => 'Hand met vondst',
+			'intekenen'             => 'Intekenen',
+			'kan'                   => 'Kan',
+			'kinderen'              => 'Kinderen',
+			'kruiwagen'             => 'Kruiwagen',
+			'kwadrant'              => 'Kwadrant',
+			'metaal'                => 'Metaal',
+			'meten'                 => 'Meten',
+			'munt'                  => 'Munt',
+			'muur'                  => 'Muur',
+			'opruimen'              => 'Opruimen',
+			'overzicht'             => 'Overzicht',
+			'paalgat'               => 'Paalgat',
+			'pauze'                 => 'Pauze',
+			'potje'                 => 'Potje',
+			'profiel'               => 'Profiel',
+			'reconstructie'         => 'Reconstructie',
+			'regen'                 => 'Regen',
+			'rondleiding'           => 'Rondleiding',
+			'schaal'                => 'Schaal',
+			'schaduw'               => 'Schaduw',
+			'schaven'               => 'Schaven',
+			'scherf'                => 'Scherf',
+			'schop'                 => 'Schop',
+			'troffel'               => 'Troffel',
+			'vlak'                  => 'Vlak',
+			'vondst'                => 'Vondst',
+			'zeven'                 => 'Zeven',
+		),
+		'kamp'   => array(
+			'afbreken'              => 'Afbreken',
+			'aperetiefje'           => 'Aperetiefje',
+			'avond'                 => 'Avond',
+			'container'             => 'Container',
+			'dans'                  => 'Dans',
+			'drank'                 => 'Drank',
+			'feest'                 => 'Feest',
+			'gerecht'               => 'Gerecht',
+			'gerrit'                => 'Gerrit',
+			'groepsfoto'            => 'Groepsfoto',
+			'grote_tent'            => 'Grote tent',
+			'kampvuur'              => 'Kampvuur',
+			'keuken'                => 'Keuken',
+			'kinderprogramma'       => 'Kinderprogramma',
+			'koken'                 => 'Koken',
+			'lied'                  => 'Lied',
+			'muziek'                => 'Muziek',
+			'ochtend'               => 'Ochtend',
+			'ontbuit'               => 'Ontbuit',
+			'portret'               => 'Portret',
+			'speech'                => 'Speech',
+			'spel'                  => 'Spel',
+			'storm'                 => 'Storm',
+			'tjoepke'               => 'Tjoepke',
+			'trampoline'            => 'Trampoline',
+			'tussen_graven_en_eten' => 'Tussen graven en eten',
+			'varken'                => 'Varken',
+			'varkensmaal'           => 'Varkensmaal',
+			'voorwacht'             => 'Voorwacht',
+			'wasplaats'             => 'Wasplaats',
+			'wc'                    => 'Wc',
+			'wekstunt'              => 'Wekstunt',
+			'zwembad'               => 'Zwembad',
+		),
 	);
 
 	/**
@@ -111,7 +149,7 @@ final class Subject_Tags {
 						'required'          => true,
 						'type'              => 'string',
 						'validate_callback' => static function ( $value ) {
-							return isset( self::TAGS[ $value ] );
+							return isset( self::all_tags()[ $value ] );
 						},
 					),
 				),
@@ -196,5 +234,21 @@ final class Subject_Tags {
 		}
 
 		return new WP_REST_Response( array( 'success' => true ), 200 );
+	}
+
+	/**
+	 * All tags across every rubriek, flattened to slug => label — used to
+	 * validate a submitted tag_slug without caring which rubriek it's in.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function all_tags() {
+		$all = array();
+
+		foreach ( self::CATEGORIES as $tags ) {
+			$all = array_merge( $all, $tags );
+		}
+
+		return $all;
 	}
 }

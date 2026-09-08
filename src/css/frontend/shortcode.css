@@ -1003,13 +1003,27 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	z-index: 20;
 }
 
-.avpvh-pswp-subject-tags {
+.avpvh-pswp-subject-tags-heading {
+	color: rgb(255, 255, 255, 60%);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	margin-top: 10px;
+	text-transform: uppercase;
+}
+
+.avpvh-pswp-subject-tags-heading:first-child {
+	margin-top: 0;
+}
+
+.avpvh-pswp-subject-tags-group {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 4px 12px;
+	margin-top: 4px;
 }
 
-.avpvh-pswp-subject-tags label {
+.avpvh-pswp-subject-tags-group label {
 	align-items: center;
 	display: flex;
 	font-weight: 400;

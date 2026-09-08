@@ -843,35 +843,48 @@ export class Shortcode {
 					const subjectTagsList = document.createElement('div');
 					subjectTagsList.className = 'avpvh-pswp-subject-tags';
 					Object.entries(avpvhShortcodeLocalize.subject_tags).forEach(
-						([slug, label]) => {
-							const optionLabel = document.createElement('label');
-							const checkbox = document.createElement('input');
-							checkbox.type = 'checkbox';
-							checkbox.value = slug;
-							checkbox.addEventListener('change', (e) => {
-								e.stopPropagation();
-								if (exclusionFileId === '') {
-									return;
-								}
-								const fileId = exclusionFileId;
-								const wasChecked = checkbox.checked;
-								void toggleSubjectTag(
-									avpvhShortcodeLocalize.subject_tags_url,
-									avpvhShortcodeLocalize.rest_nonce,
-									fileId,
-									slug,
-									wasChecked
-								).catch(() => {
-									if (exclusionFileId === fileId) {
-										checkbox.checked = !wasChecked;
+						([category, tags]) => {
+							const heading = document.createElement('div');
+							heading.className =
+								'avpvh-pswp-subject-tags-heading';
+							heading.textContent = category;
+							subjectTagsList.appendChild(heading);
+
+							const group = document.createElement('div');
+							group.className = 'avpvh-pswp-subject-tags-group';
+							Object.entries(tags).forEach(([slug, label]) => {
+								const optionLabel =
+									document.createElement('label');
+								const checkbox =
+									document.createElement('input');
+								checkbox.type = 'checkbox';
+								checkbox.value = slug;
+								checkbox.addEventListener('change', (e) => {
+									e.stopPropagation();
+									if (exclusionFileId === '') {
+										return;
 									}
+									const fileId = exclusionFileId;
+									const wasChecked = checkbox.checked;
+									void toggleSubjectTag(
+										avpvhShortcodeLocalize.subject_tags_url,
+										avpvhShortcodeLocalize.rest_nonce,
+										fileId,
+										slug,
+										wasChecked
+									).catch(() => {
+										if (exclusionFileId === fileId) {
+											checkbox.checked = !wasChecked;
+										}
+									});
 								});
+								optionLabel.appendChild(checkbox);
+								optionLabel.appendChild(
+									document.createTextNode(' ' + label)
+								);
+								group.appendChild(optionLabel);
 							});
-							optionLabel.appendChild(checkbox);
-							optionLabel.appendChild(
-								document.createTextNode(' ' + label)
-							);
-							subjectTagsList.appendChild(optionLabel);
+							subjectTagsList.appendChild(group);
 						}
 					);
 

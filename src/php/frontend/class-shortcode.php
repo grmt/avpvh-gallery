@@ -213,7 +213,7 @@ final class Shortcode {
 			'preview_speed'        => $options->get( 'preview_speed' ),
 			'rest_nonce'           => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : '',
 			'server_error'         => esc_html__( 'The server returned an unexpected response.', 'avpvh-gallery' ),
-			'subject_tags'         => Subject_Tags::TAGS,
+			'subject_tags'         => Subject_Tags::CATEGORIES,
 			'subject_tags_url'     => rest_url( 'avpvh-gallery/v1/subject-tags' ),
 			'tag_nonce'            => wp_create_nonce( 'avpvh_tag_nonce' ),
 		);
