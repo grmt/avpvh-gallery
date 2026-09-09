@@ -12,16 +12,6 @@ export interface TagData {
 		width: number;
 		height: number;
 	} | null;
-	comments: Array<{
-		id: number;
-		user_id: number;
-		text: string;
-		created_at: string;
-	}>;
-	reactions: Array<{
-		emoji: string;
-		count: number;
-	}>;
 }
 
 interface Member {
@@ -57,6 +47,52 @@ export class PhotoTagger {
 				: [];
 		} catch {
 			return [];
+		}
+	}
+
+	// Comments belong to the photo as a whole, not to any one tag on it.
+	public static async addComment(
+		imageId: string,
+		commentText: string
+	): Promise<void> {
+		try {
+			await fetch('/wp-admin/admin-ajax.php', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+				},
+				body: new URLSearchParams({
+					action: 'gallery_comment_add',
+					image_id: imageId,
+					comment: commentText,
+					_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
+				}).toString(),
+			});
+		} catch {
+			// Network error — the comment simply doesn't appear; nothing more to do here.
+		}
+	}
+
+	// Reactions belong to the photo as a whole, not to any one tag on it.
+	public static async addReaction(
+		imageId: string,
+		emoji: string
+	): Promise<void> {
+		try {
+			await fetch('/wp-admin/admin-ajax.php', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+				},
+				body: new URLSearchParams({
+					action: 'gallery_reaction_add',
+					image_id: imageId,
+					emoji,
+					_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
+				}).toString(),
+			});
+		} catch {
+			// Network error — the reaction simply doesn't appear; nothing more to do here.
 		}
 	}
 
@@ -159,52 +195,6 @@ export class PhotoTagger {
 			}
 		} catch {
 			// Network error — the tag simply stays; nothing more to do here.
-		}
-	}
-
-	public async addComment(tagId: number, commentText: string): Promise<void> {
-		try {
-			const response = await fetch('/wp-admin/admin-ajax.php', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded',
-				},
-				body: new URLSearchParams({
-					action: 'gallery_comment_add',
-					tag_id: String(tagId),
-					comment: commentText,
-					_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
-				}).toString(),
-			});
-
-			if (response.ok) {
-				await this.loadAndRenderTags();
-			}
-		} catch {
-			// Network error — the comment simply doesn't appear; nothing more to do here.
-		}
-	}
-
-	public async addReaction(tagId: number, emoji: string): Promise<void> {
-		try {
-			const response = await fetch('/wp-admin/admin-ajax.php', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded',
-				},
-				body: new URLSearchParams({
-					action: 'gallery_reaction_add',
-					tag_id: String(tagId),
-					emoji,
-					_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
-				}).toString(),
-			});
-
-			if (response.ok) {
-				await this.loadAndRenderTags();
-			}
-		} catch {
-			// Network error — the reaction simply doesn't appear; nothing more to do here.
 		}
 	}
 

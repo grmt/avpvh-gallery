@@ -177,12 +177,12 @@ final class Subject_Tags {
 			return new WP_Error( 'invalid_file', 'file_id is required', array( 'status' => 400 ) );
 		}
 
-		$table = $wpdb->prefix . 'agallery_photo_subject_tags';
+		$table = $wpdb->prefix . 'agallery_photo_tags';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
 		$slugs = $wpdb->get_col(
 			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table is concatenated (not user-supplied); %s below is a real placeholder.
-				'SELECT tag_slug FROM ' . $table . ' WHERE image_id = %s',
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table is concatenated (not user-supplied); %s below is a real placeholder.
+				"SELECT tag_key FROM {$table} WHERE image_id = %s AND category IN ('graven','kamp')",
 				$file_id
 			)
 		);
@@ -207,33 +207,58 @@ final class Subject_Tags {
 			return new WP_Error( 'invalid_file', 'file_id is required', array( 'status' => 400 ) );
 		}
 
-		$table = $wpdb->prefix . 'agallery_photo_subject_tags';
+		$category = self::category_for_slug( $tag_slug );
+
+		if ( null === $category ) {
+			return new WP_Error( 'invalid_tag', 'Unknown tag_slug', array( 'status' => 400 ) );
+		}
+
+		$table = $wpdb->prefix . 'agallery_photo_tags';
 
 		if ( $active ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
 			$wpdb->replace(
 				$table,
 				array(
+					'category'   => $category,
 					'created_at' => current_time( 'mysql' ),
 					'created_by' => get_current_user_id(),
 					'image_id'   => $file_id,
-					'tag_slug'   => $tag_slug,
+					'tag_key'    => $tag_slug,
 				),
-				array( '%s', '%d', '%s', '%s' )
+				array( '%s', '%s', '%d', '%s', '%s' )
 			);
 		} else {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
 			$wpdb->delete(
 				$table,
 				array(
+					'category' => $category,
 					'image_id' => $file_id,
-					'tag_slug' => $tag_slug,
+					'tag_key'  => $tag_slug,
 				),
-				array( '%s', '%s' )
+				array( '%s', '%s', '%s' )
 			);
 		}
 
 		return new WP_REST_Response( array( 'success' => true ), 200 );
+	}
+
+	/**
+	 * Resolves which rubriek a slug belongs to.
+	 *
+	 * @param string $slug A tag slug.
+	 *
+	 * @return string|null The rubriek key (e.g. 'graven'), or null if the slug isn't in any rubriek.
+	 */
+	public static function category_for_slug( $slug ) {
+		foreach ( self::CATEGORIES as $category => $tags ) {
+			if ( isset( $tags[ $slug ] ) ) {
+				return $category;
+			}
+		}
+
+		return null;
 	}
 
 	/**

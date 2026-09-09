@@ -97,14 +97,16 @@ final class Photo_Tags {
 		$this->insert_or_error(
 			$table,
 			array(
+				'category'    => 'personen',
 				'created_at'  => current_time( 'mysql' ),
 				'created_by'  => get_current_user_id(),
 				'image_id'    => $image_id,
 				'member_id'   => $member_id,
 				'member_name' => $member_name,
 				'region_data' => $region_data,
+				'tag_key'     => (string) $member_id,
 			),
-			array( '%s', '%d', '%s', '%d', '%s', '%s' ),
+			array( '%s', '%s', '%d', '%s', '%d', '%s', '%s', '%s' ),
 			esc_html__( 'Failed to create tag', 'avpvh-gallery' )
 		);
 
@@ -140,67 +142,25 @@ final class Photo_Tags {
 		}
 
 		global $wpdb;
-		$tags_table      = $wpdb->prefix . 'agallery_photo_tags';
-		$comments_table  = $wpdb->prefix . 'agallery_tag_comments';
-		$reactions_table = $wpdb->prefix . 'agallery_reactions';
+		$tags_table = $wpdb->prefix . 'agallery_photo_tags';
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
 		$tags = $wpdb->get_results(
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $tags_table is concatenated (not user-supplied); the %s placeholder below is filled via $wpdb->prepare().
 				"SELECT id, member_id, member_name, region_data FROM {$tags_table}
-				 WHERE image_id = %s ORDER BY created_at",
+				 WHERE image_id = %s AND category = 'personen' ORDER BY created_at",
 				$image_id
 			)
 		);
 
 		$tags_with_meta = array_map(
-			static function ( $tag ) use ( $wpdb, $comments_table, $reactions_table ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
-				$comments = $wpdb->get_results(
-					$wpdb->prepare(
-						// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $comments_table is concatenated (not user-supplied); the %d placeholder below is filled via $wpdb->prepare().
-						"SELECT id, user_id, comment_text, created_at FROM {$comments_table}
-						 WHERE tag_id = %d ORDER BY created_at",
-						$tag->id
-					)
-				);
-
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
-				$reactions = $wpdb->get_results(
-					$wpdb->prepare(
-						// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $reactions_table is concatenated (not user-supplied); the %d placeholder below is filled via $wpdb->prepare().
-						"SELECT emoji, COUNT(*) as count FROM {$reactions_table}
-						 WHERE tag_id = %d GROUP BY emoji",
-						$tag->id
-					)
-				);
-
+			static function ( $tag ) {
 				return array(
 					'id'          => intval( $tag->id ),
 					'member_id'   => intval( $tag->member_id ),
 					'member_name' => $tag->member_name,
 					'region_data' => $tag->region_data ? json_decode( $tag->region_data ) : null,
-					'comments'    => array_map(
-						static function ( $comment ) {
-							return array(
-								'id'         => intval( $comment->id ),
-								'user_id'    => intval( $comment->user_id ),
-								'text'       => $comment->comment_text,
-								'created_at' => $comment->created_at,
-							);
-						},
-						$comments
-					),
-					'reactions'   => array_map(
-						static function ( $reaction ) {
-							return array(
-								'emoji' => $reaction->emoji,
-								'count' => intval( $reaction->count ),
-							);
-						},
-						$reactions
-					),
 				);
 			},
 			$tags
@@ -249,7 +209,8 @@ final class Photo_Tags {
 	}
 
 	/**
-	 * AJAX handler: Add a comment to a tag
+	 * AJAX handler: Add a comment to a photo. Comments belong to the photo
+	 * as a whole, not to any one tag on it.
 	 *
 	 * @return void
 	 */
@@ -259,23 +220,23 @@ final class Photo_Tags {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce is verified above via check_can_tag().
-		$tag_id = intval( $_POST['tag_id'] ?? 0 );
+		$image_id = sanitize_text_field( wp_unslash( (string) ( $_POST['image_id'] ?? '' ) ) );
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce is verified above via check_can_tag().
 		$comment_text = sanitize_textarea_field( wp_unslash( (string) ( $_POST['comment'] ?? '' ) ) );
 
-		if ( ! $tag_id || ! $comment_text ) {
+		if ( ! $image_id || ! $comment_text ) {
 			wp_send_json_error( array( 'message' => esc_html__( 'Invalid parameters', 'avpvh-gallery' ) ), 400 );
 		}
 
 		$comment_id = $this->insert_or_error(
-			$wpdb->prefix . 'agallery_tag_comments',
+			$wpdb->prefix . 'agallery_photo_comments',
 			array(
 				'comment_text' => $comment_text,
 				'created_at'   => current_time( 'mysql' ),
-				'tag_id'       => $tag_id,
+				'image_id'     => $image_id,
 				'user_id'      => get_current_user_id(),
 			),
-			array( '%s', '%s', '%d', '%d' ),
+			array( '%s', '%s', '%s', '%d' ),
 			esc_html__( 'Failed to create comment', 'avpvh-gallery' )
 		);
 
@@ -283,7 +244,8 @@ final class Photo_Tags {
 	}
 
 	/**
-	 * AJAX handler: Add an emoji reaction to a tag
+	 * AJAX handler: Add an emoji reaction to a photo. Reactions belong to
+	 * the photo as a whole, not to any one tag on it.
 	 *
 	 * @return void
 	 */
@@ -291,16 +253,16 @@ final class Photo_Tags {
 		$this->check_can_tag();
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce is verified above via check_can_tag().
-		$tag_id = intval( $_POST['tag_id'] ?? 0 );
+		$image_id = sanitize_text_field( wp_unslash( (string) ( $_POST['image_id'] ?? '' ) ) );
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce is verified above via check_can_tag().
 		$emoji = sanitize_text_field( wp_unslash( (string) ( $_POST['emoji'] ?? '' ) ) );
 
-		if ( ! $tag_id || ! $emoji ) {
+		if ( ! $image_id || ! $emoji ) {
 			wp_send_json_error( array( 'message' => esc_html__( 'Invalid parameters', 'avpvh-gallery' ) ), 400 );
 		}
 
 		global $wpdb;
-		$table   = $wpdb->prefix . 'agallery_reactions';
+		$table   = $wpdb->prefix . 'agallery_photo_reactions';
 		$user_id = get_current_user_id();
 
 		// Toggle reaction: remove if exists, add if doesn't.
@@ -308,8 +270,8 @@ final class Photo_Tags {
 		if ( $wpdb->get_var(
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table is concatenated (not user-supplied); the placeholders below are filled via $wpdb->prepare().
-				"SELECT id FROM {$table} WHERE tag_id = %d AND user_id = %d AND emoji = %s",
-				$tag_id,
+				"SELECT id FROM {$table} WHERE image_id = %s AND user_id = %d AND emoji = %s",
+				$image_id,
 				$user_id,
 				$emoji
 			)
@@ -318,11 +280,11 @@ final class Photo_Tags {
 			$wpdb->delete(
 				$table,
 				array(
-					'emoji'   => $emoji,
-					'tag_id'  => $tag_id,
-					'user_id' => $user_id,
+					'emoji'    => $emoji,
+					'image_id' => $image_id,
+					'user_id'  => $user_id,
 				),
-				array( '%s', '%d', '%d' )
+				array( '%s', '%s', '%d' )
 			);
 		} else {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- custom plugin table, no cache group defined.
@@ -331,10 +293,10 @@ final class Photo_Tags {
 				array(
 					'created_at' => current_time( 'mysql' ),
 					'emoji'      => $emoji,
-					'tag_id'     => $tag_id,
+					'image_id'   => $image_id,
 					'user_id'    => $user_id,
 				),
-				array( '%s', '%s', '%d', '%d' )
+				array( '%s', '%s', '%s', '%d' )
 			);
 		}
 
@@ -385,7 +347,7 @@ final class Photo_Tags {
 			$folder_name = is_string( $results[0] ) ? $results[0] : '';
 
 			return '' !== $folder_name ? Activity_Participants::for_folder_name( $folder_name ) : array();
-		} catch ( Throwable ) {
+		} catch ( Throwable $e ) {
 			return array();
 		}
 	}

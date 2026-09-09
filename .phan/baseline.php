@@ -42,7 +42,7 @@ return [
         'src/php/admin/settings-pages/class-exif-inspector.php' => ['PhanPluginPossiblyStaticPublicMethod'],
         'src/php/class-main.php' => ['PhanUnusedPublicFinalMethodParameter', 'PhanVariableDefinitionCouldBeConstant', 'PhanVariableDefinitionCouldBeConstantString'],
         'src/php/frontend/class-members-api.php' => ['PhanPluginPossiblyStaticPublicMethod'],
-        'src/php/frontend/class-photo-tags.php' => ['PhanPluginNonBoolBranch', 'PhanPluginNonBoolInLogicalArith', 'PhanPluginPossiblyStaticPrivateMethod', 'PhanPluginPossiblyStaticPublicMethod'],
+        'src/php/frontend/class-photo-tags.php' => ['PhanPluginNonBoolBranch', 'PhanPluginNonBoolInLogicalArith', 'PhanPluginPossiblyStaticPrivateMethod', 'PhanPluginPossiblyStaticPublicMethod', 'PhanUnusedVariableCaughtException'],
         'src/php/frontend/class-subject-tags.php' => ['PhanPluginPossiblyStaticPublicMethod'],
         'src/php/frontend/page/class-directories.php' => ['PhanTypeInvalidDimOffset', 'PhanTypeInvalidLeftOperandOfAdd', 'PhanTypeInvalidLeftOperandOfNumericOp'],
     ],

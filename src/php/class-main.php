@@ -41,6 +41,7 @@ final class Main {
 		add_action( 'admin_notices', array( self::class, 'activation_notice' ) );
 		add_action( 'init', array( '\\Avpvh\\Photo_Corrections_DB', 'maybe_migrate' ) );
 		add_action( 'init', array( '\\Avpvh\\Folder_Authors_DB', 'maybe_migrate' ) );
+		add_action( 'init', array( '\\Avpvh\\Photo_Tags_DB', 'maybe_migrate' ) );
 		add_filter( 'get_site_icon_url', array( self::class, 'filter_site_icon_url' ), 10, 3 );
 		add_filter( 'get_custom_logo', array( self::class, 'filter_custom_logo' ), 10, 2 );
 		new Shortcode();
