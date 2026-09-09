@@ -23,6 +23,27 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Photo_Tags {
 
 	/**
+	 * The fixed set of reactions a photo can get, grouped by what they
+	 * judge — liking the subject/content is a different axis from flagging
+	 * its technical quality, so they're two independent groups rather than
+	 * one flat list. Deliberately not open emoji: restricting it to this
+	 * small, specific vocabulary is what makes counting them ("how many
+	 * people flagged this as blurry") meaningful. group => (slug => a
+	 * display label including its icon).
+	 */
+	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility, SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- no-modifier matches the convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION); the "multi constant" error is a PHPCSUtils false positive on this single constant's multi-line array value.
+	const REACTIONS = array(
+		'kwaliteit' => array(
+			'blurry' => '🔍 Niet scherp',
+			'goodq'  => '✅ Goede kwaliteit',
+			'shaky'  => '📸 Bewogen',
+		),
+		'subject'   => array(
+			'like' => '👍 Leuke foto',
+		),
+	);
+
+	/**
 	 * Initializes AJAX handlers
 	 */
 	public function __construct() {
@@ -30,7 +51,9 @@ final class Photo_Tags {
 		add_action( 'wp_ajax_gallery_tag_list', array( $this, 'ajax_list_tags' ) );
 		add_action( 'wp_ajax_gallery_tag_delete', array( $this, 'ajax_delete_tag' ) );
 		add_action( 'wp_ajax_gallery_comment_add', array( $this, 'ajax_add_comment' ) );
+		add_action( 'wp_ajax_gallery_comment_list', array( $this, 'ajax_list_comments' ) );
 		add_action( 'wp_ajax_gallery_reaction_add', array( $this, 'ajax_add_reaction' ) );
+		add_action( 'wp_ajax_gallery_reaction_list', array( $this, 'ajax_list_reactions' ) );
 		add_action( 'wp_ajax_gallery_tag_candidates', array( $this, 'ajax_tag_candidates' ) );
 	}
 
@@ -257,7 +280,7 @@ final class Photo_Tags {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce is verified above via check_can_tag().
 		$emoji = sanitize_text_field( wp_unslash( (string) ( $_POST['emoji'] ?? '' ) ) );
 
-		if ( ! $image_id || ! $emoji ) {
+		if ( ! $image_id || ! isset( self::all_reactions()[ $emoji ] ) ) {
 			wp_send_json_error( array( 'message' => esc_html__( 'Invalid parameters', 'avpvh-gallery' ) ), 400 );
 		}
 
@@ -304,6 +327,90 @@ final class Photo_Tags {
 	}
 
 	/**
+	 * AJAX handler: lists comments for a photo.
+	 *
+	 * @return void
+	 */
+	public function ajax_list_comments() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only list endpoint, no state change to protect with a nonce.
+		$image_id = sanitize_text_field( wp_unslash( (string) ( $_GET['image_id'] ?? '' ) ) );
+
+		if ( ! $image_id ) {
+			wp_send_json_error( array( 'message' => esc_html__( 'Invalid image ID', 'avpvh-gallery' ) ), 400 );
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'agallery_photo_comments';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table is concatenated (not user-supplied); the %s placeholder below is filled via $wpdb->prepare().
+				"SELECT id, user_id, comment_text, created_at FROM {$table} WHERE image_id = %s ORDER BY created_at",
+				$image_id
+			)
+		);
+
+		$comments = array_map(
+			static function ( $row ) {
+				$user = get_userdata( (int) $row->user_id );
+
+				return array(
+					'id'         => intval( $row->id ),
+					'user_name'  => $user ? $user->display_name : esc_html__( 'Onbekend', 'avpvh-gallery' ),
+					'text'       => $row->comment_text,
+					'created_at' => $row->created_at,
+				);
+			},
+			$rows
+		);
+
+		wp_send_json_success( array( 'comments' => $comments ) );
+	}
+
+	/**
+	 * AJAX handler: lists reaction counts for a photo, and which of them the
+	 * current user has given.
+	 *
+	 * @return void
+	 */
+	public function ajax_list_reactions() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only list endpoint, no state change to protect with a nonce.
+		$image_id = sanitize_text_field( wp_unslash( (string) ( $_GET['image_id'] ?? '' ) ) );
+
+		if ( ! $image_id ) {
+			wp_send_json_error( array( 'message' => esc_html__( 'Invalid image ID', 'avpvh-gallery' ) ), 400 );
+		}
+
+		global $wpdb;
+		$table   = $wpdb->prefix . 'agallery_photo_reactions';
+		$user_id = get_current_user_id();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table is concatenated (not user-supplied); the placeholders below are filled via $wpdb->prepare().
+				"SELECT emoji, COUNT(*) as count, MAX(user_id = %d) as mine FROM {$table}
+				 WHERE image_id = %s GROUP BY emoji",
+				$user_id,
+				$image_id
+			)
+		);
+
+		$reactions = array_map(
+			static function ( $row ) {
+				return array(
+					'slug'  => $row->emoji,
+					'count' => intval( $row->count ),
+					'mine'  => (bool) intval( $row->mine ),
+				);
+			},
+			$rows
+		);
+
+		wp_send_json_success( array( 'reactions' => $reactions ) );
+	}
+
+	/**
 	 * Check if user can tag photos and verify nonce
 	 *
 	 * @return void
@@ -331,6 +438,22 @@ final class Photo_Tags {
 		}
 
 		return $wpdb->insert_id;
+	}
+
+	/**
+	 * All reactions across both groups, flattened to slug => label — used
+	 * to validate a submitted reaction slug without caring which group it's in.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function all_reactions() {
+		$all = array();
+
+		foreach ( self::REACTIONS as $group ) {
+			$all = array_merge( $all, $group );
+		}
+
+		return $all;
 	}
 
 	/**

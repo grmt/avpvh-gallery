@@ -747,6 +747,14 @@ function get_transient( $transient ) {
 }
 
 /**
+ * @param int $user_id
+ *
+ * @return WP_User|false
+ */
+function get_userdata( $user_id ) {
+}
+
+/**
  * @param int    $user_id
  * @param string $key
  * @param bool   $single
