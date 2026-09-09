@@ -676,7 +676,7 @@ export class Shortcode {
 						'<strong>Uitsluiten van gallery en diavoorstelling</strong>' +
 						'</label>' +
 						'<div class="avpvh-pswp-exclusion-reasons" style="display:none;">' +
-						'<label><input type="checkbox" value="poor_quality" /> Slechte kwaliteit</label><label><input type="checkbox" value="duplicate" /> Dubbel</label><label><input type="checkbox" value="privacy_objection" /> Bezwaar van afgebeelde personen</label><label><input type="checkbox" value="children" /> Kinderen</label><label><input type="checkbox" value="missing" /> Ontbrekend</label><label><input type="checkbox" value="other" /> Anders</label>' +
+						'<label><input type="checkbox" value="poor_quality" /> Slechte kwaliteit</label><label><input type="checkbox" value="duplicate" /> Dubbel</label><label><input type="checkbox" value="privacy_objection" /> Bezwaar van afgebeelde personen</label><label><input type="checkbox" value="children" /> Kinderen</label><label><input type="checkbox" value="member_request" /> Verzoek van lid</label><label><input type="checkbox" value="missing" /> Ontbrekend</label><label><input type="checkbox" value="other" /> Anders</label>' +
 						'<label class="avpvh-pswp-exclusion-note">Toelichting (alleen zichtbaar voor beheerders)' +
 						'<textarea rows="2" maxlength="1000"></textarea>' +
 						'</label>' +

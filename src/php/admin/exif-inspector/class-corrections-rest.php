@@ -425,7 +425,15 @@ final class Corrections_REST {
 	 * @return array{file_id: string, folder_id: string, excluded: bool, media_type: string, note: string, reasons: array<string>}
 	 */
 	private static function parse_exclusion_params( array $params ) {
-		$allowed = array( 'poor_quality', 'duplicate', 'privacy_objection', 'children', 'missing', 'other' );
+		$allowed = array(
+			'poor_quality',
+			'duplicate',
+			'privacy_objection',
+			'children',
+			'member_request',
+			'missing',
+			'other',
+		);
 
 		return array(
 			'excluded'   => isset( $params['excluded'] ) && (bool) $params['excluded'],

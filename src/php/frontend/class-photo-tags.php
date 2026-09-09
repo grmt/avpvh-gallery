@@ -25,11 +25,16 @@ final class Photo_Tags {
 	/**
 	 * The fixed set of reactions a photo can get, grouped by what they
 	 * judge — liking the subject/content is a different axis from flagging
-	 * its technical quality, so they're two independent groups rather than
-	 * one flat list. Deliberately not open emoji: restricting it to this
-	 * small, specific vocabulary is what makes counting them ("how many
-	 * people flagged this as blurry") meaningful. group => (slug => a
-	 * display label including its icon).
+	 * its technical quality or a content concern, so they're independent
+	 * groups rather than one flat list. Deliberately not open emoji:
+	 * restricting it to this small, specific vocabulary is what makes
+	 * counting them ("how many people flagged this as blurry") meaningful.
+	 * group => (slug => a display label including its icon).
+	 *
+	 * The "zorgen" group is different from the other two: a reaction there
+	 * doesn't just get counted, it also surfaces the photo on the
+	 * "Gevlagde foto's" admin page (Avpvh\Admin\Settings_Pages\Flagged_Photos)
+	 * so an administrator can review it.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility, SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- no-modifier matches the convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION); the "multi constant" error is a PHPCSUtils false positive on this single constant's multi-line array value.
 	const REACTIONS = array(
@@ -41,7 +46,18 @@ final class Photo_Tags {
 		'subject'   => array(
 			'like' => '👍 Leuke foto',
 		),
+		'zorgen'    => array(
+			'hide_request' => '🙈 Verzoek om te verbergen',
+			'privacy'      => '⚠️ Ongemakkelijk / AVG-issue / kinderen',
+		),
 	);
+
+	/**
+	 * The reaction slugs (within the "zorgen" group) that flag a photo for
+	 * admin review — see the REACTIONS docblock above.
+	 */
+	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility, SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- no-modifier matches the convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION); the "multi constant" error is a PHPCSUtils false positive triggered by the adjacent REACTIONS constant's multi-line array value.
+	const FLAGGED_REACTIONS = array( 'hide_request', 'privacy' );
 
 	/**
 	 * Initializes AJAX handlers
