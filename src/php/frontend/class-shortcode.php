@@ -211,6 +211,7 @@ final class Shortcode {
 			'preview_closebutton'  => $options->get( 'preview_close_button' ),
 			'preview_quitOnEnd'    => 'true' === $options->get( 'preview_loop' ) ? 'false' : 'true',
 			'preview_speed'        => $options->get( 'preview_speed' ),
+			'reactions'            => Photo_Tags::REACTIONS,
 			'rest_nonce'           => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : '',
 			'server_error'         => esc_html__( 'The server returned an unexpected response.', 'avpvh-gallery' ),
 			'subject_tags'         => Subject_Tags::CATEGORIES,

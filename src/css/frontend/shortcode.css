@@ -1070,6 +1070,108 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	padding: 6px 12px;
 }
 
+.avpvh-pswp-reactions {
+	border-top: 1px solid rgb(255, 255, 255, 20%);
+	margin-top: 12px;
+	padding-top: 12px;
+}
+
+.avpvh-pswp-reactions-heading {
+	color: rgb(255, 255, 255, 60%);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	margin-top: 10px;
+	text-transform: uppercase;
+}
+
+.avpvh-pswp-reactions-heading:first-child {
+	margin-top: 0;
+}
+
+.avpvh-pswp-reactions-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 4px;
+}
+
+.avpvh-pswp-reaction-badge {
+	background: rgb(255, 255, 255, 12%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border: 1px solid rgb(255, 255, 255, 30%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border-radius: 12px;
+	color: #fff;
+	cursor: pointer;
+	font-size: 12px;
+	padding: 3px 10px;
+}
+
+.avpvh-pswp-reaction-badge:hover {
+	background: rgb(255, 255, 255, 22%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-pswp-reaction-badge.active {
+	background: rgb(76, 175, 80, 35%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border-color: #4caf50;
+	font-weight: 700;
+}
+
+.avpvh-pswp-comments {
+	border-top: 1px solid rgb(255, 255, 255, 20%);
+	margin-top: 12px;
+	padding-top: 12px;
+}
+
+.avpvh-pswp-comments-list {
+	list-style: none;
+	margin: 0 0 8px;
+	max-height: 120px;
+	overflow-y: auto;
+	padding: 0;
+}
+
+.avpvh-pswp-comments-list li {
+	border-bottom: 1px solid rgb(255, 255, 255, 10%);
+	padding: 4px 0;
+}
+
+.avpvh-pswp-comment-author {
+	color: rgb(255, 255, 255, 60%);
+	display: block;
+	font-size: 11px;
+	font-weight: 700;
+}
+
+.avpvh-pswp-comment-text {
+	display: block;
+	font-size: 12px;
+	word-wrap: break-word;
+}
+
+.avpvh-pswp-comment-input {
+	background: rgb(255, 255, 255, 95%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border: 1px solid rgb(255, 255, 255, 30%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border-radius: 4px;
+	box-sizing: border-box;
+	color: #333;
+	font-family: inherit;
+	font-size: 12px;
+	min-height: 40px;
+	padding: 6px;
+	resize: vertical;
+	width: 100%;
+}
+
+.avpvh-pswp-comment-submit {
+	background: #2271b1;
+	border: none;
+	border-radius: 4px;
+	color: #fff;
+	cursor: pointer;
+	margin-top: 6px;
+	padding: 6px 12px;
+}
+
 /* Cached grid thumbnail shown dimmed behind the Drive error notice. */
 .avpvh-pswp-fallback {
 	height: 100%;

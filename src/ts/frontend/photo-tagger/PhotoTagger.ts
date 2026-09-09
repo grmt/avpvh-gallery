@@ -27,6 +27,33 @@ interface TagListResponse {
 	};
 }
 
+export interface CommentData {
+	id: number;
+	user_name: string;
+	text: string;
+	created_at: string;
+}
+
+export interface ReactionData {
+	slug: string;
+	count: number;
+	mine: boolean;
+}
+
+interface CommentListResponse {
+	success: boolean;
+	data?: {
+		comments: Array<CommentData>;
+	};
+}
+
+interface ReactionListResponse {
+	success: boolean;
+	data?: {
+		reactions: Array<ReactionData>;
+	};
+}
+
 export class PhotoTagger {
 	private membersCache: Array<Member> = [];
 	private currentImageId = '';
@@ -93,6 +120,38 @@ export class PhotoTagger {
 			});
 		} catch {
 			// Network error — the reaction simply doesn't appear; nothing more to do here.
+		}
+	}
+
+	public static async listComments(
+		imageId: string
+	): Promise<Array<CommentData>> {
+		try {
+			const response = await fetch(
+				`/wp-admin/admin-ajax.php?action=gallery_comment_list&image_id=${encodeURIComponent(imageId)}`
+			);
+			const data = (await response.json()) as CommentListResponse;
+			return data.success && undefined !== data.data
+				? data.data.comments
+				: [];
+		} catch {
+			return [];
+		}
+	}
+
+	public static async listReactions(
+		imageId: string
+	): Promise<Array<ReactionData>> {
+		try {
+			const response = await fetch(
+				`/wp-admin/admin-ajax.php?action=gallery_reaction_list&image_id=${encodeURIComponent(imageId)}`
+			);
+			const data = (await response.json()) as ReactionListResponse;
+			return data.success && undefined !== data.data
+				? data.data.reactions
+				: [];
+		} catch {
+			return [];
 		}
 	}
 

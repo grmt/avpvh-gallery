@@ -11,7 +11,11 @@ import {
 } from '../../orientationVisualization';
 import { printError } from '../../printError';
 import { fetchSubjectTags, toggleSubjectTag } from '../../subject-tags';
-import { PhotoTagger } from '../photo-tagger/PhotoTagger';
+import {
+	type CommentData,
+	PhotoTagger,
+	type ReactionData,
+} from '../photo-tagger/PhotoTagger';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
 
@@ -899,8 +903,46 @@ export class Shortcode {
 					personTagsSection.appendChild(personTagsList);
 					personTagsSection.appendChild(addPersonTagBtn);
 
+					// Reactions: two independent, separately-countable groups
+					// (liking the subject vs. flagging technical quality —
+					// see Photo_Tags::REACTIONS), rendered the same way as
+					// the subject-tags rubrieken above.
+					const reactionsSection = document.createElement('div');
+					reactionsSection.className = 'avpvh-pswp-reactions';
+					Object.keys(avpvhShortcodeLocalize.reactions).forEach(
+						(group) => {
+							const heading = document.createElement('div');
+							heading.className = 'avpvh-pswp-reactions-heading';
+							heading.textContent = group;
+							reactionsSection.appendChild(heading);
+
+							const row = document.createElement('div');
+							row.className = 'avpvh-pswp-reactions-group';
+							row.dataset['group'] = group;
+							reactionsSection.appendChild(row);
+						}
+					);
+
+					// Comments: belong to the photo as a whole, not to any one tag.
+					const commentsSection = document.createElement('div');
+					commentsSection.className = 'avpvh-pswp-comments';
+					const commentsList = document.createElement('ul');
+					commentsList.className = 'avpvh-pswp-comments-list';
+					const commentInput = document.createElement('textarea');
+					commentInput.className = 'avpvh-pswp-comment-input';
+					commentInput.placeholder = 'Reactie toevoegen…';
+					const commentSubmit = document.createElement('button');
+					commentSubmit.type = 'button';
+					commentSubmit.className = 'avpvh-pswp-comment-submit';
+					commentSubmit.textContent = 'Plaatsen';
+					commentsSection.appendChild(commentsList);
+					commentsSection.appendChild(commentInput);
+					commentsSection.appendChild(commentSubmit);
+
 					tagsPanel.appendChild(subjectTagsList);
 					tagsPanel.appendChild(personTagsSection);
+					tagsPanel.appendChild(reactionsSection);
+					tagsPanel.appendChild(commentsSection);
 
 					const refreshTagsPanel = (): void => {
 						if (exclusionFileId === '') {
@@ -953,6 +995,82 @@ export class Shortcode {
 								personTagsList.appendChild(li);
 							});
 						});
+
+						void PhotoTagger.listReactions(fileId).then(
+							(reactions: Array<ReactionData>) => {
+								if (exclusionFileId !== fileId) {
+									return;
+								}
+								Object.entries(
+									avpvhShortcodeLocalize.reactions
+								).forEach(([group, slugs]) => {
+									const row =
+										reactionsSection.querySelector<HTMLElement>(
+											`.avpvh-pswp-reactions-group[data-group="${group}"]`
+										);
+									if (!row) {
+										return;
+									}
+									row.innerHTML = '';
+									Object.entries(slugs).forEach(
+										([slug, label]) => {
+											const match = reactions.find(
+												(r) => r.slug === slug
+											);
+											const btn =
+												document.createElement(
+													'button'
+												);
+											btn.type = 'button';
+											btn.className =
+												'avpvh-pswp-reaction-badge';
+											if (match?.mine === true) {
+												btn.classList.add('active');
+											}
+											btn.textContent =
+												undefined !== match &&
+												match.count > 0
+													? `${label} (${String(match.count)})`
+													: label;
+											btn.addEventListener(
+												'click',
+												(e) => {
+													e.stopPropagation();
+													void PhotoTagger.addReaction(
+														fileId,
+														slug
+													).then(refreshTagsPanel);
+												}
+											);
+											row.appendChild(btn);
+										}
+									);
+								});
+							}
+						);
+
+						void PhotoTagger.listComments(fileId).then(
+							(comments: Array<CommentData>) => {
+								if (exclusionFileId !== fileId) {
+									return;
+								}
+								commentsList.innerHTML = '';
+								comments.forEach((comment) => {
+									const li = document.createElement('li');
+									const author =
+										document.createElement('span');
+									author.className =
+										'avpvh-pswp-comment-author';
+									author.textContent = comment.user_name;
+									const text = document.createElement('span');
+									text.className = 'avpvh-pswp-comment-text';
+									text.textContent = comment.text;
+									li.appendChild(author);
+									li.appendChild(text);
+									commentsList.appendChild(li);
+								});
+							}
+						);
 					};
 
 					tagsButton.addEventListener('click', (e) => {
@@ -1017,6 +1135,19 @@ export class Shortcode {
 								});
 						};
 						parent.addEventListener('click', onImgClick, true);
+					});
+
+					commentSubmit.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const text = commentInput.value.trim();
+						if (exclusionFileId === '' || text === '') {
+							return;
+						}
+						const fileId = exclusionFileId;
+						commentInput.value = '';
+						void PhotoTagger.addComment(fileId, text).then(
+							refreshTagsPanel
+						);
 					});
 
 					el.appendChild(tagsButton);

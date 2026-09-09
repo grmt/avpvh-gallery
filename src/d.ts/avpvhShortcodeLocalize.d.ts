@@ -29,4 +29,5 @@ declare const avpvhShortcodeLocalize: {
 	exif_date_url: string;
 	subject_tags: Record<string, Record<string, string>>;
 	subject_tags_url: string;
+	reactions: Record<string, Record<string, string>>;
 };
