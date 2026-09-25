@@ -34,3 +34,17 @@ parameters:
       message: '#^Call to an undefined method object::request\(\)\.$#'
       identifier: method.notFound
       path: ../src/php/admin/exif-inspector/class-media-stream-rest.php
+    -
+      # avpvh-members is an optional sibling plugin (see this class's own
+      # docblock): its AVPVH_LLDAP class and member records aren't in any
+      # stub set here, so PHPStan can't see the $user_id property or
+      # get_user_groups() method that exist on them at runtime. The
+      # function_exists()/class_exists() guards in current_member() make
+      # this safe when avpvh-members isn't active.
+      message: '#^Access to an undefined property object::\$user_id\.$#'
+      identifier: property.notFound
+      path: ../src/php/frontend/class-exclusion-permission.php
+    -
+      message: '#^Call to static method get_user_groups\(\) on an unknown class AVPVH_LLDAP\.$#'
+      identifier: class.notFound
+      path: ../src/php/frontend/class-exclusion-permission.php
