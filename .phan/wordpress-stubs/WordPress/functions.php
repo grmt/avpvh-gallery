@@ -747,6 +747,14 @@ function get_transient( $transient ) {
 }
 
 /**
+ * @param int $user_id
+ *
+ * @return WP_User|false
+ */
+function get_userdata( $user_id ) {
+}
+
+/**
  * @param int    $user_id
  * @param string $key
  * @param bool   $single
@@ -1818,6 +1826,16 @@ function wp_update_user( $userdata ) {
  * }
  */
 function wp_upload_bits( $name, $deprecated, $bits, $time = null ) {
+}
+
+/**
+ * @param string|null $time
+ * @param bool        $create_dir
+ * @param bool        $refresh_cache
+ *
+ * @return array{path: string, url: string, subdir: string, basedir: string, baseurl: string, error: string|false}
+ */
+function wp_upload_dir( $time = null, $create_dir = true, $refresh_cache = false ) {
 }
 
 /**

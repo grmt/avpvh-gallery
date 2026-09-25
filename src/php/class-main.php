@@ -14,14 +14,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 use Avpvh\Admin\Settings_Pages;
 use Avpvh\Admin\TinyMCE_Plugin;
 use Avpvh\Frontend\Block;
+use Avpvh\Frontend\Exif_Date_REST;
 use Avpvh\Frontend\Gallery;
+use Avpvh\Frontend\Image_Proxy;
 use Avpvh\Frontend\Members_API;
 use Avpvh\Frontend\Page;
+use Avpvh\Frontend\PDF_Proxy;
 use Avpvh\Frontend\Photo_Tags;
 use Avpvh\Frontend\Shortcode;
+use Avpvh\Frontend\Subject_Tags;
 use Avpvh\Frontend\Video_Proxy;
-use Avpvh\Frontend\Image_Proxy;
-use Avpvh\Frontend\PDF_Proxy;
 use const PHP_URL_HOST;
 
 /**
@@ -41,6 +43,7 @@ final class Main {
 		add_action( 'admin_notices', array( self::class, 'activation_notice' ) );
 		add_action( 'init', array( '\\Avpvh\\Photo_Corrections_DB', 'maybe_migrate' ) );
 		add_action( 'init', array( '\\Avpvh\\Folder_Authors_DB', 'maybe_migrate' ) );
+		add_action( 'init', array( '\\Avpvh\\Photo_Tags_DB', 'maybe_migrate' ) );
 		add_filter( 'get_site_icon_url', array( self::class, 'filter_site_icon_url' ), 10, 3 );
 		add_filter( 'get_custom_logo', array( self::class, 'filter_custom_logo' ), 10, 2 );
 		new Shortcode();
@@ -52,6 +55,8 @@ final class Main {
 		new PDF_Proxy();
 		new Photo_Tags();
 		new Members_API();
+		new Exif_Date_REST();
+		new Subject_Tags();
 		new Settings_Pages();
 		new TinyMCE_Plugin();
 	}

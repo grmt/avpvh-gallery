@@ -31,9 +31,8 @@ final class PDF_Proxy {
 	/**
 	 * Relative paths (under wp-content/uploads/private/) of the newsletter
 	 * PDFs this endpoint will serve.
-	 *
-	 * @var string[]
 	 */
+	// phpcs:ignore SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- PHPCSUtils false positive on this single constant's multi-line array value (see Photo_Tags::REACTIONS for the same pattern).
 	private const ALLOWED_PATHS = array(
 		'2010/02/nieuwsbrief-avpvh-1.pdf',
 		'2010/03/nieuwsbrief-avpvh-2.pdf',
@@ -106,6 +105,7 @@ final class PDF_Proxy {
 		}
 
 		$path = GET_Helpers::get_string_variable( 'path' );
+
 		if ( ! in_array( $path, self::ALLOWED_PATHS, true ) ) {
 			http_response_code( 403 );
 			die;
@@ -124,7 +124,8 @@ final class PDF_Proxy {
 		header( 'Content-Disposition: inline; filename="' . basename( $full_path ) . '"' );
 		header( 'Content-Length: ' . filesize( $full_path ) );
 		ob_end_clean();
-		readfile( $full_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_read_readfile -- streaming a local, allow-listed file; no remote/user-controlled path.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- streaming a local, allow-listed file; no remote/user-controlled path.
+		readfile( $full_path );
 		die;
 	}
 }

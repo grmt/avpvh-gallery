@@ -507,6 +507,7 @@ final class API_Facade {
 		$safe          = str_replace( '"', '\\"', $query );
 		$result_fields = $include_mime_type ? 'files(id, name, mimeType, parents)' : 'files(id, name, parents)';
 		$params        = array(
+			'corpora'                   => 'allDrives',
 			'fields'                    => $result_fields,
 			'includeItemsFromAllDrives' => true,
 			'pageSize'                  => 100,

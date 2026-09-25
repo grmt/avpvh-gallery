@@ -12,16 +12,6 @@ export interface TagData {
 		width: number;
 		height: number;
 	} | null;
-	comments: Array<{
-		id: number;
-		user_id: number;
-		text: string;
-		created_at: string;
-	}>;
-	reactions: Array<{
-		emoji: string;
-		count: number;
-	}>;
 }
 
 interface Member {
@@ -37,10 +27,133 @@ interface TagListResponse {
 	};
 }
 
+export interface CommentData {
+	id: number;
+	user_name: string;
+	text: string;
+	created_at: string;
+}
+
+export interface ReactionData {
+	slug: string;
+	count: number;
+	mine: boolean;
+}
+
+interface CommentListResponse {
+	success: boolean;
+	data?: {
+		comments: Array<CommentData>;
+	};
+}
+
+interface ReactionListResponse {
+	success: boolean;
+	data?: {
+		reactions: Array<ReactionData>;
+	};
+}
+
 export class PhotoTagger {
 	private membersCache: Array<Member> = [];
 	private currentImageId = '';
 	private readonly annotationMap = new Map<string, TagData>();
+
+	// Fetches the current tags for a specific photo directly — unlike
+	// loadAndRenderTags(), doesn't depend on (or update) currentImageId/
+	// annotationMap, so callers (e.g. a tags panel listing) can use it
+	// without disturbing the MutationObserver-driven overlay state.
+	public static async listTags(imageId: string): Promise<Array<TagData>> {
+		try {
+			const response = await fetch(
+				`/wp-admin/admin-ajax.php?action=gallery_tag_list&image_id=${encodeURIComponent(imageId)}`
+			);
+			const data = (await response.json()) as TagListResponse;
+			return data.success && undefined !== data.data
+				? data.data.tags
+				: [];
+		} catch {
+			return [];
+		}
+	}
+
+	// Comments belong to the photo as a whole, not to any one tag on it.
+	public static async addComment(
+		imageId: string,
+		commentText: string
+	): Promise<void> {
+		try {
+			await fetch('/wp-admin/admin-ajax.php', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+				},
+				body: new URLSearchParams({
+					action: 'gallery_comment_add',
+					image_id: imageId,
+					comment: commentText,
+					_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
+				}).toString(),
+			});
+		} catch {
+			// Network error — the comment simply doesn't appear; nothing more to do here.
+		}
+	}
+
+	// Reactions belong to the photo as a whole, not to any one tag on it.
+	public static async addReaction(
+		imageId: string,
+		emoji: string
+	): Promise<void> {
+		try {
+			await fetch('/wp-admin/admin-ajax.php', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+				},
+				body: new URLSearchParams({
+					action: 'gallery_reaction_add',
+					image_id: imageId,
+					emoji,
+					_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
+				}).toString(),
+			});
+		} catch {
+			// Network error — the reaction simply doesn't appear; nothing more to do here.
+		}
+	}
+
+	public static async listComments(
+		imageId: string
+	): Promise<Array<CommentData>> {
+		try {
+			const response = await fetch(
+				`/wp-admin/admin-ajax.php?action=gallery_comment_list&image_id=${encodeURIComponent(imageId)}`
+			);
+			const data = (await response.json()) as CommentListResponse;
+			return data.success && undefined !== data.data
+				? data.data.comments
+				: [];
+		} catch {
+			return [];
+		}
+	}
+
+	public static async listReactions(
+		imageId: string
+	): Promise<Array<ReactionData>> {
+		try {
+			const response = await fetch(
+				`/wp-admin/admin-ajax.php?action=gallery_reaction_list&image_id=${encodeURIComponent(imageId)}`
+			);
+			const data = (await response.json()) as ReactionListResponse;
+			return data.success && undefined !== data.data
+				? data.data.reactions
+				: [];
+		} catch {
+			return [];
+		}
+	}
 
 	private static displayTags(tags: Array<TagData>): void {
 		// Render tags as visual overlays on the image
@@ -144,60 +257,18 @@ export class PhotoTagger {
 		}
 	}
 
-	public async addComment(tagId: number, commentText: string): Promise<void> {
-		try {
-			const response = await fetch('/wp-admin/admin-ajax.php', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded',
-				},
-				body: new URLSearchParams({
-					action: 'gallery_comment_add',
-					tag_id: String(tagId),
-					comment: commentText,
-					_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
-				}).toString(),
-			});
-
-			if (response.ok) {
-				await this.loadAndRenderTags();
-			}
-		} catch {
-			// Network error — the comment simply doesn't appear; nothing more to do here.
-		}
-	}
-
-	public async addReaction(tagId: number, emoji: string): Promise<void> {
-		try {
-			const response = await fetch('/wp-admin/admin-ajax.php', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded',
-				},
-				body: new URLSearchParams({
-					action: 'gallery_reaction_add',
-					tag_id: String(tagId),
-					emoji,
-					_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
-				}).toString(),
-			});
-
-			if (response.ok) {
-				await this.loadAndRenderTags();
-			}
-		} catch {
-			// Network error — the reaction simply doesn't appear; nothing more to do here.
-		}
-	}
-
 	public getMembersForDropdown(): Array<Member> {
 		return this.membersCache;
 	}
 
+	// `candidates`, when given (e.g. an activity's known participants),
+	// is shown instead of the full membership list — narrower and more
+	// relevant when it's available.
 	public showMemberSelector(
 		x: number,
 		y: number,
-		callback: (memberId: number) => void
+		callback: (memberId: number) => void,
+		candidates?: Array<Member>
 	): void {
 		const overlay = document.createElement('div');
 		overlay.className = 'avpvh-member-selector-overlay';
@@ -205,16 +276,18 @@ export class PhotoTagger {
 		overlay.style.top = `${String(y)}px`;
 
 		const select = document.createElement('select');
-		select.innerHTML = '<option value="">-- Select member --</option>';
-		this.membersCache.forEach((m) => {
+		select.innerHTML = '<option value="">— Kies lid —</option>';
+		(candidates ?? this.membersCache).forEach((m) => {
 			const opt = document.createElement('option');
 			opt.value = String(m.id);
-			opt.textContent = `${m.name} (${'active' === m.status ? 'Active' : 'Ex'})`;
+			opt.textContent =
+				'active' === m.status ? m.name : `${m.name} (oud-lid)`;
 			select.appendChild(opt);
 		});
 
 		const btn = document.createElement('button');
-		btn.textContent = 'Tag';
+		btn.type = 'button';
+		btn.textContent = 'Taggen';
 		btn.onclick = (): void => {
 			const memberId = parseInt(select.value, 10);
 			if (memberId > 0) {
@@ -223,13 +296,46 @@ export class PhotoTagger {
 			}
 		};
 
+		const cancelBtn = document.createElement('button');
+		cancelBtn.type = 'button';
+		cancelBtn.textContent = 'Annuleren';
+		cancelBtn.onclick = (): void => {
+			overlay.remove();
+		};
+
 		overlay.appendChild(select);
 		overlay.appendChild(btn);
+		overlay.appendChild(cancelBtn);
 
 		const container = document.querySelector('.pswp__container');
 		if (container) {
 			container.appendChild(overlay);
 		}
+	}
+
+	// Best-effort: the participants of the activity matching the photo's
+	// folder, narrower and more relevant than the full membership list.
+	// Falls back to the full list when there's no matching taggable
+	// activity (or the request fails).
+	public async getCandidates(folderId: string): Promise<Array<Member>> {
+		try {
+			const response = await fetch(
+				`/wp-admin/admin-ajax.php?action=gallery_tag_candidates&folder_id=${encodeURIComponent(folderId)}`
+			);
+			if (response.ok) {
+				const data = (await response.json()) as {
+					success?: boolean;
+					data?: { members?: Array<Member> };
+				};
+				const members = data.data?.members ?? [];
+				if (members.length > 0) {
+					return members.map((m) => ({ ...m, status: 'active' }));
+				}
+			}
+		} catch {
+			// Network error — fall through to the full membership list.
+		}
+		return this.membersCache;
 	}
 
 	private async loadMembers(): Promise<void> {

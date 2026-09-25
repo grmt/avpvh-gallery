@@ -3,13 +3,19 @@ import $ from 'jquery';
 import PhotoSwipe from 'photoswipe';
 import PhotoSwipeLightbox from 'photoswipe/lightbox';
 
+import { fetchExclusion, saveExclusion } from '../../exclusion';
 import { isError } from '../../isError';
 import {
 	renderCorrectionOrientationChain,
 	renderExifOrientationChain,
 } from '../../orientationVisualization';
 import { printError } from '../../printError';
-import { PhotoTagger } from '../photo-tagger/PhotoTagger';
+import { fetchSubjectTags, toggleSubjectTag } from '../../subject-tags';
+import {
+	type CommentData,
+	PhotoTagger,
+	type ReactionData,
+} from '../photo-tagger/PhotoTagger';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
 
@@ -46,6 +52,10 @@ export class Shortcode {
 		string,
 		Promise<number | null>
 	>();
+	private static readonly exifOriginalDateCache = new Map<
+		string,
+		Promise<string | null>
+	>();
 
 	private readonly container: JQuery;
 	private readonly hash: string;
@@ -78,6 +88,13 @@ export class Shortcode {
 	// URL). While set, the auto-slideshow stays paused so we don't keep firing
 	// doomed requests; it clears again as soon as a full-size image loads.
 	private rateLimited = false;
+	// Automatically retries the current slide's image, at the same pace as
+	// the slideshow itself (SLIDESHOW_DELAY_MS), while it's showing the
+	// Drive-load-error notice — so a transient failure (rate-limit, ORB
+	// block) clears itself and the slideshow resumes without the viewer
+	// needing to click "Opnieuw proberen", and without lagging noticeably
+	// behind the show's normal per-photo timing.
+	private driveErrorRetryTimer: ReturnType<typeof setTimeout> | null = null;
 	private screenWakeLock: WakeLockSentinel | null = null;
 	private screenWakeLockRequest: Promise<void> | null = null;
 	private isWideMode = false;
@@ -197,7 +214,10 @@ export class Shortcode {
 		//  • Pause the auto-slideshow so we stop firing doomed full-size requests;
 		//    it resumes once a full-size image loads again.
 		lightbox.on('loadError', (e) => {
-			const content = e.content as unknown as { type?: string };
+			const content = e.content as unknown as {
+				type?: string;
+				index: number;
+			};
 			if ('image' !== content.type) {
 				return;
 			}
@@ -206,11 +226,18 @@ export class Shortcode {
 				clearTimeout(this.slideshowTimer);
 				this.slideshowTimer = null;
 			}
+			if (e.slide === lightbox.pswp?.currSlide) {
+				this.scheduleDriveErrorRetry(lightbox, content.index);
+			}
 		});
 		lightbox.on('loadComplete', (e) => {
 			// A real full-size image loaded — Google is serving us again.
 			if (true !== e.isError) {
 				this.rateLimited = false;
+				if (this.driveErrorRetryTimer !== null) {
+					clearTimeout(this.driveErrorRetryTimer);
+					this.driveErrorRetryTimer = null;
+				}
 				Shortcode.syncSlideNaturalDimensions(e.slide);
 				const pswp = this.lightbox.pswp;
 				if (pswp !== undefined) {
@@ -258,10 +285,18 @@ export class Shortcode {
 			const detail = document.createElement('div');
 			detail.className = 'avpvh-pswp-drive-error-detail';
 			detail.textContent =
-				'Dit is een tijdelijk probleem bij Google. ' +
-				'Vernieuw de pagina om het opnieuw te proberen.';
+				'Dit is meestal een tijdelijk probleem — we proberen het ' +
+				'automatisch opnieuw.';
+			const retryButton = document.createElement('button');
+			retryButton.type = 'button';
+			retryButton.className = 'avpvh-pswp-drive-error-retry';
+			retryButton.textContent = 'Opnieuw proberen';
+			retryButton.addEventListener('click', () => {
+				lightbox.pswp?.refreshSlideContent(content.index);
+			});
 			notice.appendChild(title);
 			notice.appendChild(detail);
+			notice.appendChild(retryButton);
 			wrapper.appendChild(notice);
 			return wrapper;
 		});
@@ -544,6 +579,11 @@ export class Shortcode {
 					const exifLine = document.createElement('div');
 					exifLine.className = 'avpvh-pswp-path-exif';
 					const exifText = document.createElement('span');
+					const originalDateEl = document.createElement('span');
+					originalDateEl.className = 'avpvh-pswp-original-date';
+					originalDateEl.title =
+						'Werkelijke opnamedatum uit de EXIF-gegevens van de originele foto';
+					originalDateEl.style.display = 'none';
 					const orientationIcon = document.createElement('span');
 					orientationIcon.className = 'avpvh-pswp-orientation-icon';
 					orientationIcon.style.setProperty(
@@ -551,6 +591,7 @@ export class Shortcode {
 						'invert(1)'
 					);
 					exifLine.appendChild(exifText);
+					exifLine.appendChild(originalDateEl);
 					exifLine.appendChild(orientationIcon);
 					// EXIF Inspector link — only visible to wp-admin users
 					const exifInspectorLink = document.createElement('a');
@@ -564,9 +605,602 @@ export class Shortcode {
 					exifInspectorLink.addEventListener('click', (e) => {
 						e.stopPropagation();
 					});
+					// Open the current photo/video's original Google Drive
+					// location in a new tab -- admin-only, same audience as
+					// the EXIF Inspector link above.
+					const driveLink = document.createElement('a');
+					driveLink.className = 'avpvh-pswp-drive-link';
+					driveLink.title = 'Openen in Google Drive';
+					driveLink.target = '_blank';
+					driveLink.rel = 'noopener noreferrer';
+					driveLink.style.display = 'none';
+					driveLink.innerHTML =
+						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M7.71 3.5 1.15 15l3.43 5.99 6.56-11.51-3.43-5.98Zm1.65 0 6.57 11.48h6.92L15.86 3.5H9.36ZM4.31 21h13.38l3.16-5.51H7.87L4.31 21Z"/></svg>';
+					driveLink.addEventListener('click', (e) => {
+						e.stopPropagation();
+					});
+					// Copies the same URL driveLink points to, for pasting
+					// elsewhere (chat, email, a document) without needing to
+					// open the tab and copy the address bar.
+					const driveCopyButton = document.createElement('button');
+					driveCopyButton.type = 'button';
+					driveCopyButton.className = 'avpvh-pswp-drive-copy';
+					driveCopyButton.title = 'Google Drive-link kopiëren';
+					driveCopyButton.style.display = 'none';
+					driveCopyButton.innerHTML =
+						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1Zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2Zm0 16H8V7h11v14Z"/></svg>';
+					driveCopyButton.addEventListener('click', (e) => {
+						e.stopPropagation();
+						if (driveLink.href === '') {
+							return;
+						}
+						void navigator.clipboard
+							.writeText(driveLink.href)
+							.then(() => {
+								driveCopyButton.innerHTML =
+									'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17Z"/></svg>';
+								driveCopyButton.title = 'Gekopieerd!';
+								setTimeout(() => {
+									driveCopyButton.innerHTML =
+										'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1Zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2Zm0 16H8V7h11v14Z"/></svg>';
+									driveCopyButton.title =
+										'Google Drive-link kopiëren';
+								}, 1200);
+							});
+					});
 					el.appendChild(pathLine);
 					el.appendChild(exifLine);
 					el.appendChild(exifInspectorLink);
+					el.appendChild(driveLink);
+					el.appendChild(driveCopyButton);
+
+					// Exclude-from-gallery control -- only visible to admins or
+					// "boek" group members (Exclusion_Permission on the PHP side).
+					// Shares its save/load logic with the admin EXIF Inspector via
+					// src/ts/exclusion.ts, so excluding behaves identically no
+					// matter which UI triggers it.
+					const exclusionButton = document.createElement('button');
+					exclusionButton.type = 'button';
+					exclusionButton.className = 'avpvh-pswp-exclusion-button';
+					exclusionButton.title =
+						'Uitsluiten van gallery en diavoorstelling';
+					exclusionButton.style.display = 'none';
+					exclusionButton.innerHTML =
+						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L12 13.41l-6.29 6.3-1.42-1.42L10.59 12 4.29 5.71 5.71 4.29 12 10.59l6.29-6.3z"/></svg>';
+					const exclusionPanel = document.createElement('div');
+					exclusionPanel.className = 'avpvh-pswp-exclusion-panel';
+					exclusionPanel.style.display = 'none';
+					exclusionPanel.innerHTML =
+						'<label class="avpvh-pswp-exclusion-toggle">' +
+						'<input type="checkbox" class="avpvh-pswp-exclusion-checkbox" />' +
+						'<strong>Uitsluiten van gallery en diavoorstelling</strong>' +
+						'</label>' +
+						'<div class="avpvh-pswp-exclusion-reasons" style="display:none;">' +
+						'<label><input type="checkbox" value="poor_quality" /> Slechte kwaliteit</label><label><input type="checkbox" value="duplicate" /> Dubbel</label><label><input type="checkbox" value="privacy_objection" /> Bezwaar van afgebeelde personen</label><label><input type="checkbox" value="children" /> Kinderen</label><label><input type="checkbox" value="member_request" /> Verzoek van lid</label><label><input type="checkbox" value="missing" /> Ontbrekend</label><label><input type="checkbox" value="other" /> Anders</label>' +
+						'<label class="avpvh-pswp-exclusion-note">Toelichting (alleen zichtbaar voor beheerders)' +
+						'<textarea rows="2" maxlength="1000"></textarea>' +
+						'</label>' +
+						'</div>' +
+						'<div class="avpvh-pswp-exclusion-actions">' +
+						'<button type="button" class="avpvh-pswp-exclusion-save">Wijziging opslaan</button>' +
+						'<span class="avpvh-pswp-exclusion-status"></span>' +
+						'</div>';
+					const exclusionCheckbox =
+						exclusionPanel.querySelector<HTMLInputElement>(
+							'.avpvh-pswp-exclusion-checkbox'
+						);
+					const exclusionReasonsDiv =
+						exclusionPanel.querySelector<HTMLElement>(
+							'.avpvh-pswp-exclusion-reasons'
+						);
+					const exclusionNote =
+						exclusionPanel.querySelector<HTMLTextAreaElement>(
+							'.avpvh-pswp-exclusion-note textarea'
+						);
+					const exclusionStatus =
+						exclusionPanel.querySelector<HTMLElement>(
+							'.avpvh-pswp-exclusion-status'
+						);
+					let exclusionFileId = '';
+					let exclusionFolderId = '';
+					let exclusionMimeType = 'image/*';
+					const setExclusionStatus = (
+						text: string,
+						hasError: boolean
+					): void => {
+						if (exclusionStatus === null) {
+							return;
+						}
+						exclusionStatus.textContent = text;
+						exclusionStatus.style.color = hasError ? '#ff8a80' : '';
+					};
+					exclusionCheckbox?.addEventListener('change', () => {
+						if (exclusionReasonsDiv !== null) {
+							exclusionReasonsDiv.style.display =
+								exclusionCheckbox.checked ? '' : 'none';
+						}
+					});
+					exclusionButton.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const opening = exclusionPanel.style.display === 'none';
+						exclusionPanel.style.display = opening ? '' : 'none';
+						if (!opening || exclusionFileId === '') {
+							return;
+						}
+						const fileId = exclusionFileId;
+						setExclusionStatus('Laden...', false);
+						void fetchExclusion(
+							avpvhShortcodeLocalize.exclusion_url,
+							avpvhShortcodeLocalize.rest_nonce,
+							fileId
+						)
+							.then((state) => {
+								if (exclusionFileId !== fileId) {
+									return;
+								}
+								if (exclusionCheckbox !== null) {
+									exclusionCheckbox.checked = state.excluded;
+								}
+								if (exclusionReasonsDiv !== null) {
+									exclusionReasonsDiv.style.display =
+										state.excluded ? '' : 'none';
+								}
+								exclusionPanel
+									.querySelectorAll<HTMLInputElement>(
+										'.avpvh-pswp-exclusion-reasons input[type="checkbox"]'
+									)
+									.forEach((input) => {
+										input.checked = state.reasons.includes(
+											input.value
+										);
+									});
+								if (exclusionNote !== null) {
+									exclusionNote.value = state.note;
+								}
+								setExclusionStatus('', false);
+							})
+							.catch(() => {
+								setExclusionStatus(
+									'Status kon niet worden geladen.',
+									true
+								);
+							});
+					});
+					exclusionPanel
+						.querySelector('.avpvh-pswp-exclusion-save')
+						?.addEventListener('click', (e) => {
+							e.stopPropagation();
+							if (exclusionFileId === '') {
+								return;
+							}
+							const fileId = exclusionFileId;
+							const excluded =
+								exclusionCheckbox?.checked === true;
+							const reasons = Array.from(
+								exclusionPanel.querySelectorAll<HTMLInputElement>(
+									'.avpvh-pswp-exclusion-reasons input[type="checkbox"]:checked'
+								)
+							).map((input) => input.value);
+							if (excluded && reasons.length === 0) {
+								setExclusionStatus(
+									'Kies minimaal een reden.',
+									true
+								);
+								return;
+							}
+							setExclusionStatus('Opslaan...', false);
+							void saveExclusion(
+								avpvhShortcodeLocalize.exclusion_url,
+								avpvhShortcodeLocalize.rest_nonce,
+								{
+									fileId,
+									folderId: exclusionFolderId,
+									mimeType: exclusionMimeType,
+									excluded,
+									reasons,
+									note: exclusionNote?.value ?? '',
+								}
+							)
+								.then(() => {
+									if (exclusionFileId !== fileId) {
+										return;
+									}
+									setExclusionStatus('Opgeslagen.', false);
+									if (excluded) {
+										this.removeFromGridAndAdvance(
+											instance,
+											fileId
+										);
+									}
+								})
+								.catch((error: unknown) => {
+									if (exclusionFileId !== fileId) {
+										return;
+									}
+									setExclusionStatus(
+										'Opslaan mislukt: ' +
+											(error instanceof Error
+												? error.message
+												: 'onbekende fout'),
+										true
+									);
+								});
+						});
+					el.appendChild(exclusionButton);
+					el.appendChild(exclusionPanel);
+
+					// Tags: a fixed subject/category checklist (rubriek "graven") plus
+					// who's in the photo. Shares exclusionFileId/exclusionFolderId
+					// (kept in sync by update() below) rather than tracking its own —
+					// both concern "the currently displayed slide".
+					const tagsButton = document.createElement('button');
+					tagsButton.type = 'button';
+					tagsButton.className = 'avpvh-pswp-tags-button';
+					tagsButton.title = 'Tags';
+					tagsButton.style.display = 'none';
+					tagsButton.innerHTML =
+						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5c-1.1 0-2 .89-2 2v10c0 1.1.9 2 2 2h11c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>';
+					const tagsPanel = document.createElement('div');
+					tagsPanel.className = 'avpvh-pswp-tags-panel';
+					tagsPanel.style.display = 'none';
+
+					const subjectTagsList = document.createElement('div');
+					subjectTagsList.className = 'avpvh-pswp-subject-tags';
+					Object.entries(avpvhShortcodeLocalize.subject_tags).forEach(
+						([category, tags]) => {
+							const heading = document.createElement('div');
+							heading.className =
+								'avpvh-pswp-subject-tags-heading';
+							heading.textContent = category;
+							subjectTagsList.appendChild(heading);
+
+							const group = document.createElement('div');
+							group.className = 'avpvh-pswp-subject-tags-group';
+							Object.entries(tags).forEach(([slug, label]) => {
+								const optionLabel =
+									document.createElement('label');
+								const checkbox =
+									document.createElement('input');
+								checkbox.type = 'checkbox';
+								checkbox.value = slug;
+								checkbox.addEventListener('change', (e) => {
+									e.stopPropagation();
+									if (exclusionFileId === '') {
+										return;
+									}
+									const fileId = exclusionFileId;
+									const wasChecked = checkbox.checked;
+									void toggleSubjectTag(
+										avpvhShortcodeLocalize.subject_tags_url,
+										avpvhShortcodeLocalize.rest_nonce,
+										fileId,
+										slug,
+										wasChecked
+									).catch(() => {
+										if (exclusionFileId === fileId) {
+											checkbox.checked = !wasChecked;
+										}
+									});
+								});
+								optionLabel.appendChild(checkbox);
+								optionLabel.appendChild(
+									document.createTextNode(' ' + label)
+								);
+								group.appendChild(optionLabel);
+							});
+							subjectTagsList.appendChild(group);
+						}
+					);
+
+					const personTagsList = document.createElement('ul');
+					personTagsList.className = 'avpvh-pswp-person-tags-list';
+					const addPersonTagBtn = document.createElement('button');
+					addPersonTagBtn.type = 'button';
+					addPersonTagBtn.className = 'avpvh-pswp-add-person-tag';
+					addPersonTagBtn.textContent = '+ Persoon taggen';
+					const personTagsSection = document.createElement('div');
+					personTagsSection.className = 'avpvh-pswp-person-tags';
+					personTagsSection.appendChild(personTagsList);
+					personTagsSection.appendChild(addPersonTagBtn);
+
+					// Reactions: two independent, separately-countable groups
+					// (liking the subject vs. flagging technical quality —
+					// see Photo_Tags::REACTIONS), rendered the same way as
+					// the subject-tags rubrieken above.
+					const reactionsSection = document.createElement('div');
+					reactionsSection.className = 'avpvh-pswp-reactions';
+					Object.keys(avpvhShortcodeLocalize.reactions).forEach(
+						(group) => {
+							const heading = document.createElement('div');
+							heading.className = 'avpvh-pswp-reactions-heading';
+							heading.textContent = group;
+							reactionsSection.appendChild(heading);
+
+							const row = document.createElement('div');
+							row.className = 'avpvh-pswp-reactions-group';
+							row.dataset['group'] = group;
+							reactionsSection.appendChild(row);
+						}
+					);
+
+					// Comments: belong to the photo as a whole, not to any one tag.
+					const commentsSection = document.createElement('div');
+					commentsSection.className = 'avpvh-pswp-comments';
+					const commentsList = document.createElement('ul');
+					commentsList.className = 'avpvh-pswp-comments-list';
+					const commentInput = document.createElement('textarea');
+					commentInput.className = 'avpvh-pswp-comment-input';
+					commentInput.placeholder = 'Reactie toevoegen…';
+					const commentSubmit = document.createElement('button');
+					commentSubmit.type = 'button';
+					commentSubmit.className = 'avpvh-pswp-comment-submit';
+					commentSubmit.textContent = 'Plaatsen';
+					commentsSection.appendChild(commentsList);
+					commentsSection.appendChild(commentInput);
+					commentsSection.appendChild(commentSubmit);
+
+					tagsPanel.appendChild(subjectTagsList);
+					tagsPanel.appendChild(personTagsSection);
+					tagsPanel.appendChild(reactionsSection);
+					tagsPanel.appendChild(commentsSection);
+
+					const refreshTagsPanel = (): void => {
+						if (exclusionFileId === '') {
+							return;
+						}
+						const fileId = exclusionFileId;
+						void fetchSubjectTags(
+							avpvhShortcodeLocalize.subject_tags_url,
+							fileId
+						)
+							.then((active) => {
+								if (exclusionFileId !== fileId) {
+									return;
+								}
+								subjectTagsList
+									.querySelectorAll<HTMLInputElement>(
+										'input[type="checkbox"]'
+									)
+									.forEach((cb) => {
+										cb.checked = active.includes(cb.value);
+									});
+							})
+							.catch(() => {
+								// Leave checkboxes as-is — nothing more useful to do here.
+							});
+
+						void PhotoTagger.listTags(fileId).then((tags) => {
+							if (exclusionFileId !== fileId) {
+								return;
+							}
+							personTagsList.innerHTML = '';
+							tags.forEach((tag) => {
+								const li = document.createElement('li');
+								const nameSpan = document.createElement('span');
+								nameSpan.textContent = tag.member_name;
+								const delBtn = document.createElement('button');
+								delBtn.type = 'button';
+								delBtn.className =
+									'avpvh-pswp-person-tag-delete';
+								delBtn.title = 'Tag verwijderen';
+								delBtn.textContent = '×';
+								delBtn.addEventListener('click', (e) => {
+									e.stopPropagation();
+									void this.photoTagger
+										.deleteTag(tag.id)
+										.then(refreshTagsPanel);
+								});
+								li.appendChild(nameSpan);
+								li.appendChild(delBtn);
+								personTagsList.appendChild(li);
+							});
+						});
+
+						void PhotoTagger.listReactions(fileId).then(
+							(reactions: Array<ReactionData>) => {
+								if (exclusionFileId !== fileId) {
+									return;
+								}
+								Object.entries(
+									avpvhShortcodeLocalize.reactions
+								).forEach(([group, slugs]) => {
+									const row =
+										reactionsSection.querySelector<HTMLElement>(
+											`.avpvh-pswp-reactions-group[data-group="${group}"]`
+										);
+									if (!row) {
+										return;
+									}
+									row.innerHTML = '';
+									Object.entries(slugs).forEach(
+										([slug, label]) => {
+											const match = reactions.find(
+												(r) => r.slug === slug
+											);
+											const btn =
+												document.createElement(
+													'button'
+												);
+											btn.type = 'button';
+											btn.className =
+												'avpvh-pswp-reaction-badge';
+											if (match?.mine === true) {
+												btn.classList.add('active');
+											}
+											btn.textContent =
+												undefined !== match &&
+												match.count > 0
+													? `${label} (${String(match.count)})`
+													: label;
+											btn.addEventListener(
+												'click',
+												(e) => {
+													e.stopPropagation();
+													void PhotoTagger.addReaction(
+														fileId,
+														slug
+													).then(refreshTagsPanel);
+												}
+											);
+											row.appendChild(btn);
+										}
+									);
+								});
+							}
+						);
+
+						void PhotoTagger.listComments(fileId).then(
+							(comments: Array<CommentData>) => {
+								if (exclusionFileId !== fileId) {
+									return;
+								}
+								commentsList.innerHTML = '';
+								comments.forEach((comment) => {
+									const li = document.createElement('li');
+									const author =
+										document.createElement('span');
+									author.className =
+										'avpvh-pswp-comment-author';
+									author.textContent = comment.user_name;
+									const text = document.createElement('span');
+									text.className = 'avpvh-pswp-comment-text';
+									text.textContent = comment.text;
+									li.appendChild(author);
+									li.appendChild(text);
+									commentsList.appendChild(li);
+								});
+							}
+						);
+					};
+
+					tagsButton.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const opening = tagsPanel.style.display === 'none';
+						tagsPanel.style.display = opening ? '' : 'none';
+						if (opening) {
+							refreshTagsPanel();
+						}
+					});
+
+					// Enters "click a point on the photo to tag someone" mode: the
+					// next click on the image (instead of its usual UI-toggle
+					// behavior) captures a position, offers a member picker
+					// (narrowed to the matching activity's participants when
+					// known — see PhotoTagger.getCandidates()), and saves a small
+					// fixed-size region around that point.
+					addPersonTagBtn.addEventListener('click', (e) => {
+						e.stopPropagation();
+						if (exclusionFileId === '') {
+							return;
+						}
+						const fileId = exclusionFileId;
+						const folderId = exclusionFolderId;
+						const pswpImg =
+							document.querySelector<HTMLElement>('.pswp__img');
+						const parent = pswpImg?.parentElement;
+						if (!parent) {
+							return;
+						}
+						addPersonTagBtn.textContent = 'Klik op de foto…';
+						const onImgClick = (clickEvent: MouseEvent): void => {
+							clickEvent.stopPropagation();
+							clickEvent.preventDefault();
+							parent.removeEventListener(
+								'click',
+								onImgClick,
+								true
+							);
+							addPersonTagBtn.textContent = '+ Persoon taggen';
+							const rect = parent.getBoundingClientRect();
+							const x = clickEvent.clientX - rect.left;
+							const y = clickEvent.clientY - rect.top;
+							void this.photoTagger
+								.getCandidates(folderId)
+								.then((candidates) => {
+									this.photoTagger.showMemberSelector(
+										clickEvent.clientX,
+										clickEvent.clientY,
+										(memberId) => {
+											void this.photoTagger
+												.addTag(fileId, memberId, {
+													x: x - 30,
+													y: y - 30,
+													width: 60,
+													height: 60,
+												})
+												.then(refreshTagsPanel);
+										},
+										candidates
+									);
+								});
+						};
+						parent.addEventListener('click', onImgClick, true);
+					});
+
+					commentSubmit.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const text = commentInput.value.trim();
+						if (exclusionFileId === '' || text === '') {
+							return;
+						}
+						const fileId = exclusionFileId;
+						commentInput.value = '';
+						void PhotoTagger.addComment(fileId, text).then(
+							refreshTagsPanel
+						);
+					});
+
+					el.appendChild(tagsButton);
+					el.appendChild(tagsPanel);
+					// Looks up (and displays, if found) the current slide's cached EXIF
+					// date. Split out of update() so it can also be called from the
+					// visibilitychange listener below — switching back to this browser
+					// tab doesn't fire PhotoSwipe's 'change'/'loadComplete' events, so
+					// without this a date cached in the meantime (e.g. by opening the
+					// photo in the EXIF Inspector in another tab) would never appear
+					// until the viewer actually navigated to a different slide and back.
+					const refreshOriginalDate = (): void => {
+						const slideEl = instance.currSlide?.data.element;
+						const fileId =
+							slideEl instanceof HTMLElement
+								? (slideEl.dataset['avpvhId'] ?? '')
+								: '';
+						if (fileId === '') {
+							return;
+						}
+						void Shortcode.loadExifOriginalDate(fileId).then(
+							(originalDatetime) => {
+								if (
+									originalDatetime === null ||
+									instance.currSlide?.data.element !== slideEl
+								) {
+									return;
+								}
+								const formatted =
+									Shortcode.formatExifDate(originalDatetime);
+								if (formatted === '') {
+									return;
+								}
+								originalDateEl.textContent = formatted;
+								originalDateEl.style.display = '';
+							}
+						);
+					};
+					const onVisibilityChange = (): void => {
+						if ('visible' === document.visibilityState) {
+							refreshOriginalDate();
+						}
+					};
+					document.addEventListener(
+						'visibilitychange',
+						onVisibilityChange
+					);
+					instance.on('close', () => {
+						document.removeEventListener(
+							'visibilitychange',
+							onVisibilityChange
+						);
+					});
 					const update = (): void => {
 						pendingExifLoad = null;
 						const slideEl = instance.currSlide?.data.element;
@@ -651,10 +1285,31 @@ export class Shortcode {
 							orientationIcon.style.display = '';
 						}
 						exifLine.style.display = '';
+						originalDateEl.style.display = 'none';
 						const fileId =
 							slideEl instanceof HTMLElement
 								? (slideEl.dataset['avpvhId'] ?? '')
 								: '';
+						exclusionFileId = fileId;
+						exclusionFolderId =
+							slideEl instanceof HTMLElement
+								? (slideEl.dataset['avpvhFolderId'] ?? '')
+								: '';
+						exclusionMimeType =
+							slideEl instanceof HTMLElement
+								? (slideEl.dataset['avpvhVideoMime'] ??
+									'image/*')
+								: 'image/*';
+						exclusionPanel.style.display = 'none';
+						setExclusionStatus('', false);
+						exclusionButton.style.display =
+							fileId !== '' &&
+							'true' === avpvhShortcodeLocalize.can_exclude_photos
+								? ''
+								: 'none';
+						tagsPanel.style.display = 'none';
+						tagsButton.style.display = fileId !== '' ? '' : 'none';
+						refreshOriginalDate();
 						if (!hasCorrection && fileId !== '') {
 							const orientationSlideEl = slideEl;
 							const portrait = displayedHeight > displayedWidth;
@@ -703,6 +1358,20 @@ export class Shortcode {
 							exifInspectorLink.style.display = '';
 						} else {
 							exifInspectorLink.style.display = 'none';
+						}
+						if (
+							fileId !== '' &&
+							avpvhShortcodeLocalize.is_admin === 'true'
+						) {
+							driveLink.href =
+								'https://drive.google.com/file/d/' +
+								fileId +
+								'/view';
+							driveLink.style.display = '';
+							driveCopyButton.style.display = '';
+						} else {
+							driveLink.style.display = 'none';
+							driveCopyButton.style.display = 'none';
 						}
 					};
 					instance.on('change', update);
@@ -1248,6 +1917,26 @@ export class Shortcode {
 			this.folderNavigating = true;
 			this.navigateToAdjacentFolder('prev', pswp);
 		}
+	}
+
+	// Retries a slide that just failed to load after SLIDESHOW_DELAY_MS, as
+	// long as it's still the one being viewed. If the retry fails again, the
+	// loadError handler calls back in here and schedules another round —
+	// this only stops once the slide loads successfully (loadComplete clears
+	// driveErrorRetryTimer) or the viewer navigates away (checked below).
+	private scheduleDriveErrorRetry(
+		lightbox: PhotoSwipeLightbox,
+		index: number
+	): void {
+		if (this.driveErrorRetryTimer !== null) {
+			clearTimeout(this.driveErrorRetryTimer);
+		}
+		this.driveErrorRetryTimer = setTimeout(() => {
+			this.driveErrorRetryTimer = null;
+			if (lightbox.pswp?.currIndex === index) {
+				lightbox.pswp.refreshSlideContent(index);
+			}
+		}, this.SLIDESHOW_DELAY_MS);
 	}
 
 	private startSlideshow(pswp: PhotoSwipe): void {
@@ -2095,6 +2784,48 @@ export class Shortcode {
 		return request;
 	}
 
+	// Public — unlike loadExifOrientation(), this never gates on an admin-only
+	// localized URL. The endpoint itself is a pure cache read (see
+	// Exif_Date_REST), so it is cheap enough to call for every visitor.
+	private static async loadExifOriginalDate(
+		fileId: string
+	): Promise<string | null> {
+		const cached = Shortcode.exifOriginalDateCache.get(fileId);
+		if (cached !== undefined) {
+			return cached;
+		}
+
+		const url =
+			avpvhShortcodeLocalize.exif_date_url +
+			'?file_id=' +
+			encodeURIComponent(fileId);
+		const request = fetch(url, { credentials: 'include' })
+			.then(async (response): Promise<string | null> => {
+				if (!response.ok) {
+					return null;
+				}
+				const data = (await response.json()) as {
+					original_datetime?: string | null;
+				};
+				return data.original_datetime ?? null;
+			})
+			.catch(() => null)
+			.then((result) => {
+				// Only remember a real date permanently — a miss just means
+				// nobody has opened this photo in the EXIF Inspector yet
+				// (that's what populates the cache server-side), which can
+				// change at any moment, so don't keep the viewer from ever
+				// seeing the date show up later in the same page visit.
+				if (result === null) {
+					Shortcode.exifOriginalDateCache.delete(fileId);
+				}
+				return result;
+			});
+
+		Shortcode.exifOriginalDateCache.set(fileId, request);
+		return request;
+	}
+
 	private static syncSlideNaturalDimensions(
 		slide: NonNullable<PhotoSwipe['currSlide']>
 	): void {
@@ -2773,6 +3504,31 @@ export class Shortcode {
 		this.container
 			.find('.avpvh-mode-portrait-btn')
 			.toggleClass('active', this.isPortraitMode);
+	}
+
+	// After successfully excluding the photo/video currently shown in the
+	// lightbox: drop its thumbnail from the background grid immediately
+	// (rather than requiring a page refresh to see the effect) and move on
+	// to the next slide — staying on a slide that was just excluded is
+	// confusing, and this also matches a triage workflow of excluding
+	// several photos in a row.
+	private removeFromGridAndAdvance(
+		instance: PhotoSwipe,
+		fileId: string
+	): void {
+		const items =
+			(instance.options.dataSource as { items?: Array<HTMLElement> })
+				.items ?? [];
+		const gridItem = items.find(
+			(item) => item.dataset['avpvhId'] === fileId
+		);
+		gridItem?.remove();
+		this.reflow();
+		if (instance.currIndex < instance.getNumItems() - 1) {
+			instance.next();
+		} else {
+			instance.close();
+		}
 	}
 
 	public reflow(): void {
@@ -3857,6 +4613,9 @@ export class Shortcode {
 			'data-avpvh-id="' +
 			image.id +
 			'" ' +
+			'data-avpvh-folder-id="' +
+			escapeHtml(image.folder_id) +
+			'" ' +
 			'data-avpvh-caption="' +
 			escapeHtml(image.description) +
 			'" ' +
@@ -3923,6 +4682,9 @@ export class Shortcode {
 			'data-pswp-type="video" ' +
 			'data-avpvh-id="' +
 			video.id +
+			'" ' +
+			'data-avpvh-folder-id="' +
+			escapeHtml(video.folder_id) +
 			'" ' +
 			'data-avpvh-page="' +
 			page.toString() +

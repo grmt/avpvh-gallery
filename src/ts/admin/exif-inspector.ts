@@ -1,3 +1,4 @@
+import { fetchExclusion, saveExclusion } from '../exclusion';
 import {
 	getOrientationIconUrl,
 	renderExifOrientationChain,
@@ -475,10 +476,182 @@ class ExifInspector {
 		return this.displayFiles.length > 0 ? this.displayFiles : this.allFiles;
 	}
 
+	// Recognizes a pasted Google Drive file link (the "Openen in Google Drive"
+	// button in the frontend lightbox links here) in any of Drive's common URL
+	// shapes, so it can be loaded directly by ID instead of typing a name path.
+	private static extractDriveFileId(input: string): string | null {
+		const patterns = [
+			/drive\.google\.com\/file\/d\/([^/?#]+)/,
+			/drive\.google\.com\/(?:uc|open)\?[^#]*\bid=([^&#]+)/,
+			/drive\.google\.com\/thumbnail\?[^#]*\bid=([^&#]+)/,
+		];
+		for (const pattern of patterns) {
+			const match = pattern.exec(input);
+			if (match) {
+				return decodeURIComponent(match[1]);
+			}
+		}
+		return null;
+	}
+
+	// Like `extractDriveFileId()`, but also recognizes folder links
+	// (`drive.google.com/drive/folders/<id>`, incl. the `/u/0/` variant) —
+	// used by the dedicated "Google Drive-link" box, which can point at
+	// either a file or a folder.
+	private static extractDriveId(input: string): string | null {
+		const fileId = ExifInspector.extractDriveFileId(input);
+		if (fileId !== null) {
+			return fileId;
+		}
+		const match =
+			/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/([^/?#]+)/.exec(
+				input
+			);
+		return match ? decodeURIComponent(match[1]) : null;
+	}
+
 	private static escapeHtml(text: string): string {
 		const div = document.createElement('div');
 		div.textContent = text;
 		return div.innerHTML;
+	}
+
+	private static driveFolderUrl(id: string): string {
+		return `https://drive.google.com/drive/folders/${encodeURIComponent(id)}`;
+	}
+
+	private static driveFileUrl(id: string): string {
+		return `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`;
+	}
+
+	// Builds a small "open in Drive" icon-link as an HTML string, for use inside
+	// innerHTML-built markup (search results, the file table). Since a plain
+	// mousedown/click on the icon would otherwise bubble up to the row's own
+	// "select/load this item" listener, callers must run the resulting markup's
+	// container through `wireDriveLinkIcons()` after setting innerHTML so the icon
+	// can open Drive without also triggering the row selection.
+	private static driveLinkIconHtml(url: string, title: string): string {
+		return (
+			`<a class="drive-link-icon" href="${ExifInspector.escapeHtml(url)}" ` +
+			`target="_blank" rel="noopener noreferrer" ` +
+			`title="${ExifInspector.escapeHtml(title)}">↗ Drive</a>`
+		);
+	}
+
+	// Counterpart to `driveLinkIconHtml()` for DOM-built markup (the subfolder picker).
+	private static createDriveLinkIcon(
+		url: string,
+		title: string
+	): HTMLAnchorElement {
+		const a = document.createElement('a');
+		a.className = 'drive-link-icon';
+		a.href = url;
+		a.target = '_blank';
+		a.rel = 'noopener noreferrer';
+		a.title = title;
+		a.textContent = '↗ Drive';
+		a.addEventListener('mousedown', (e) => {
+			e.stopPropagation();
+		});
+		a.addEventListener('click', (e) => {
+			e.stopPropagation();
+		});
+		return a;
+	}
+
+	// Stops propagation on `.drive-link-icon` anchors within `container` so
+	// clicking one opens Drive without also triggering the row/item's own
+	// select-or-load click handler. Call after any innerHTML assignment that
+	// may contain icons built via `driveLinkIconHtml()`.
+	private static wireDriveLinkIcons(container: ParentNode): void {
+		container
+			.querySelectorAll<HTMLAnchorElement>('.drive-link-icon')
+			.forEach((a) => {
+				a.addEventListener('mousedown', (e) => {
+					e.stopPropagation();
+				});
+				a.addEventListener('click', (e) => {
+					e.stopPropagation();
+				});
+			});
+	}
+
+	// Populates the "Google Drive-link" box's read-only folder/file rows for
+	// whatever's currently loaded, so the links can be copied or opened
+	// without digging through Drive — the reverse direction of that same
+	// box's paste-a-link-to-load feature.
+	private static updateCurrentDriveLinks(
+		file: FileData,
+		folderStack: Array<{ id: string; name: string }>
+	): void {
+		const container = document.getElementById('drive-link-current');
+		const folderInput = document.getElementById(
+			'drive-link-current-folder'
+		) as HTMLInputElement | null;
+		const folderOpen = document.getElementById(
+			'drive-link-current-folder-open'
+		) as HTMLAnchorElement | null;
+		const fileInput = document.getElementById(
+			'drive-link-current-file'
+		) as HTMLInputElement | null;
+		const fileOpen = document.getElementById(
+			'drive-link-current-file-open'
+		) as HTMLAnchorElement | null;
+		if (
+			!container ||
+			!folderInput ||
+			!folderOpen ||
+			!fileInput ||
+			!fileOpen
+		) {
+			return;
+		}
+
+		const folderId = ExifInspector.maybe(
+			folderStack[folderStack.length - 1]
+		)?.id;
+		const resolvedFolderId = folderId ?? file.parents?.[0];
+		if (resolvedFolderId !== undefined && resolvedFolderId !== '') {
+			const url = ExifInspector.driveFolderUrl(resolvedFolderId);
+			folderInput.value = url;
+			folderOpen.href = url;
+			folderInput.parentElement?.style.setProperty('display', '');
+		} else {
+			folderInput.value = '';
+			folderInput.parentElement?.style.setProperty('display', 'none');
+		}
+
+		const fileUrl = ExifInspector.driveFileUrl(file.id);
+		fileInput.value = fileUrl;
+		fileOpen.href = fileUrl;
+
+		container.style.display = 'flex';
+	}
+
+	// Wires a "Kopieer" button to copy the value of a readonly text input to
+	// the clipboard, with brief "Gekopieerd!" feedback.
+	private static wireCopyButton(buttonId: string, inputId: string): void {
+		const button = document.getElementById(
+			buttonId
+		) as HTMLButtonElement | null;
+		const input = document.getElementById(
+			inputId
+		) as HTMLInputElement | null;
+		if (!button || !input) {
+			return;
+		}
+		button.addEventListener('click', () => {
+			if (input.value === '') {
+				return;
+			}
+			void navigator.clipboard.writeText(input.value).then(() => {
+				const original = button.textContent;
+				button.textContent = 'Gekopieerd!';
+				setTimeout(() => {
+					button.textContent = original;
+				}, 1200);
+			});
+		});
 	}
 
 	// Widens an indexed-access result (Record/Array lookups, which TypeScript
@@ -926,7 +1099,7 @@ class ExifInspector {
 				<details class="inspector-work-section inspector-navigation-section" open>
 					<summary class="inspector-work-heading">
 						<span class="inspector-work-number">1</span>
-					<div><h2>Navigeren en selecteren</h2><p>Zoek een foto of video, of laad deze via het bestandspad.</p></div>
+					<div><h2>Navigeren en selecteren</h2><p>Zoek een foto of video, laad deze via het bestandspad, of plak een Google Drive-link.</p></div>
 					</summary>
 				<div class="search-section">
 					<label>Zoeken:
@@ -936,8 +1109,12 @@ class ExifInspector {
 						</div>
 					</label>
 					<label style="font-size:12px;margin-left:10px;white-space:nowrap;">
-						<input type="checkbox" id="search-folders-only" />
+						<input type="checkbox" id="search-folders-only" checked />
 						Alleen mappen
+					</label>
+					<label style="font-size:12px;margin-left:10px;white-space:nowrap;">
+						<input type="checkbox" id="search-subfolders-only" />
+						Alleen in huidige map
 					</label>
 				</div>
 
@@ -946,6 +1123,27 @@ class ExifInspector {
 						<input type="text" id="path-input" placeholder="e.g., 01-Opgravingen / 1976 Grobbendonk / PICT0250.JPG" value="${ExifInspector.escapeHtml(lastPath)}" />
 					</label>
 					<button id="load-btn" type="button">Laden</button>
+				</div>
+
+				<div class="drive-link-input-section">
+					<label>Google Drive-link:
+						<input type="text" id="drive-link-input" placeholder="Plak hier een Google Drive-link naar een map of bestand…" />
+					</label>
+					<button id="drive-link-load-btn" type="button">Openen</button>
+					<div id="drive-link-current" class="drive-link-current" style="display:none;">
+						<div class="drive-link-current-row">
+							<span class="drive-link-current-label">Map:</span>
+							<input type="text" id="drive-link-current-folder" class="drive-link-current-value" readonly />
+							<button type="button" id="drive-link-current-folder-copy" class="drive-link-current-copy">Kopieer</button>
+							<a id="drive-link-current-folder-open" class="drive-link-icon" href="#" target="_blank" rel="noopener noreferrer">↗ Openen</a>
+						</div>
+						<div class="drive-link-current-row">
+							<span class="drive-link-current-label">Foto:</span>
+							<input type="text" id="drive-link-current-file" class="drive-link-current-value" readonly />
+							<button type="button" id="drive-link-current-file-copy" class="drive-link-current-copy">Kopieer</button>
+							<a id="drive-link-current-file-open" class="drive-link-icon" href="#" target="_blank" rel="noopener noreferrer">↗ Openen</a>
+						</div>
+					</div>
 				</div>
 
 				<div id="loading" style="display: none;">Laden...</div>
@@ -978,6 +1176,7 @@ class ExifInspector {
 					<div id="folder-thumbs" style="display:none;"></div>
 					<div class="file-header">
 						<h2 id="file-name" role="button" tabindex="0" title="Toon het actieve bestand in de iconenlijst"></h2>
+						<a id="file-drive-link" class="drive-link-icon" href="#" target="_blank" rel="noopener noreferrer" style="display:none;">↗ Drive</a>
 						<div class="file-nav">
 							<button id="prev-btn" disabled>&larr; Vorige</button>
 							<span id="file-count"></span>
@@ -999,6 +1198,8 @@ class ExifInspector {
 									<label><input type="checkbox" name="photo-exclusion-reason" value="duplicate" /> Dubbel</label>
 									<label><input type="checkbox" name="photo-exclusion-reason" value="privacy_objection" /> Bezwaar van afgebeelde personen</label>
 									<label><input type="checkbox" name="photo-exclusion-reason" value="children" /> Kinderen</label>
+									<label><input type="checkbox" name="photo-exclusion-reason" value="member_request" /> Verzoek van lid</label>
+									<label><input type="checkbox" name="photo-exclusion-reason" value="missing" /> Ontbrekend</label>
 									<label><input type="checkbox" name="photo-exclusion-reason" value="other" /> Anders</label>
 								</div>
 								<label class="photo-exclusion-note">Toelichting (alleen zichtbaar voor beheerders)
@@ -1396,8 +1597,22 @@ class ExifInspector {
 						color: #888;
 					}
 
+					.drive-link-icon {
+						display: inline-block;
+						margin-left: 6px;
+						text-decoration: none;
+						color: #0073aa;
+						font-size: 12px;
+						opacity: 0.7;
+					}
+
+					.drive-link-icon:hover {
+						opacity: 1;
+						text-decoration: underline;
+					}
+
 					.path-input-section {
-						margin-bottom: 20px;
+						margin-bottom: 8px;
 					}
 
 					.path-input-section input {
@@ -1410,6 +1625,63 @@ class ExifInspector {
 					.path-input-section button {
 						padding: 8px 16px;
 						margin-left: 10px;
+						cursor: pointer;
+					}
+
+					.drive-link-input-section {
+						margin-bottom: 20px;
+					}
+
+					.drive-link-input-section input {
+						width: 100%;
+						max-width: 500px;
+						padding: 8px;
+						font-size: 14px;
+					}
+
+					.drive-link-input-section button {
+						padding: 8px 16px;
+						margin-left: 10px;
+						cursor: pointer;
+					}
+
+					.drive-link-current {
+						margin-top: 10px;
+						display: flex;
+						flex-direction: column;
+						gap: 6px;
+					}
+
+					.drive-link-current-row {
+						display: flex;
+						align-items: center;
+						gap: 6px;
+					}
+
+					.drive-link-current-label {
+						font-size: 12px;
+						color: #666;
+						width: 34px;
+						flex-shrink: 0;
+					}
+
+					.drive-link-current-value {
+						flex: 1 1 auto;
+						max-width: 420px;
+						padding: 5px 8px;
+						font-size: 12px;
+						border: 1px solid #ddd;
+						border-radius: 3px;
+						background: #f9f9f9;
+						color: #555;
+					}
+
+					.drive-link-current-copy {
+						padding: 4px 10px;
+						font-size: 12px;
+						border: 1px solid #ccc;
+						border-radius: 3px;
+						background: #f5f5f5;
 						cursor: pointer;
 					}
 
@@ -2001,6 +2273,38 @@ class ExifInspector {
 			});
 		}
 
+		const driveLinkInput = document.getElementById(
+			'drive-link-input'
+		) as HTMLInputElement | null;
+		const loadDriveLink = (): void => {
+			const value = driveLinkInput?.value.trim() ?? '';
+			const driveFileOrFolderId = ExifInspector.extractDriveId(value);
+			if (driveFileOrFolderId === null) {
+				ExifInspector.showError(
+					'Geen geldige Google Drive-link herkend'
+				);
+				return;
+			}
+			ExifInspector.clearError();
+			void this.loadByDriveId(driveFileOrFolderId);
+		};
+		document
+			.getElementById('drive-link-load-btn')
+			?.addEventListener('click', loadDriveLink);
+		driveLinkInput?.addEventListener('keypress', (e) => {
+			if (e.key === 'Enter') {
+				loadDriveLink();
+			}
+		});
+		ExifInspector.wireCopyButton(
+			'drive-link-current-folder-copy',
+			'drive-link-current-folder'
+		);
+		ExifInspector.wireCopyButton(
+			'drive-link-current-file-copy',
+			'drive-link-current-file'
+		);
+
 		this.initSearch();
 		this.initFilterBar();
 		this.initTouchNavigation();
@@ -2083,7 +2387,12 @@ class ExifInspector {
 							: '';
 					li.innerHTML =
 						`<div style="display:flex;justify-content:space-between;align-items:center">` +
-						`<span>📁 <strong>${ExifInspector.escapeHtml(f.name)}</strong></span>` +
+						`<span>📁 <strong>${ExifInspector.escapeHtml(f.name)}</strong>` +
+						ExifInspector.driveLinkIconHtml(
+							ExifInspector.driveFolderUrl(f.id),
+							`"${f.name}" openen in Google Drive`
+						) +
+						`</span>` +
 						`<span style="font-size:11px;color:#666">Laad media →</span>` +
 						`</div>${parentHint}`;
 					li.title = `Alle foto's en video's uit map "${f.name}" laden`;
@@ -2110,7 +2419,12 @@ class ExifInspector {
 						li.className = 'search-result-item';
 						const isVideo =
 							f.mimeType?.startsWith('video/') === true;
-						li.textContent = `${isVideo ? '▶ ' : '▧ '}${f.name}`;
+						li.innerHTML =
+							`<span>${isVideo ? '▶ ' : '▧ '}${ExifInspector.escapeHtml(f.name)}</span>` +
+							ExifInspector.driveLinkIconHtml(
+								ExifInspector.driveFileUrl(f.id),
+								`"${f.name}" openen in Google Drive`
+							);
 						li.setAttribute('data-file-id', f.id);
 						li.addEventListener('mousedown', (e) => {
 							e.preventDefault();
@@ -2122,7 +2436,87 @@ class ExifInspector {
 					});
 				}
 			}
+			ExifInspector.wireDriveLinkIcons(list);
 			list.style.display = 'block';
+		};
+
+		const subfoldersOnlyChk = document.getElementById(
+			'search-subfolders-only'
+		) as HTMLInputElement | null;
+
+		const showLoading = (): void => {
+			list.innerHTML = '';
+			const li = document.createElement('li');
+			li.className = 'search-result-empty';
+			li.textContent = 'Zoeken…';
+			list.appendChild(li);
+			list.style.display = 'block';
+		};
+
+		const runSearch = (q: string): void => {
+			if (searchAbort !== null) {
+				searchAbort.abort();
+			}
+			searchAbort = new AbortController();
+			const { signal } = searchAbort;
+			showLoading();
+			const foldersOnly = foldersOnlyChk?.checked ?? false;
+			const scopeId =
+				(subfoldersOnlyChk?.checked ?? false) &&
+				this.folderStack.length > 0
+					? this.folderStack[this.folderStack.length - 1]?.id
+					: undefined;
+			const params = new URLSearchParams({ q });
+			if (foldersOnly) {
+				params.set('folders_only', '1');
+			}
+			if (scopeId !== undefined && scopeId !== '') {
+				params.set('scope_id', scopeId);
+			}
+			void fetch(`${this.restUrl}search?${params.toString()}`, {
+				headers: { 'X-WP-Nonce': this.nonce },
+				signal,
+			})
+				.then(
+					async (r) =>
+						r.json() as Promise<{
+							files?: Array<{
+								id: string;
+								name: string;
+								mimeType?: string;
+							}>;
+							folders?: Array<{ id: string; name: string }>;
+						}>
+				)
+				.then((data) => {
+					if (
+						(data as Record<string, unknown>)['unavailable'] ===
+						true
+					) {
+						const li = document.createElement('li');
+						li.className = 'search-result-empty';
+						li.textContent =
+							'Zoeken tijdelijk niet beschikbaar — probeer opnieuw';
+						list.innerHTML = '';
+						list.appendChild(li);
+						list.style.display = 'block';
+						return;
+					}
+					lastResults = {
+						files: data.files ?? [],
+						folders: data.folders ?? [],
+					};
+					showResults(lastResults.files, lastResults.folders);
+				})
+				.catch((err: unknown) => {
+					if (
+						err instanceof DOMException &&
+						'AbortError' === err.name
+					) {
+						return;
+					}
+					hideResults();
+				});
 		};
 
 		input.addEventListener('input', () => {
@@ -2136,63 +2530,18 @@ class ExifInspector {
 			}
 
 			debounceTimer = setTimeout(() => {
-				if (searchAbort !== null) {
-					searchAbort.abort();
-				}
-				searchAbort = new AbortController();
-				const { signal } = searchAbort;
-				void fetch(this.restUrl + 'search?q=' + encodeURIComponent(q), {
-					headers: { 'X-WP-Nonce': this.nonce },
-					signal,
-				})
-					.then(
-						async (r) =>
-							r.json() as Promise<{
-								files?: Array<{
-									id: string;
-									name: string;
-									mimeType?: string;
-								}>;
-								folders?: Array<{ id: string; name: string }>;
-							}>
-					)
-					.then((data) => {
-						if (
-							(data as Record<string, unknown>)['unavailable'] ===
-							true
-						) {
-							const li = document.createElement('li');
-							li.className = 'search-result-empty';
-							li.textContent =
-								'Zoeken tijdelijk niet beschikbaar — probeer opnieuw';
-							list.innerHTML = '';
-							list.appendChild(li);
-							list.style.display = 'block';
-							return;
-						}
-						lastResults = {
-							files: data.files ?? [],
-							folders: data.folders ?? [],
-						};
-						showResults(lastResults.files, lastResults.folders);
-					})
-					.catch((err: unknown) => {
-						if (
-							err instanceof DOMException &&
-							'AbortError' === err.name
-						) {
-							return;
-						}
-						hideResults();
-					});
+				runSearch(q);
 			}, 500);
 		});
 
-		foldersOnlyChk?.addEventListener('change', () => {
-			if (lastResults) {
-				showResults(lastResults.files, lastResults.folders);
+		const rerunIfActive = (): void => {
+			const q = input.value.trim();
+			if (q.length >= 3) {
+				runSearch(q);
 			}
-		});
+		};
+		foldersOnlyChk?.addEventListener('change', rerunIfActive);
+		subfoldersOnlyChk?.addEventListener('change', rerunIfActive);
 		input.addEventListener('blur', () => {
 			setTimeout(hideResults, 150);
 		});
@@ -2247,6 +2596,12 @@ class ExifInspector {
 
 		if (!path) {
 			return; // nothing to load
+		}
+
+		const driveFileId = ExifInspector.extractDriveFileId(path);
+		if (driveFileId !== null) {
+			await this.loadFileById(driveFileId);
+			return;
 		}
 
 		// Save the path for next time
@@ -2428,6 +2783,41 @@ class ExifInspector {
 		}
 	}
 
+	// Resolves a pasted Drive ID's type (folder vs. file) and loads it via
+	// the matching existing flow. Used by the "Google Drive-link" box, which
+	// can point at either.
+	private async loadByDriveId(id: string): Promise<void> {
+		ExifInspector.showLoading(true);
+		try {
+			const response = await fetch(`${this.restUrl}file-data`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-WP-Nonce': this.nonce,
+				},
+				body: JSON.stringify({ file_id: id }),
+				credentials: 'include',
+			});
+			if (!response.ok) {
+				throw new Error(
+					`Niet gevonden (HTTP ${String(response.status)})`
+				);
+			}
+			const data = (await response.json()) as { file: FileData };
+			if (data.file.mimeType === 'application/vnd.google-apps.folder') {
+				this.folderStack = [];
+				await this.loadFilesByFolder(data.file.id, data.file.name);
+			} else {
+				await this.loadFileById(id);
+			}
+		} catch (error) {
+			ExifInspector.showError(
+				`Fout: ${error instanceof Error ? error.message : 'Onbekende fout'}`
+			);
+			ExifInspector.showLoading(false);
+		}
+	}
+
 	private async navigateToFolder(
 		parentId: string,
 		folderName: string
@@ -2580,7 +2970,7 @@ class ExifInspector {
 			html +=
 				`<tr class="file-table-row${isSel ? ' file-table-selected' : ''}${this.excludedPhotoIds.has(file.id) ? ' photo-excluded' : ''}" data-file-id="${ExifInspector.escapeHtml(file.id)}">` +
 				`<td style="color:#aaa;text-align:right;width:2.5em;">${String(overallIdx)}</td>` +
-				`<td title="${ExifInspector.escapeHtml(file.name)}" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.excludedPhotoIds.has(file.id) ? '<span style="color:#d63638;font-weight:700;" aria-label="Uitgesloten">✕</span> ' : ''}${ExifInspector.escapeHtml(file.name)}</td>` +
+				`<td title="${ExifInspector.escapeHtml(file.name)}" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.excludedPhotoIds.has(file.id) ? '<span style="color:#d63638;font-weight:700;" aria-label="Uitgesloten">✕</span> ' : ''}${ExifInspector.escapeHtml(file.name)}${ExifInspector.driveLinkIconHtml(ExifInspector.driveFileUrl(file.id), `"${file.name}" openen in Google Drive`)}</td>` +
 				`<td>${isVideo ? '▶ Video' : '▧ Foto'}</td>` +
 				`<td>${ExifInspector.escapeHtml(cam)}</td>` +
 				`<td${!isVideo && orient !== 1 ? ' style="color:#b04000;font-weight:500;"' : ''}>${isVideo ? 'n.v.t.' : ExifInspector.orientLabel(orient)}</td>` +
@@ -2590,6 +2980,7 @@ class ExifInspector {
 		html += '</tbody></table>';
 		container.innerHTML = html;
 		container.style.display = 'block';
+		ExifInspector.wireDriveLinkIcons(container);
 
 		container
 			.querySelectorAll<HTMLTableRowElement>('.file-table-row')
@@ -2861,17 +3252,27 @@ class ExifInspector {
 				: sortedFolders;
 			grid.innerHTML = '';
 			visible.forEach((sf) => {
+				const wrap = document.createElement('span');
+				wrap.style.cssText =
+					'display:inline-flex;align-items:center;border:1px solid #ccc;border-radius:3px;background:#f0f6ff;white-space:nowrap;';
 				const btn = document.createElement('button');
 				btn.type = 'button';
 				btn.style.cssText =
-					'padding:5px 10px;cursor:pointer;border:1px solid #ccc;border-radius:3px;background:#f0f6ff;font-size:13px;white-space:nowrap;';
+					'padding:5px 10px;cursor:pointer;border:none;background:transparent;font-size:13px;';
 				btn.textContent = `📁 ${sf.name}`;
 				btn.title = `Laad media uit ${sf.name}`;
 				btn.addEventListener(
 					'click',
 					() => void this.loadFilesByFolder(sf.id, sf.name)
 				);
-				grid.appendChild(btn);
+				wrap.appendChild(btn);
+				wrap.appendChild(
+					ExifInspector.createDriveLinkIcon(
+						ExifInspector.driveFolderUrl(sf.id),
+						`"${sf.name}" openen in Google Drive`
+					)
+				);
+				grid.appendChild(wrap);
 			});
 			countEl.textContent = q
 				? `${String(visible.length)} van ${String(subfolders.length)} mappen`
@@ -3701,6 +4102,16 @@ class ExifInspector {
 				document.createTextNode(this.currentFile.name)
 			);
 		}
+		const fileDriveLink = document.getElementById(
+			'file-drive-link'
+		) as HTMLAnchorElement | null;
+		if (fileDriveLink) {
+			fileDriveLink.href = ExifInspector.driveFileUrl(
+				this.currentFile.id
+			);
+			fileDriveLink.title = `"${this.currentFile.name}" openen in Google Drive`;
+			fileDriveLink.style.display = 'inline-block';
+		}
 		const exclusionLabel = document.getElementById('media-exclusion-label');
 		if (exclusionLabel) {
 			exclusionLabel.textContent = `${isVideo ? 'Deze video' : 'Deze foto'} uitsluiten van gallery en diavoorstelling`;
@@ -3714,17 +4125,17 @@ class ExifInspector {
 		this.updateTableSelection();
 
 		// Update path input with current folder stack + filename
-		const pathInput = document.getElementById(
+		const pathInputEl = document.getElementById(
 			'path-input'
 		) as HTMLInputElement | null;
-		if (pathInput) {
+		if (pathInputEl) {
 			const currentFile = this.currentFile;
 			const parts = [
 				...this.folderStack.map((f) => f.name),
 				currentFile.name,
 			];
 			const path = parts.join(' / ');
-			pathInput.value = path;
+			pathInputEl.value = path;
 			localStorage.setItem('avpvh_exif_inspector_last_path', path);
 			// Also save the innermost folder ID so "Laden" can navigate directly
 			// when the folder was reached via search (folderStack has no full ancestor chain).
@@ -3742,6 +4153,11 @@ class ExifInspector {
 				);
 			}
 		}
+
+		ExifInspector.updateCurrentDriveLinks(
+			this.currentFile,
+			this.folderStack
+		);
 
 		// Update nav buttons
 		const prevBtn = document.getElementById(
@@ -3886,28 +4302,18 @@ class ExifInspector {
 		}
 		const file = this.currentFile;
 		try {
-			const response = await fetch(
-				`${this.restUrl}exclusion?file_id=${encodeURIComponent(file.id)}`,
-				{
-					headers: { 'X-WP-Nonce': this.nonce },
-					credentials: 'include',
-				}
+			const state = await fetchExclusion(
+				`${this.restUrl}exclusion`,
+				this.nonce,
+				file.id
 			);
-			if (!response.ok) {
-				throw new Error(`HTTP ${String(response.status)}`);
-			}
-			const data = (await response.json()) as {
-				excluded?: boolean;
-				reasons?: Array<string>;
-				note?: string;
-			};
 			if (this.currentFile !== file) {
 				return;
 			}
 			this.renderPhotoExclusion(
-				data.excluded === true,
-				data.reasons ?? [],
-				data.note ?? ''
+				state.excluded,
+				state.reasons,
+				state.note
 			);
 		} catch {
 			if (this.currentFile === file) {
@@ -3960,30 +4366,14 @@ class ExifInspector {
 			button.disabled = true;
 		}
 		try {
-			const response = await fetch(`${this.restUrl}exclusion`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-WP-Nonce': this.nonce,
-				},
-				credentials: 'include',
-				body: JSON.stringify({
-					file_id: file.id,
-					folder_id: folderId,
-					mime_type: file.mimeType ?? '',
-					excluded,
-					reasons,
-					note,
-				}),
+			await saveExclusion(`${this.restUrl}exclusion`, this.nonce, {
+				fileId: file.id,
+				folderId,
+				mimeType: file.mimeType ?? '',
+				excluded,
+				reasons,
+				note,
 			});
-			if (!response.ok) {
-				const error = (await response.json().catch(() => null)) as {
-					message?: string;
-				} | null;
-				throw new Error(
-					error?.message ?? `HTTP ${String(response.status)}`
-				);
-			}
 			if (this.currentFile !== file) {
 				return;
 			}

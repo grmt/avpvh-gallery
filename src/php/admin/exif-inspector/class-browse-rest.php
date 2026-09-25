@@ -55,13 +55,23 @@ final class Browse_REST {
 			'exif-inspector/search',
 			array(
 				'args'                => array(
-					'q' => array(
+					'folders_only' => array(
+						'default'           => false,
+						'sanitize_callback' => 'rest_sanitize_boolean',
+						'type'              => 'boolean',
+					),
+					'q'            => array(
 						'required'          => true,
 						'sanitize_callback' => 'sanitize_text_field',
 						'type'              => 'string',
 						'validate_callback' => static function ( $v ) {
 							return is_string( $v ) && mb_strlen( $v ) >= 2;
 						},
+					),
+					'scope_id'     => array(
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
+						'type'              => 'string',
 					),
 				),
 				'callback'            => array( $this, 'search_files' ),
@@ -263,13 +273,17 @@ final class Browse_REST {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function search_files( $request ) {
-		$query     = $request->get_param( 'q' );
-		$root_path = Options::$root_path->get();
-		$root_id   = is_array( $root_path ) && array() !== $root_path ? end( $root_path ) : '';
+		$query        = $request->get_param( 'q' );
+		$root_path    = Options::$root_path->get();
+		$root_id      = is_array( $root_path ) && array() !== $root_path ? end( $root_path ) : '';
+		$folders_only = (bool) $request->get_param( 'folders_only' );
+		$scope_id     = (string) $request->get_param( 'scope_id' );
+		$scope_id     = '' !== $scope_id ? $scope_id : $root_id;
 
-		// Cache per (query, root) for 2 minutes — avoids repeated Drive API hits
-		// when the user types character by character or retries the same search.
-		$cache_key = 'avpvh_srch_media_v2_' . md5( $query . "\x00" . $root_id );
+		// Cache per (query, scope, folders_only) for 2 minutes — avoids repeated Drive API
+		// hits when the user types character by character or retries the same search.
+		$cache_key = 'avpvh_srch_media_v3_' .
+			md5( $query . "\x00" . $scope_id . "\x00" . ( $folders_only ? '1' : '0' ) );
 		$cached    = get_transient( $cache_key );
 
 		if ( false !== $cached && is_array( $cached ) ) {
@@ -277,7 +291,7 @@ final class Browse_REST {
 		}
 
 		try {
-			$data = self::search_and_filter( $query, $root_id );
+			$data = self::search_and_filter( $query, $scope_id, $folders_only );
 			set_transient( $cache_key, $data, 120 );
 
 			return new WP_REST_Response( $data, 200 );
@@ -409,21 +423,24 @@ final class Browse_REST {
 	/**
 	 * Runs the Drive search and restricts/annotates folder results relative to the gallery root.
 	 *
-	 * @param string $query   Filename fragment to search for.
-	 * @param string $root_id Gallery root folder ID (may be empty or 'root').
+	 * @param string $query        Filename fragment to search for.
+	 * @param string $root_id      Folder ID to restrict/anchor results to (gallery root, or a narrower scope
+	 *                             such as the currently browsed folder — may be empty or 'root').
+	 * @param bool   $folders_only When true, skips the (often much larger and slower) file/photo search.
 	 *
 	 * @return array{files: array<array<string, mixed>>, folders: array<array<string, mixed>>}
 	 */
-	private static function search_and_filter( $query, $root_id ) {
-		$results = API_Client::execute(
-			array(
-				API_Facade::search_media( $query ),
-				API_Facade::search_folders( $query ),
-			)
-		);
+	private static function search_and_filter( $query, $root_id, $folders_only = false ) {
+		$promises = array( API_Facade::search_folders( $query ) );
 
-		$files   = $results[0];
-		$folders = $results[1];
+		if ( ! $folders_only ) {
+			$promises[] = API_Facade::search_media( $query );
+		}
+
+		$results = API_Client::execute( $promises );
+
+		$folders = $results[0];
+		$files   = $folders_only ? array() : $results[1];
 
 		// Walk the parent chain of each found folder upward until we hit root_id (max 4 levels).
 		// Results outside the gallery root are excluded; folders also get a parentName for display.
