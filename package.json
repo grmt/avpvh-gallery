@@ -76,7 +76,7 @@
     "@wordpress/env": "^11.8.1",
     "@wordpress/eslint-plugin": "^25.7.0",
     "@wordpress/stylelint-config": "^23.16.0",
-    "eslint": "^9.39.5",
+    "eslint": "^10.8.0",
     "eslint-import-resolver-typescript": "^3.10.1",
     "eslint-plugin-compat": "^7.0.2",
     "eslint-plugin-prefer-arrow-functions": "^3.4.2",
