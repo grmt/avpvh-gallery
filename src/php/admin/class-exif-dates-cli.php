@@ -56,6 +56,8 @@ final class Exif_Dates_CLI {
 	 *     wp avpvh-gallery backfill-exif-dates --dry-run
 	 *     wp avpvh-gallery backfill-exif-dates --limit=100
 	 *
+	 * @subcommand backfill-exif-dates
+	 *
 	 * @param array<int, string>    $args       Positional arguments (unused).
 	 * @param array<string, string> $assoc_args Named arguments.
 	 *
