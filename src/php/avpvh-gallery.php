@@ -45,6 +45,9 @@ SOFTWARE.
 
 namespace Avpvh;
 
+use Avpvh\Admin\Exif_Dates_CLI;
+use WP_CLI;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
@@ -105,6 +108,11 @@ require_once __DIR__ . '/frontend/class-subject-tags.php';
 require_once __DIR__ . '/admin/class-oauth-helpers.php';
 require_once __DIR__ . '/admin/class-settings-pages.php';
 require_once __DIR__ . '/admin/class-tinymce-plugin.php';
+
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	require_once __DIR__ . '/admin/class-exif-dates-cli.php';
+	WP_CLI::add_command( 'avpvh-gallery', Exif_Dates_CLI::class );
+}
 
 require_once __DIR__ . '/class-main.php';
 
