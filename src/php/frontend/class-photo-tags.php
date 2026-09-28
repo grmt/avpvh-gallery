@@ -473,21 +473,77 @@ final class Photo_Tags {
 	}
 
 	/**
-	 * Best-effort: resolves the folder's Drive name and looks up its matching
-	 * activity's participants. Never fails the caller.
+	 * Best-effort: finds the activity whose participants to suggest for a
+	 * photo's folder. Photos usually sit in a per-photographer subfolder
+	 * (e.g. "2025 Goeblange - GKA" or a plain name) of the activity's own
+	 * folder ("2025 Goeblange"), so this walks up from the photo's folder
+	 * until a folder name matches an activity. Never fails the caller.
 	 *
 	 * @param string $folder_id Google Drive folder ID.
 	 *
 	 * @return array<array{id: int, name: string}>
 	 */
 	private static function participants_for_folder( $folder_id ) {
-		try {
-			$results     = API_Client::execute( array( API_Facade::get_file_name( $folder_id ) ) );
-			$folder_name = is_string( $results[0] ) ? $results[0] : '';
+		$cache_key = 'avpvh_folder_participants_' . md5( $folder_id );
+		$cached    = get_transient( $cache_key );
 
-			return '' !== $folder_name ? Activity_Participants::for_folder_name( $folder_name ) : array();
-		} catch ( Throwable $e ) {
-			return array();
+		if ( is_array( $cached ) ) {
+			return $cached;
 		}
+
+		$participants = array();
+
+		try {
+			$participants = self::participants_from_ancestors( $folder_id );
+		} catch ( Throwable $e ) {
+			$participants = array();
+		}
+
+		set_transient( $cache_key, $participants, 10 * MINUTE_IN_SECONDS );
+
+		return $participants;
+	}
+
+	/**
+	 * Tries the folder and up to three of its ancestors, nearest first.
+	 *
+	 * @param string $folder_id Google Drive folder ID.
+	 *
+	 * @return array<array{id: int, name: string}>
+	 */
+	private static function participants_from_ancestors( $folder_id ) {
+		for ( $level = 0; $level < 4 && '' !== $folder_id; ++$level ) {
+			list( $folder_name, $parent_id ) = self::folder_name_and_parent( $folder_id );
+			$participants                    = Activity_Participants::for_folder_name( $folder_name );
+
+			if ( array() !== $participants ) {
+				return $participants;
+			}
+
+			$folder_id = $parent_id;
+		}
+
+		return array();
+	}
+
+	/**
+	 * Looks up a Drive folder's name and its (first) parent folder ID.
+	 *
+	 * @param string $folder_id Google Drive folder ID.
+	 *
+	 * @return array{0: string, 1: string} Name, then parent ID ('' for either if unknown).
+	 */
+	private static function folder_name_and_parent( $folder_id ) {
+		$results = API_Client::execute(
+			array(
+				API_Facade::get_file_name( $folder_id ),
+				API_Facade::get_file_parents( $folder_id ),
+			)
+		);
+
+		return array(
+			is_string( $results[0] ) ? $results[0] : '',
+			is_array( $results[1] ) && isset( $results[1][0] ) ? (string) $results[1][0] : '',
+		);
 	}
 }
