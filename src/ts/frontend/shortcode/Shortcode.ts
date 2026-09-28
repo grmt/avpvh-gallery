@@ -2113,6 +2113,32 @@ export class Shortcode {
 		}, this.SLIDESHOW_DELAY_MS);
 	}
 
+	// Whether the viewer is working on the current photo — the tagging or
+	// exclusion panel is open, or a text field in the lightbox has focus.
+	// The slideshow must not move on then, or a tag/comment would land on
+	// whichever photo happens to be showing. Closing the panel (a click,
+	// so user activity) re-arms the idle countdown that resumes the show.
+	private isLightboxEditing(): boolean {
+		const pswpEl = this.lightbox.pswp?.element;
+		if (pswpEl === undefined) {
+			return false;
+		}
+		const active = pswpEl.ownerDocument.activeElement;
+		if (
+			(active instanceof HTMLInputElement ||
+				active instanceof HTMLTextAreaElement ||
+				active instanceof HTMLSelectElement) &&
+			pswpEl.contains(active)
+		) {
+			return true;
+		}
+		return Array.from(
+			pswpEl.querySelectorAll<HTMLElement>(
+				'.avpvh-pswp-tags-panel, .avpvh-pswp-exclusion-panel'
+			)
+		).some((panel) => panel.style.display !== 'none');
+	}
+
 	private startSlideshow(pswp: PhotoSwipe): void {
 		if (this.slideshowTimer !== null) {
 			clearTimeout(this.slideshowTimer);
@@ -2122,7 +2148,11 @@ export class Shortcode {
 			// Videos are not on the fixed timer — they advance when they finish.
 			return;
 		}
-		if (this.slideshowPaused || this.rateLimited) {
+		if (
+			this.slideshowPaused ||
+			this.rateLimited ||
+			this.isLightboxEditing()
+		) {
 			this.slideshowTimer = null;
 			return;
 		}
@@ -2141,7 +2171,11 @@ export class Shortcode {
 		}
 		this.slideshowTimer = setTimeout(() => {
 			this.slideshowTimer = null;
-			if (this.lightbox.pswp !== pswp || this.loading) {
+			if (
+				this.lightbox.pswp !== pswp ||
+				this.loading ||
+				this.isLightboxEditing()
+			) {
 				return;
 			}
 			if (pswp.currIndex === pswp.getNumItems() - 1) {
@@ -2411,7 +2445,7 @@ export class Shortcode {
 	}
 
 	private advanceFromVideo(pswp: PhotoSwipe): void {
-		if (this.lightbox.pswp !== pswp) {
+		if (this.lightbox.pswp !== pswp || this.isLightboxEditing()) {
 			return;
 		}
 		if (pswp.currIndex === pswp.getNumItems() - 1) {
