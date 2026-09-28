@@ -288,6 +288,31 @@ final class Exif_Data_REST {
 	}
 
 	/**
+	 * Downloads a file's EXIF header and caches its DateTimeOriginal, without
+	 * building an inspector response. Used by the `wp avpvh-gallery
+	 * backfill-exif-dates` command to pre-fill the cache for photos no admin
+	 * has opened in the inspector yet.
+	 *
+	 * @param string $file_id     The ID the gallery knows the photo by (cache key).
+	 * @param string $download_id The ID to download from, if different — e.g. the
+	 *                            target of a Drive shortcut. Defaults to $file_id.
+	 *
+	 * @return string|WP_Error|null The cached `Y-m-d H:i:s` value, null if the file
+	 *                              has no DateTimeOriginal, or the download error.
+	 */
+	public static function refresh_original_datetime( $file_id, $download_id = '' ) {
+		$temp_file = self::download_exif_header( '' !== $download_id ? $download_id : $file_id );
+
+		if ( $temp_file instanceof WP_Error ) {
+			return $temp_file;
+		}
+
+		list( $flat_exif ) = self::extract_exif_and_thumbnail( $temp_file );
+
+		return self::cache_original_datetime( $file_id, $flat_exif );
+	}
+
+	/**
 	 * Returns the access token of the currently authorized Drive client, or '' if unavailable.
 	 *
 	 * @return string
@@ -322,11 +347,12 @@ final class Exif_Data_REST {
 	 * @param array<string, mixed> $flat_exif Flattened `SECTION:key` EXIF data, as returned by
 	 *                                        extract_exif_and_thumbnail()/flatten_exif_sections().
 	 *
-	 * @return void
+	 * @return string|null The cached `Y-m-d H:i:s` value, or null if there was none to cache.
 	 */
 	private static function cache_original_datetime( $file_id, array $flat_exif ) {
 		$raw    = isset( $flat_exif['EXIF:DateTimeOriginal'] ) ? $flat_exif['EXIF:DateTimeOriginal'] : null;
 		$parsed = is_string( $raw ) ? DateTime::createFromFormat( 'Y:m:d H:i:s', $raw ) : false;
+		$value  = false !== $parsed ? $parsed->format( 'Y-m-d H:i:s' ) : null;
 
 		global $wpdb;
 		$table = $wpdb->prefix . 'agallery_photo_exif_dates';
@@ -335,10 +361,12 @@ final class Exif_Data_REST {
 			$table,
 			array(
 				'image_id'          => $file_id,
-				'original_datetime' => false !== $parsed ? $parsed->format( 'Y-m-d H:i:s' ) : null,
+				'original_datetime' => $value,
 			),
 			array( '%s', '%s' )
 		);
+
+		return $value;
 	}
 
 	/**

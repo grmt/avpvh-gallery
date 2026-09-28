@@ -74,6 +74,7 @@ final class Images {
 					'name',
 					'thumbnailLink',
 					'imageMediaMetadata' => array(
+						'time',
 						'width',
 						'height',
 						'rotation',

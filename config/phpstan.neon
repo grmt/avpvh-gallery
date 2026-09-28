@@ -16,6 +16,7 @@ parameters:
     - SCRIPT_DEBUG
     - WP_DEBUG
     - WP_DEBUG_DISPLAY
+    - WP_CLI
   ignoreErrors:
     -
       # wp-admin/includes/upgrade.php (for dbDelta()) is a real WordPress core
