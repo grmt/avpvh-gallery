@@ -410,23 +410,43 @@ final class Photo_Tags {
 		$table   = $wpdb->prefix . 'agallery_photo_reactions';
 		$user_id = get_current_user_id();
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- custom plugin table ($table is concatenated, not user-supplied); the placeholders are filled via $wpdb->prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table is concatenated (not user-supplied); the placeholders below are filled via $wpdb->prepare().
-				"SELECT emoji, COUNT(*) as count, MAX(user_id = %d) as mine FROM {$table}
-				 WHERE image_id = %s GROUP BY emoji",
+				"SELECT emoji, COUNT(*) as count, MAX(user_id = %d) as mine,
+				        GROUP_CONCAT(user_id ORDER BY created_at) as user_ids
+				 FROM {$table} WHERE image_id = %s GROUP BY emoji",
 				$user_id,
 				$image_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		$reactions = array_map(
-			static function ( $row ) {
+		// Who reacted, by display name — visible to logged-in users only, like
+		// the rest of this (wp_ajax_-only) endpoint.
+		$user_ids = array();
+
+		foreach ( $rows as $row ) {
+			$user_ids = array_merge( $user_ids, array_map( 'intval', explode( ',', (string) $row->user_ids ) ) );
+		}
+
+		$user_names = Tag_Log::user_names( $user_ids );
+		$reactions  = array_map(
+			static function ( $row ) use ( $user_names ) {
 				return array(
-					'slug'  => $row->emoji,
 					'count' => intval( $row->count ),
 					'mine'  => (bool) intval( $row->mine ),
+					'names' => array_values(
+						array_filter(
+							array_map(
+								static function ( $user_id ) use ( $user_names ) {
+									return $user_names[ (int) $user_id ] ?? '';
+								},
+								explode( ',', (string) $row->user_ids )
+							)
+						)
+					),
+					'slug'  => $row->emoji,
 				);
 			},
 			$rows

@@ -1189,6 +1189,15 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	background: rgb(255, 255, 255, 15%);
 }
 
+.avpvh-pswp-liked-by {
+	font-size: 12px;
+	margin-bottom: 6px;
+}
+
+.avpvh-pswp-liked-by:empty {
+	display: none;
+}
+
 .avpvh-pswp-reactions {
 	border-top: 1px solid rgb(255, 255, 255, 20%);
 	margin-top: 12px;

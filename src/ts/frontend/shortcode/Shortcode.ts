@@ -1284,6 +1284,10 @@ export class Shortcode {
 					// the subject-tags rubrieken above.
 					const reactionsSection = document.createElement('div');
 					reactionsSection.className = 'avpvh-pswp-reactions';
+					// Who liked the photo (the top-bar 👍 button's own list).
+					const likedBy = document.createElement('div');
+					likedBy.className = 'avpvh-pswp-liked-by';
+					reactionsSection.appendChild(likedBy);
 					Object.keys(avpvhShortcodeLocalize.reactions).forEach(
 						(group) => {
 							if (Shortcode.isLikeGroup(group)) {
@@ -1734,6 +1738,15 @@ export class Shortcode {
 									'avpvh-liked',
 									like?.mine === true
 								);
+								const names = like?.names ?? [];
+								button.title =
+									names.length > 0
+										? `Leuk gevonden door: ${names.join(', ')}`
+										: 'Leuke foto (of rechtsklik op de foto)';
+								likedBy.textContent =
+									names.length > 0
+										? `👍 Leuk gevonden door: ${names.join(', ')}`
+										: '';
 							}
 						);
 					};

@@ -40,6 +40,8 @@ export interface ReactionData {
 	slug: string;
 	count: number;
 	mine: boolean;
+	// Display names of who reacted, oldest first.
+	names: Array<string>;
 }
 
 interface CommentListResponse {
