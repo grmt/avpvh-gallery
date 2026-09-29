@@ -116,7 +116,11 @@ final class Photo_Tags {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce is verified above via check_can_tag().
 		$region_data = isset( $_POST['region_data'] )
 			? sanitize_text_field( wp_unslash( (string) $_POST['region_data'] ) )
-			: null;
+			: '';
+		// No position on the photo (the usual case since persons are tagged
+		// by name): store NULL — the column only accepts valid JSON, and an
+		// empty string isn't, which made every such tag fail to save.
+		$region_data = '' === $region_data ? null : $region_data;
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce is verified above via check_can_tag().

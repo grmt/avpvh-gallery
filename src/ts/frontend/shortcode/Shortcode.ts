@@ -1790,9 +1790,21 @@ export class Shortcode {
 												)
 										)
 										.slice(0, 8)
-								: searchPeople(
+								: // Typing searches everyone (bar those born after the
+									// photo's year); recent persons and the chosen
+									// list (participants, members that year…) rank
+									// first among equally good matches.
+									searchPeople(
 										query,
-										Shortcode.mergeMembers(recent, pool)
+										Shortcode.mergeMembers(
+											recent,
+											Shortcode.mergeMembers(
+												pool,
+												scopePool('all').filter(
+													untagged
+												)
+											)
+										)
 									).slice(0, 8);
 						const addHeading = (text: string): void => {
 							const li = document.createElement('li');
