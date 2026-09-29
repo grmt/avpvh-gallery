@@ -72,10 +72,17 @@ final class Person_Filters {
 	}
 
 	/**
-	 * Persons who were members during the year: their joined/left years
-	 * cover it, or one of their dated addresses (from the historical member
-	 * lists) was valid during it. For photos from this year or last year,
-	 * current active members with no known joined year count too.
+	 * Persons who were members during the year. Evidence, any of:
+	 * - their joined/left years cover it;
+	 * - an address with both ends dated covers it, or an address first
+	 *   appears in a member list published that year (the historical
+	 *   member-list import dates addresses by publication date);
+	 * - they're still active and an address of theirs started by then;
+	 * - for photos from this year or last year: they're an active member
+	 *   with no known joined year.
+	 * An address with no end date says where someone lived, not that they
+	 * stayed a member, so it doesn't count on its own for ex-members.
+	 * Zero dates ("0000-00-00") are treated as unknown.
 	 *
 	 * @param int $year The photo's year.
 	 *
@@ -83,6 +90,8 @@ final class Person_Filters {
 	 */
 	private static function members_in( $year ) {
 		global $wpdb;
+		$year_start = $year . '-01-01';
+		$year_end   = $year . '-12-31';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- avpvh-members' tables, fixed names; the year is prepared.
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
@@ -91,14 +100,20 @@ final class Person_Filters {
 				         AND ( m.left_year IS NULL OR m.left_year >= %d ) )
 				    OR EXISTS (
 				         SELECT 1 FROM {$wpdb->prefix}avm_addresses a
-				         WHERE a.member_id = m.id AND a.valid_from IS NOT NULL
-				           AND a.valid_from <= %s
-				           AND ( a.valid_until IS NULL OR a.valid_until >= %s ) )
+				         WHERE a.member_id = m.id AND a.valid_from > '1900-01-01'
+				           AND (
+				                ( a.valid_until IS NOT NULL AND a.valid_from <= %s AND a.valid_until >= %s )
+				             OR ( a.valid_from BETWEEN %s AND %s )
+				             OR ( m.status = 'active' AND a.valid_until IS NULL AND a.valid_from <= %s )
+				           ) )
 				    OR ( m.status = 'active' AND m.joined_year IS NULL AND %d >= YEAR( CURDATE() ) - 1 )",
 				$year,
 				$year,
-				$year . '-12-31',
-				$year . '-01-01',
+				$year_end,
+				$year_start,
+				$year_start,
+				$year_end,
+				$year_end,
 				$year
 			)
 		);
