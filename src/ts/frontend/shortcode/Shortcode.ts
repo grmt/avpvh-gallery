@@ -11,6 +11,7 @@ import {
 } from '../../orientationVisualization';
 import { printError } from '../../printError';
 import { fetchSubjectTags, toggleSubjectTag } from '../../subject-tags';
+import { searchPeople } from '../photo-tagger/nameSearch';
 import {
 	type CommentData,
 	PhotoTagger,
@@ -907,7 +908,7 @@ export class Shortcode {
 					const personSearch = document.createElement('input');
 					personSearch.type = 'search';
 					personSearch.className = 'avpvh-pswp-person-search';
-					personSearch.placeholder = 'Naam zoeken om te taggen…';
+					personSearch.placeholder = 'Persoon zoeken om te taggen…';
 					personSearch.autocomplete = 'off';
 					const personResults = document.createElement('ul');
 					personResults.className = 'avpvh-pswp-person-results';
@@ -921,9 +922,10 @@ export class Shortcode {
 					personTagsSection.appendChild(personTagsList);
 					personTagsSection.appendChild(personSearch);
 					personTagsSection.appendChild(personResults);
-					// Member IDs already tagged on the current photo, so the
-					// search doesn't offer them again.
-					let taggedMemberIds = new Set<number>();
+					// People already tagged on the current photo (see
+					// Shortcode.personKey()), so the search doesn't offer
+					// them again.
+					let taggedPersonKeys = new Set<string>();
 
 					// Reactions: two independent, separately-countable groups
 					// (liking the subject vs. flagging technical quality —
@@ -999,8 +1001,13 @@ export class Shortcode {
 								return;
 							}
 							personTagsList.innerHTML = '';
-							taggedMemberIds = new Set(
-								tags.map((tag) => tag.member_id)
+							taggedPersonKeys = new Set(
+								tags.map((tag) =>
+									Shortcode.personKey({
+										id: tag.member_id,
+										name: tag.member_name,
+									})
+								)
 							);
 							tags.forEach((tag) => {
 								const li = document.createElement('li');
@@ -1126,7 +1133,7 @@ export class Shortcode {
 					};
 					const renderPersonResults = (): void => {
 						personResults.innerHTML = '';
-						const query = personSearch.value.trim().toLowerCase();
+						const query = personSearch.value.trim();
 						const pool =
 							query === ''
 								? activityCandidates
@@ -1134,31 +1141,62 @@ export class Shortcode {
 										activityCandidates,
 										this.photoTagger.getMembersForDropdown()
 									);
-						pool.filter(
-							(m) =>
-								!taggedMemberIds.has(m.id) &&
-								m.name.toLowerCase().includes(query)
-						)
-							.slice(0, 8)
-							.forEach((member) => {
-								const li = document.createElement('li');
-								const pick = document.createElement('button');
-								pick.type = 'button';
-								pick.textContent = member.name;
-								pick.dataset['memberId'] = String(member.id);
-								li.appendChild(pick);
-								personResults.appendChild(li);
-							});
+						const matches = searchPeople(
+							query,
+							pool.filter(
+								(person) =>
+									!taggedPersonKeys.has(
+										Shortcode.personKey(person)
+									)
+							)
+						).slice(0, 8);
+						const addPick = (
+							person: { id: number; name: string },
+							label: string
+						): void => {
+							const li = document.createElement('li');
+							const pick = document.createElement('button');
+							pick.type = 'button';
+							pick.textContent = label;
+							pick.dataset['personId'] = String(person.id);
+							pick.dataset['personName'] = person.name;
+							li.appendChild(pick);
+							personResults.appendChild(li);
+						};
+						matches.forEach((person) => {
+							addPick(person, person.name);
+						});
+						// Not everyone in a photo is in the persons list: offer
+						// the typed name itself unless it's already an exact hit.
+						const exact = matches.some(
+							(person) =>
+								person.name.toLowerCase() ===
+								query.toLowerCase()
+						);
+						if (query.length >= 3 && !exact) {
+							addPick(
+								{ id: 0, name: query },
+								`+ "${query}" taggen (niet in personenlijst)`
+							);
+						}
 					};
-					const tagPerson = (memberId: number): void => {
+					const tagPerson = (person: {
+						id: number;
+						name: string;
+					}): void => {
 						if (exclusionFileId === '') {
 							return;
 						}
 						personSearch.value = '';
-						taggedMemberIds.add(memberId);
+						taggedPersonKeys.add(Shortcode.personKey(person));
 						renderPersonResults();
 						void this.photoTagger
-							.addTag(exclusionFileId, memberId)
+							.addTag(
+								exclusionFileId,
+								person.id,
+								undefined,
+								person.id > 0 ? '' : person.name
+							)
 							.then(refreshTagsPanel);
 					};
 					personResults.addEventListener('click', (e) => {
@@ -1166,11 +1204,14 @@ export class Shortcode {
 						const pick =
 							e.target instanceof Element
 								? e.target.closest<HTMLElement>(
-										'[data-member-id]'
+										'[data-person-id]'
 									)
 								: null;
 						if (pick !== null) {
-							tagPerson(Number(pick.dataset['memberId']));
+							tagPerson({
+								id: Number(pick.dataset['personId']),
+								name: pick.dataset['personName'] ?? '',
+							});
 						}
 					});
 					personSearch.addEventListener('input', renderPersonResults);
@@ -4623,14 +4664,24 @@ export class Shortcode {
 		);
 	}
 
-	// Activity participants first, then the rest of the membership (by ID,
-	// without duplicates).
+	// Identifies a tagged person: persons-list entries by ID, people who
+	// aren't in the list by (case-insensitive) name.
+	private static personKey(person: { id: number; name: string }): string {
+		return person.id > 0
+			? `id:${String(person.id)}`
+			: `name:${person.name.toLowerCase()}`;
+	}
+
+	// Activity participants first, then everyone else (by ID, without
+	// duplicates — people outside the persons list, ID 0, by name).
 	private static mergeMembers(
 		first: Array<{ id: number; name: string }>,
 		rest: Array<{ id: number; name: string }>
 	): Array<{ id: number; name: string }> {
-		const seen = new Set(first.map((m) => m.id));
-		return first.concat(rest.filter((m) => !seen.has(m.id)));
+		const seen = new Set(first.map((m) => Shortcode.personKey(m)));
+		return first.concat(
+			rest.filter((m) => !seen.has(Shortcode.personKey(m)))
+		);
 	}
 
 	private static contextMenuEl: HTMLElement | null = null;

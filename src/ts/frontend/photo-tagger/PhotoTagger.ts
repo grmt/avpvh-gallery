@@ -209,7 +209,9 @@ export class PhotoTagger {
 	public async addTag(
 		imageId: string,
 		memberId: number,
-		region?: { x: number; y: number; width: number; height: number }
+		region?: { x: number; y: number; width: number; height: number },
+		// For someone not in the persons list (memberId 0): their name.
+		personName = ''
 	): Promise<void> {
 		try {
 			const response = await fetch('/wp-admin/admin-ajax.php', {
@@ -221,6 +223,7 @@ export class PhotoTagger {
 					action: 'gallery_tag_add',
 					image_id: imageId,
 					member_id: String(memberId),
+					member_name: personName,
 					region_data:
 						undefined === region ? '' : JSON.stringify(region),
 					_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,

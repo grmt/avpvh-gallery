@@ -10,10 +10,13 @@
 
 declare(strict_types = 1);
 
-namespace AVPVH;
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals -- mirrors avpvh-members' own global class name.
 
 /**
- * Stub for the avpvh-members plugin's member-lookup class.
+ * Stub for the avpvh-members plugin's member-lookup class. Like the real
+ * one, it's in the global namespace — declaring it anywhere else lets a
+ * wrong lookup (e.g. '\\AVPVH\\AVPVH_DB') pass static analysis while
+ * class_exists() fails at runtime.
  */
 final class AVPVH_DB {
 

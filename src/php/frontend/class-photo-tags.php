@@ -111,40 +111,29 @@ final class Photo_Tags {
 			: null;
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
-		if ( ! $image_id || ! $member_id ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce is verified above via check_can_tag().
+		$free_name = sanitize_text_field( wp_unslash( (string) ( $_POST['member_name'] ?? '' ) ) );
+
+		if ( ! $image_id || ( ! $member_id && '' === $free_name ) ) {
 			wp_send_json_error( array( 'message' => esc_html__( 'Invalid parameters', 'avpvh-gallery' ) ), 400 );
 		}
 
+		$person = $member_id ? self::member_person( $member_id ) : self::free_text_person( $free_name );
+
 		global $wpdb;
-		$table = $wpdb->prefix . 'agallery_photo_tags';
-
-		// Get member name from avpvh_members table via LLDAP.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
-		$member = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT id, first_name, last_name FROM {$wpdb->prefix}avm_members WHERE id = %d",
-				$member_id
-			)
-		);
-
-		if ( ! $member ) {
-			wp_send_json_error( array( 'message' => esc_html__( 'Member not found', 'avpvh-gallery' ) ), 404 );
-		}
-
-		$member_name = $member->first_name . ' ' . $member->last_name;
-
 		$this->insert_or_error(
-			$table,
+			$wpdb->prefix . 'agallery_photo_tags',
 			array(
 				'category'    => 'personen',
 				'created_at'  => current_time( 'mysql' ),
 				'created_by'  => get_current_user_id(),
 				'image_id'    => $image_id,
-				'member_id'   => $member_id,
-				'member_name' => $member_name,
+				'member_id'   => $person['member_id'],
+				'member_name' => $person['member_name'],
 				'region_data' => $region_data,
-				'tag_key'     => (string) $member_id,
+				'tag_key'     => $person['tag_key'],
 			),
+			// wpdb writes a null member_id (non-member tag) as NULL regardless of its %d format.
 			array( '%s', '%s', '%d', '%s', '%d', '%s', '%s', '%s' ),
 			esc_html__( 'Failed to create tag', 'avpvh-gallery' )
 		);
@@ -544,6 +533,53 @@ final class Photo_Tags {
 		return array(
 			is_string( $results[0] ) ? $results[0] : '',
 			is_array( $results[1] ) && isset( $results[1][0] ) ? (string) $results[1][0] : '',
+		);
+	}
+
+	/**
+	 * Resolves a member ID to the tag row's person fields; ends the request
+	 * with a 404 if there's no such member.
+	 *
+	 * @param int $member_id Member ID (avm_members.id).
+	 *
+	 * @return array{member_id: int|null, member_name: string, tag_key: string}
+	 */
+	private static function member_person( $member_id ) {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
+		$member = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, first_name, last_name FROM {$wpdb->prefix}avm_members WHERE id = %d",
+				$member_id
+			)
+		);
+
+		if ( ! $member ) {
+			wp_send_json_error( array( 'message' => esc_html__( 'Member not found', 'avpvh-gallery' ) ), 404 );
+		}
+
+		return array(
+			'member_id'   => $member_id,
+			'member_name' => $member->first_name . ' ' . $member->last_name,
+			'tag_key'     => (string) $member_id,
+		);
+	}
+
+	/**
+	 * A person who isn't a member, tagged by name only. The tag key is the
+	 * lowercased name, so the same person can't be tagged twice on a photo.
+	 *
+	 * @param string $name The typed name.
+	 *
+	 * @return array{member_id: int|null, member_name: string, tag_key: string}
+	 */
+	private static function free_text_person( $name ) {
+		$name = trim( preg_replace( '/\s+/', ' ', $name ) ?? '' );
+
+		return array(
+			'member_id'   => null,
+			'member_name' => $name,
+			'tag_key'     => 'name:' . mb_strtolower( $name ),
 		);
 	}
 }
