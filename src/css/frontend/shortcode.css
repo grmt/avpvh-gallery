@@ -1005,6 +1005,28 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	z-index: 20;
 }
 
+.avpvh-pswp-place {
+	margin-left: 14px;
+	padding: 2px 0 4px;
+}
+
+.avpvh-pswp-place-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 2px 0 4px;
+}
+
+.avpvh-pswp-place-actions button {
+	background: none;
+	border: none;
+	color: #4fc3f7;
+	cursor: pointer;
+	font-size: 12px;
+	padding: 0;
+	text-decoration: underline;
+}
+
 .avpvh-pswp-folder-fact {
 	color: rgb(255, 255, 255, 70%);
 	font-size: 12px;

@@ -20,7 +20,7 @@ final class Photo_Tags_DB {
 	 * Schema version stored in wp_options.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility -- matches the no-modifier convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION).
-	const SCHEMA_VERSION = 3;
+	const SCHEMA_VERSION = 4;
 
 	/**
 	 * Runs schema migration if needed; hooked to init.
@@ -118,6 +118,18 @@ final class Photo_Tags_DB {
 		) {$charset_collate};";
 		dbDelta( $sql_log );
 
+		// Where a photo was taken, when that differs from the place in its
+		// folder name (an excursion during a dig) — see Photo_Places.
+		$table_places = $wpdb->prefix . 'agallery_photo_places';
+		$sql_places   = "CREATE TABLE {$table_places} (
+			image_id VARCHAR(255) NOT NULL PRIMARY KEY,
+			place VARCHAR(255) NOT NULL,
+			created_by BIGINT UNSIGNED,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			INDEX idx_place (place(64))
+		) {$charset_collate};";
+		dbDelta( $sql_places );
+
 		update_option( 'avpvh_photo_tags_schema', self::SCHEMA_VERSION );
 	}
 
@@ -130,6 +142,7 @@ final class Photo_Tags_DB {
 		global $wpdb;
 
 		$tables = array(
+			$wpdb->prefix . 'agallery_photo_places',
 			$wpdb->prefix . 'agallery_tag_log',
 			$wpdb->prefix . 'agallery_photo_reactions',
 			$wpdb->prefix . 'agallery_photo_comments',

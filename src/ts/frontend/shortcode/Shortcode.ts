@@ -9,6 +9,11 @@ import {
 	renderCorrectionOrientationChain,
 	renderExifOrientationChain,
 } from '../../orientationVisualization';
+import {
+	fetchPhotoPlace,
+	type PhotoPlaceState,
+	savePhotoPlace,
+} from '../../photo-places';
 import { printError } from '../../printError';
 import {
 	fetchSubjectTags,
@@ -963,21 +968,205 @@ export class Shortcode {
 					};
 					// Read-only facts from the photo's folder ("2026 Goeblange"),
 					// filled in once PhotoTagger.getTagContext() has answered.
-					const folderPlace = document.createElement('div');
-					folderPlace.className = 'avpvh-pswp-folder-fact';
 					const folderYear = document.createElement('div');
 					folderYear.className = 'avpvh-pswp-folder-fact';
+
+					// Waar: the photo's place — its folder's ("2026 Goeblange" →
+					// Goeblange) unless it has its own (an excursion during the
+					// dig). Anyone logged in may set one where there is none;
+					// changing or removing it takes the same rights as removing
+					// a tag. See Photo_Places on the PHP side.
+					const placeBlock = document.createElement('div');
+					placeBlock.className = 'avpvh-pswp-place';
+					const placeLine = document.createElement('div');
+					placeLine.className = 'avpvh-pswp-folder-fact';
+					const placeActions = document.createElement('div');
+					placeActions.className = 'avpvh-pswp-place-actions';
+					const placeEditor = document.createElement('div');
+					placeEditor.style.display = 'none';
+					const placeSearch = document.createElement('input');
+					placeSearch.type = 'search';
+					placeSearch.className = 'avpvh-pswp-person-search';
+					placeSearch.placeholder = 'Stad, museum, plek…';
+					placeSearch.autocomplete = 'off';
+					const placeResults = document.createElement('ul');
+					placeResults.className = 'avpvh-pswp-person-results';
+					placeEditor.appendChild(placeSearch);
+					placeEditor.appendChild(placeResults);
+					placeBlock.appendChild(placeLine);
+					placeBlock.appendChild(placeActions);
+					placeBlock.appendChild(placeEditor);
+					let folderPlaceName = '';
+					let placeState: PhotoPlaceState = {
+						place: '',
+						by: '',
+						at: '',
+						suggestions: [],
+					};
+					const renderPlace = (): void => {
+						const own = placeState.place;
+						let placeText = 'Locatie: onbekend';
+						if (own !== '') {
+							placeText = `Locatie: ${own}`;
+						} else if (folderPlaceName !== '') {
+							placeText = `Locatie: ${folderPlaceName} (uit map)`;
+						}
+						placeLine.textContent = placeText;
+						placeLine.title =
+							own !== ''
+								? `Aangepast door ${placeState.by || 'onbekend'} op ${placeState.at.slice(0, 10)}`
+								: '';
+						placeActions.innerHTML = '';
+						const addAction = (
+							label: string,
+							action: string
+						): void => {
+							const button = document.createElement('button');
+							button.type = 'button';
+							button.textContent = label;
+							button.dataset['action'] = action;
+							placeActions.appendChild(button);
+						};
+						if (own === '' || canRemoveTags) {
+							addAction(
+								own === '' ? 'Andere locatie…' : 'Wijzigen…',
+								'edit'
+							);
+						}
+						if (own !== '' && canRemoveTags) {
+							addAction(
+								folderPlaceName !== ''
+									? `Terug naar ${folderPlaceName}`
+									: 'Locatie verwijderen',
+								'reset'
+							);
+						}
+					};
+					const renderPlaceResults = (): void => {
+						placeResults.innerHTML = '';
+						const query = placeSearch.value.trim();
+						const pool = [
+							folderPlaceName,
+							...placeState.suggestions,
+						]
+							.filter(
+								(place, index, all) =>
+									place !== '' && all.indexOf(place) === index
+							)
+							.map((name) => ({ id: 0, name }));
+						const matches = searchPeople(query, pool).slice(0, 8);
+						const addPick = (
+							place: string,
+							label: string
+						): void => {
+							const li = document.createElement('li');
+							const pick = document.createElement('button');
+							pick.type = 'button';
+							pick.textContent = label;
+							pick.dataset['place'] = place;
+							li.appendChild(pick);
+							placeResults.appendChild(li);
+						};
+						matches.forEach((place) => {
+							addPick(place.name, place.name);
+						});
+						const exact = matches.some(
+							(place) =>
+								place.name.toLowerCase() === query.toLowerCase()
+						);
+						if (query.length >= 2 && !exact) {
+							addPick(query, `+ "${query}" als locatie`);
+						}
+					};
+					const refreshPlace = (): void => {
+						if (exclusionFileId === '') {
+							return;
+						}
+						const fileId = exclusionFileId;
+						void fetchPhotoPlace(
+							avpvhShortcodeLocalize.photo_place_url,
+							fileId
+						)
+							.then((state) => {
+								if (exclusionFileId === fileId) {
+									placeState = state;
+									renderPlace();
+								}
+							})
+							.catch(() => {
+								// Keep showing what we had.
+							});
+					};
+					const savePlace = (place: string): void => {
+						if (exclusionFileId === '') {
+							return;
+						}
+						const fileId = exclusionFileId;
+						placeEditor.style.display = 'none';
+						placeSearch.value = '';
+						// Choosing the folder's own place just means "no own place".
+						const own = place === folderPlaceName ? '' : place;
+						placeState = { ...placeState, place: own };
+						renderPlace();
+						void savePhotoPlace(
+							avpvhShortcodeLocalize.photo_place_url,
+							avpvhShortcodeLocalize.rest_nonce,
+							fileId,
+							own
+						)
+							.catch((error: unknown) => {
+								showSubjectError(
+									error instanceof Error
+										? error.message
+										: 'Opslaan mislukt'
+								);
+							})
+							.finally(refreshPlace);
+					};
+					placeActions.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const button =
+							e.target instanceof Element
+								? e.target.closest<HTMLElement>('[data-action]')
+								: null;
+						if (button?.dataset['action'] === 'reset') {
+							savePlace('');
+						} else if (button?.dataset['action'] === 'edit') {
+							placeEditor.style.display = '';
+							renderPlaceResults();
+							placeSearch.focus();
+						}
+					});
+					placeResults.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const pick =
+							e.target instanceof Element
+								? e.target.closest<HTMLElement>('[data-place]')
+								: null;
+						if (pick !== null) {
+							savePlace(pick.dataset['place'] ?? '');
+						}
+					});
+					placeSearch.addEventListener('input', renderPlaceResults);
+					placeSearch.addEventListener('keydown', (e) => {
+						if (e.key === 'Enter') {
+							e.preventDefault();
+							placeResults
+								.querySelector<HTMLButtonElement>('button')
+								?.click();
+						}
+					});
+
 					const showFolderFacts = (
 						context: TagContext | null
 					): void => {
-						const place = context?.place ?? '';
+						folderPlaceName = context?.place ?? '';
 						const year = context?.year ?? null;
-						folderPlace.textContent =
-							place === '' ? '' : `Locatie: ${place} (uit map)`;
 						folderYear.textContent =
 							year === null
 								? ''
 								: `Jaar: ${String(year)} (uit map)`;
+						renderPlace();
 					};
 					Object.entries(avpvhShortcodeLocalize.subject_tags).forEach(
 						([category, group]) => {
@@ -1147,7 +1336,7 @@ export class Shortcode {
 					};
 					tagsPanel.appendChild(subjectTagsList);
 					placeFirst('Wie', personTagsSection);
-					placeFirst('Waar', folderPlace);
+					placeFirst('Waar', placeBlock);
 					placeFirst('Wanneer', folderYear);
 					tagsPanel.appendChild(reactionsSection);
 					tagsPanel.appendChild(commentsSection);
@@ -1156,6 +1345,7 @@ export class Shortcode {
 						if (exclusionFileId === '') {
 							return;
 						}
+						refreshPlace();
 						const fileId = exclusionFileId;
 						void fetchSubjectTags(
 							avpvhShortcodeLocalize.subject_tags_url,

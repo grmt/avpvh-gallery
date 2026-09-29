@@ -38,5 +38,6 @@ declare const avpvhShortcodeLocalize: {
 		}
 	>;
 	subject_tags_url: string;
+	photo_place_url: string;
 	reactions: Record<string, Record<string, string>>;
 };
