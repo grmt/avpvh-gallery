@@ -20,7 +20,7 @@ final class Photo_Tags_DB {
 	 * Schema version stored in wp_options.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility -- matches the no-modifier convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION).
-	const SCHEMA_VERSION = 2;
+	const SCHEMA_VERSION = 3;
 
 	/**
 	 * Runs schema migration if needed; hooked to init.
@@ -38,8 +38,8 @@ final class Photo_Tags_DB {
 	 *
 	 * Agallery_photo_tags holds every kind of tag on a photo — who's in it
 	 * (category 'personen', tag_key = member_id, with a region on the
-	 * image) and the fixed subject/category checklist (category 'graven' or
-	 * 'kamp', tag_key = the slug — see Subject_Tags::CATEGORIES). Comments
+	 * image) and the fixed subject checklist (category = the tag's group, e.g.
+	 * 'weer'; tag_key = the slug — see Subject_Tag_Groups). Comments
 	 * and reactions belong to the photo itself (agallery_photo_comments,
 	 * agallery_photo_reactions, both keyed by image_id), not to any one tag
 	 * on it.
@@ -101,6 +101,23 @@ final class Photo_Tags_DB {
 		) {$charset_collate};";
 		dbDelta( $sql_reactions );
 
+		// Who added or removed which tag, and when — kept even after a tag is
+		// removed (see Tag_Log). tag_label is the name/label at the time.
+		$table_log = $wpdb->prefix . 'agallery_tag_log';
+		$sql_log   = "CREATE TABLE {$table_log} (
+			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			image_id VARCHAR(255) NOT NULL,
+			category VARCHAR(20) NOT NULL,
+			tag_key VARCHAR(255) NOT NULL,
+			tag_label VARCHAR(255) NOT NULL DEFAULT '',
+			action VARCHAR(10) NOT NULL,
+			user_id BIGINT UNSIGNED,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			INDEX idx_image_id (image_id),
+			INDEX idx_user_id (user_id)
+		) {$charset_collate};";
+		dbDelta( $sql_log );
+
 		update_option( 'avpvh_photo_tags_schema', self::SCHEMA_VERSION );
 	}
 
@@ -113,6 +130,7 @@ final class Photo_Tags_DB {
 		global $wpdb;
 
 		$tables = array(
+			$wpdb->prefix . 'agallery_tag_log',
 			$wpdb->prefix . 'agallery_photo_reactions',
 			$wpdb->prefix . 'agallery_photo_comments',
 			$wpdb->prefix . 'agallery_photo_tags',

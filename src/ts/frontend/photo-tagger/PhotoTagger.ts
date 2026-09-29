@@ -12,6 +12,8 @@ export interface TagData {
 		width: number;
 		height: number;
 	} | null;
+	tagged_by: string;
+	tagged_at: string;
 }
 
 interface Member {

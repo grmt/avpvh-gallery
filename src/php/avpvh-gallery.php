@@ -58,6 +58,7 @@ require_once __DIR__ . '/class-options.php';
 require_once __DIR__ . '/class-api-client.php';
 require_once __DIR__ . '/class-api-facade.php';
 require_once __DIR__ . '/class-photo-tags-db.php';
+require_once __DIR__ . '/class-tag-log.php';
 require_once __DIR__ . '/class-photo-corrections-db.php';
 require_once __DIR__ . '/class-folder-authors-db.php';
 
@@ -105,6 +106,7 @@ require_once __DIR__ . '/frontend/class-photo-folder-context.php';
 require_once __DIR__ . '/frontend/class-photo-tags.php';
 require_once __DIR__ . '/frontend/class-members-api.php';
 require_once __DIR__ . '/frontend/class-exif-date-rest.php';
+require_once __DIR__ . '/frontend/class-subject-tag-groups.php';
 require_once __DIR__ . '/frontend/class-subject-tags.php';
 
 require_once __DIR__ . '/admin/class-oauth-helpers.php';

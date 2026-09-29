@@ -11,6 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Tag_Log;
+
 /**
  * Handles photo tagging, comments, and reactions via AJAX.
  *
@@ -140,6 +142,7 @@ final class Photo_Tags {
 			array( '%s', '%s', '%d', '%s', '%d', '%s', '%s', '%s' ),
 			esc_html__( 'Failed to create tag', 'avpvh-gallery' )
 		);
+		Tag_Log::record( $image_id, 'personen', $person['tag_key'], $person['member_name'], 'add' );
 
 		// Sync to Google Drive (non-blocking).
 		wp_remote_post(
@@ -179,19 +182,22 @@ final class Photo_Tags {
 		$tags = $wpdb->get_results(
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $tags_table is concatenated (not user-supplied); the %s placeholder below is filled via $wpdb->prepare().
-				"SELECT id, member_id, member_name, region_data FROM {$tags_table}
+				"SELECT id, member_id, member_name, region_data, created_by, created_at FROM {$tags_table}
 				 WHERE image_id = %s AND category = 'personen' ORDER BY created_at",
 				$image_id
 			)
 		);
 
+		$tagger_names   = Tag_Log::user_names( array_map( 'intval', array_column( $tags, 'created_by' ) ) );
 		$tags_with_meta = array_map(
-			static function ( $tag ) {
+			static function ( $tag ) use ( $tagger_names ) {
 				return array(
 					'id'          => intval( $tag->id ),
 					'member_id'   => intval( $tag->member_id ),
 					'member_name' => $tag->member_name,
 					'region_data' => $tag->region_data ? json_decode( $tag->region_data ) : null,
+					'tagged_at'   => (string) $tag->created_at,
+					'tagged_by'   => $tagger_names[ (int) $tag->created_by ] ?? '',
 				);
 			},
 			$tags
@@ -221,20 +227,28 @@ final class Photo_Tags {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
 		$tag = $wpdb->get_row(
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table is concatenated (not user-supplied); the %d placeholder above is filled via $wpdb->prepare().
-			$wpdb->prepare( "SELECT image_id, created_by FROM {$table} WHERE id = %d", $tag_id )
+			$wpdb->prepare( "SELECT image_id, tag_key, member_name FROM {$table} WHERE id = %d", $tag_id )
 		);
 
 		if ( ! $tag ) {
 			wp_send_json_error( array( 'message' => esc_html__( 'Tag not found', 'avpvh-gallery' ) ), 404 );
 		}
 
-		// Check permission: only creator can delete.
-		if ( intval( $tag->created_by ) !== get_current_user_id() ) {
-			wp_send_json_error( array( 'message' => esc_html__( 'Unauthorized', 'avpvh-gallery' ) ), 403 );
+		// Anyone logged in may tag; only admins and "boek" members may remove
+		// a tag (the same people who may exclude photos).
+		if ( ! Exclusion_Permission::check() ) {
+			wp_send_json_error( array( 'message' => 'Alleen boek-leden kunnen tags verwijderen' ), 403 );
 		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
 		$wpdb->delete( $table, array( 'id' => $tag_id ), array( '%d' ) );
+		Tag_Log::record(
+			(string) $tag->image_id,
+			'personen',
+			(string) $tag->tag_key,
+			(string) $tag->member_name,
+			'remove'
+		);
 
 		wp_send_json_success();
 	}

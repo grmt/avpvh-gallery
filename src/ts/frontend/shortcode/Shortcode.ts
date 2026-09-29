@@ -10,7 +10,11 @@ import {
 	renderExifOrientationChain,
 } from '../../orientationVisualization';
 import { printError } from '../../printError';
-import { fetchSubjectTags, toggleSubjectTag } from '../../subject-tags';
+import {
+	fetchSubjectTags,
+	type SubjectTagState,
+	toggleSubjectTag,
+} from '../../subject-tags';
 import { searchPeople } from '../photo-tagger/nameSearch';
 import {
 	type CommentData,
@@ -856,53 +860,161 @@ export class Shortcode {
 					tagsPanel.className = 'avpvh-pswp-tags-panel';
 					tagsPanel.style.display = 'none';
 
+					// Subject tags, one collapsible section per group (Soort foto,
+					// Tijdstip, Weer, …). Anyone logged in may add a tag; only
+					// admins and "boek" members may remove one — which in a
+					// one-per-photo group includes switching to another tag.
+					// Assigned below, once the whole panel exists; the handlers
+					// in between only call it after that.
+					let refreshTagsPanel = (): void => {
+						/* replaced below */
+					};
+					const canRemoveTags =
+						'true' === avpvhShortcodeLocalize.can_remove_tags;
 					const subjectTagsList = document.createElement('div');
 					subjectTagsList.className = 'avpvh-pswp-subject-tags';
-					Object.entries(avpvhShortcodeLocalize.subject_tags).forEach(
-						([category, tags]) => {
-							const heading = document.createElement('div');
-							heading.className =
-								'avpvh-pswp-subject-tags-heading';
-							heading.textContent = category;
-							subjectTagsList.appendChild(heading);
-
-							const group = document.createElement('div');
-							group.className = 'avpvh-pswp-subject-tags-group';
-							Object.entries(tags).forEach(([slug, label]) => {
-								const optionLabel =
-									document.createElement('label');
-								const checkbox =
-									document.createElement('input');
-								checkbox.type = 'checkbox';
-								checkbox.value = slug;
-								checkbox.addEventListener('change', (e) => {
-									e.stopPropagation();
-									if (exclusionFileId === '') {
-										return;
-									}
-									const fileId = exclusionFileId;
-									const wasChecked = checkbox.checked;
-									void toggleSubjectTag(
-										avpvhShortcodeLocalize.subject_tags_url,
-										avpvhShortcodeLocalize.rest_nonce,
-										fileId,
-										slug,
-										wasChecked
-									).catch(() => {
-										if (exclusionFileId === fileId) {
-											checkbox.checked = !wasChecked;
-										}
-									});
-								});
-								optionLabel.appendChild(checkbox);
-								optionLabel.appendChild(
-									document.createTextNode(' ' + label)
+					const subjectStatus = document.createElement('div');
+					subjectStatus.className = 'avpvh-pswp-subject-status';
+					let subjectState: SubjectTagState = {
+						tags: [],
+						details: {},
+					};
+					const applySubjectState = (): void => {
+						subjectTagsList
+							.querySelectorAll<HTMLElement>(
+								'.avpvh-pswp-subject-tags-section'
+							)
+							.forEach((section) => {
+								const boxes = Array.from(
+									section.querySelectorAll<HTMLInputElement>(
+										'input[type="checkbox"]'
+									)
 								);
-								group.appendChild(optionLabel);
+								const single =
+									section.dataset['single'] === '1';
+								const anyChecked = boxes.some((box) =>
+									subjectState.tags.includes(box.value)
+								);
+								const chosen: Array<string> = [];
+								boxes.forEach((box) => {
+									box.checked = subjectState.tags.includes(
+										box.value
+									);
+									box.disabled =
+										!canRemoveTags &&
+										(box.checked || (single && anyChecked));
+									const detail =
+										subjectState.details[box.value];
+									const label = box.parentElement;
+									if (label !== null) {
+										label.title =
+											detail === undefined
+												? ''
+												: `Getagd door ${detail.by || 'onbekend'} op ${detail.at.slice(0, 10)}`;
+									}
+									if (box.checked) {
+										chosen.push(box.dataset['label'] ?? '');
+									}
+								});
+								const summaryValue =
+									section.querySelector<HTMLElement>(
+										'.avpvh-pswp-subject-tags-chosen'
+									);
+								if (summaryValue !== null) {
+									summaryValue.textContent =
+										chosen.length > 0
+											? ' · ' + chosen.join(', ')
+											: '';
+								}
 							});
-							subjectTagsList.appendChild(group);
+					};
+					const showSubjectError = (message: string): void => {
+						subjectStatus.textContent = message;
+						setTimeout(() => {
+							subjectStatus.textContent = '';
+						}, 4000);
+					};
+					Object.entries(avpvhShortcodeLocalize.subject_tags).forEach(
+						([category, group]) => {
+							const section = document.createElement('details');
+							section.className =
+								'avpvh-pswp-subject-tags-section';
+							section.dataset['category'] = category;
+							section.dataset['single'] = group.single
+								? '1'
+								: '0';
+							const summary = document.createElement('summary');
+							summary.textContent = group.label;
+							const chosen = document.createElement('span');
+							chosen.className = 'avpvh-pswp-subject-tags-chosen';
+							summary.appendChild(chosen);
+							section.appendChild(summary);
+
+							const options = document.createElement('div');
+							options.className = 'avpvh-pswp-subject-tags-group';
+							Object.entries(group.tags).forEach(
+								([slug, label]) => {
+									const optionLabel =
+										document.createElement('label');
+									const checkbox =
+										document.createElement('input');
+									checkbox.type = 'checkbox';
+									checkbox.value = slug;
+									checkbox.dataset['label'] = label;
+									checkbox.addEventListener('change', (e) => {
+										e.stopPropagation();
+										if (exclusionFileId === '') {
+											return;
+										}
+										const fileId = exclusionFileId;
+										const active = checkbox.checked;
+										const siblings = group.single
+											? Object.keys(group.tags)
+											: [];
+										subjectState = {
+											...subjectState,
+											tags: active
+												? subjectState.tags
+														.filter(
+															(tag) =>
+																!siblings.includes(
+																	tag
+																)
+														)
+														.concat(slug)
+												: subjectState.tags.filter(
+														(tag) => tag !== slug
+													),
+										};
+										applySubjectState();
+										void toggleSubjectTag(
+											avpvhShortcodeLocalize.subject_tags_url,
+											avpvhShortcodeLocalize.rest_nonce,
+											fileId,
+											slug,
+											active
+										)
+											.catch((error: unknown) => {
+												showSubjectError(
+													error instanceof Error
+														? error.message
+														: 'Opslaan mislukt'
+												);
+											})
+											.finally(refreshTagsPanel);
+									});
+									optionLabel.appendChild(checkbox);
+									optionLabel.appendChild(
+										document.createTextNode(' ' + label)
+									);
+									options.appendChild(optionLabel);
+								}
+							);
+							section.appendChild(options);
+							subjectTagsList.appendChild(section);
 						}
 					);
+					subjectTagsList.appendChild(subjectStatus);
 
 					const personTagsList = document.createElement('ul');
 					personTagsList.className = 'avpvh-pswp-person-tags-list';
@@ -975,7 +1087,7 @@ export class Shortcode {
 					tagsPanel.appendChild(reactionsSection);
 					tagsPanel.appendChild(commentsSection);
 
-					const refreshTagsPanel = (): void => {
+					refreshTagsPanel = (): void => {
 						if (exclusionFileId === '') {
 							return;
 						}
@@ -984,17 +1096,12 @@ export class Shortcode {
 							avpvhShortcodeLocalize.subject_tags_url,
 							fileId
 						)
-							.then((active) => {
+							.then((state) => {
 								if (exclusionFileId !== fileId) {
 									return;
 								}
-								subjectTagsList
-									.querySelectorAll<HTMLInputElement>(
-										'input[type="checkbox"]'
-									)
-									.forEach((cb) => {
-										cb.checked = active.includes(cb.value);
-									});
+								subjectState = state;
+								applySubjectState();
 							})
 							.catch(() => {
 								// Leave checkboxes as-is — nothing more useful to do here.
@@ -1017,6 +1124,12 @@ export class Shortcode {
 								const li = document.createElement('li');
 								const nameSpan = document.createElement('span');
 								nameSpan.textContent = tag.member_name;
+								li.title = `Getagd door ${tag.tagged_by || 'onbekend'} op ${tag.tagged_at.slice(0, 10)}`;
+								li.appendChild(nameSpan);
+								personTagsList.appendChild(li);
+								if (!canRemoveTags) {
+									return;
+								}
 								const delBtn = document.createElement('button');
 								delBtn.type = 'button';
 								delBtn.className =
@@ -1029,9 +1142,7 @@ export class Shortcode {
 										.deleteTag(tag.id)
 										.then(refreshTagsPanel);
 								});
-								li.appendChild(nameSpan);
 								li.appendChild(delBtn);
-								personTagsList.appendChild(li);
 							});
 						});
 
