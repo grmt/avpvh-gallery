@@ -102,7 +102,7 @@ final class Activity_Participants {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- avpvh-members tables; caller caches via transient.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT m.id, m.first_name, m.last_name
+				"SELECT m.id, m.first_name, m.suffix, m.last_name
 				 FROM {$participation_table} p
 				 INNER JOIN {$members_table} m ON m.id = p.member_id
 				 WHERE p.activity_id = %d
@@ -120,7 +120,7 @@ final class Activity_Participants {
 			static function ( $row ) {
 				return array(
 					'id'   => (int) $row->id,
-					'name' => trim( $row->first_name . ' ' . $row->last_name ),
+					'name' => Person_Name::format( $row ),
 				);
 			},
 			$rows

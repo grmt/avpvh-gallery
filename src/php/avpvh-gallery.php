@@ -100,6 +100,7 @@ require_once __DIR__ . '/frontend/class-single-page-pagination-helper.php';
 require_once __DIR__ . '/frontend/class-video-proxy.php';
 require_once __DIR__ . '/frontend/class-image-proxy.php';
 require_once __DIR__ . '/frontend/class-pdf-proxy.php';
+require_once __DIR__ . '/frontend/class-person-name.php';
 require_once __DIR__ . '/frontend/class-activity-participants.php';
 require_once __DIR__ . '/frontend/class-person-filters.php';
 require_once __DIR__ . '/frontend/class-photo-folder-context.php';

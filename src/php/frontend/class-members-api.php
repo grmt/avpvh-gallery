@@ -80,7 +80,7 @@ final class Members_API {
 				static function ( $member ) {
 					return array(
 						'id'     => intval( $member->id ),
-						'name'   => $member->first_name . ' ' . $member->last_name,
+						'name'   => Person_Name::format( $member ),
 						'status' => $member->status,
 					);
 				},

@@ -1354,11 +1354,35 @@ export class Shortcode {
 					const personTagsSection = document.createElement('div');
 					personTagsSection.className = 'avpvh-pswp-person-tags';
 					personTagsSection.appendChild(personTagsHeading);
+					// Who's already tagged on this photo, above the search.
+					const taggedLabel = document.createElement('div');
+					taggedLabel.className = 'avpvh-pswp-tagged-label';
+					personTagsSection.appendChild(taggedLabel);
 					personTagsSection.appendChild(personTagsList);
+					// "✓ Jan getagd" / an error, after picking a name.
+					const personStatus = document.createElement('div');
+					personStatus.className = 'avpvh-pswp-person-status';
+					let personStatusTimer: ReturnType<
+						typeof setTimeout
+					> | null = null;
+					const showPersonStatus = (
+						message: string,
+						failed: boolean
+					): void => {
+						personStatus.textContent = message;
+						personStatus.classList.toggle('failed', failed);
+						if (personStatusTimer !== null) {
+							clearTimeout(personStatusTimer);
+						}
+						personStatusTimer = setTimeout(() => {
+							personStatus.textContent = '';
+						}, 4000);
+					};
 					const personScopes = document.createElement('div');
 					personScopes.className = 'avpvh-pswp-person-scopes';
 					personTagsSection.appendChild(personScopes);
 					personTagsSection.appendChild(personSearch);
+					personTagsSection.appendChild(personStatus);
 					personTagsSection.appendChild(personResults);
 					// People already tagged on the current photo (see
 					// Shortcode.personKey()), so the search doesn't offer
@@ -1480,6 +1504,38 @@ export class Shortcode {
 								return;
 							}
 							personTagsList.innerHTML = '';
+							taggedLabel.textContent =
+								tags.length > 0
+									? 'Op deze foto:'
+									: 'Nog niemand getagd op deze foto';
+							// The collapsed "Wie" header shows who's tagged too.
+							const wieSummary = pathSections
+								.get('Wie')
+								?.querySelector<HTMLElement>(
+									':scope > summary'
+								);
+							if (
+								wieSummary !== undefined &&
+								wieSummary !== null
+							) {
+								let chosen =
+									wieSummary.querySelector<HTMLElement>(
+										'.avpvh-pswp-subject-tags-chosen'
+									);
+								if (chosen === null) {
+									chosen = document.createElement('span');
+									chosen.className =
+										'avpvh-pswp-subject-tags-chosen';
+									wieSummary.appendChild(chosen);
+								}
+								chosen.textContent =
+									tags.length > 0
+										? ' · ' +
+											tags
+												.map((tag) => tag.member_name)
+												.join(', ')
+										: '';
+							}
 							taggedPersonKeys = new Set(
 								tags.map((tag) =>
 									Shortcode.personKey({
@@ -1703,16 +1759,47 @@ export class Shortcode {
 					const renderPersonResults = (): void => {
 						personResults.innerHTML = '';
 						const query = personSearch.value.trim();
-						const pool = scopePool(personScope);
-						const matches = searchPeople(
-							query,
-							pool.filter(
-								(person) =>
-									!taggedPersonKeys.has(
-										Shortcode.personKey(person)
-									)
-							)
-						).slice(0, 8);
+						const untagged = (person: {
+							id: number;
+							name: string;
+						}): boolean =>
+							!taggedPersonKeys.has(
+								Shortcode.personKey(person)
+							) &&
+							!(tagContext?.bornAfter.has(person.id) ?? false);
+						// The persons this viewer tagged most recently come
+						// first: listed on their own before anything is typed,
+						// and ranked first among equally good matches after.
+						const recent = Shortcode.recentPersons(
+							this.photoTagger.getMembersForDropdown()
+						).filter(untagged);
+						const pool = scopePool(personScope).filter(untagged);
+						const matches =
+							query === ''
+								? pool
+										.filter(
+											(person) =>
+												!recent.some(
+													(other) =>
+														Shortcode.personKey(
+															other
+														) ===
+														Shortcode.personKey(
+															person
+														)
+												)
+										)
+										.slice(0, 8)
+								: searchPeople(
+										query,
+										Shortcode.mergeMembers(recent, pool)
+									).slice(0, 8);
+						const addHeading = (text: string): void => {
+							const li = document.createElement('li');
+							li.className = 'avpvh-pswp-person-results-heading';
+							li.textContent = text;
+							personResults.appendChild(li);
+						};
 						const addPick = (
 							person: { id: number; name: string },
 							label: string
@@ -1726,6 +1813,15 @@ export class Shortcode {
 							li.appendChild(pick);
 							personResults.appendChild(li);
 						};
+						if (query === '' && recent.length > 0) {
+							addHeading('Recent gebruikt');
+							recent.slice(0, 6).forEach((person) => {
+								addPick(person, person.name);
+							});
+							if (matches.length > 0) {
+								addHeading('Suggesties');
+							}
+						}
 						matches.forEach((person) => {
 							addPick(person, person.name);
 						});
@@ -1751,8 +1847,17 @@ export class Shortcode {
 							return;
 						}
 						personSearch.value = '';
-						taggedPersonKeys.add(Shortcode.personKey(person));
+						const key = Shortcode.personKey(person);
+						taggedPersonKeys.add(key);
+						Shortcode.rememberPerson(person);
 						renderPersonResults();
+						// Show the name straight away; the list is redrawn
+						// from the server once saved.
+						const pending = document.createElement('li');
+						pending.className = 'pending';
+						pending.textContent = `${person.name} (opslaan…)`;
+						personTagsList.appendChild(pending);
+						taggedLabel.textContent = 'Op deze foto:';
 						void this.photoTagger
 							.addTag(
 								exclusionFileId,
@@ -1760,7 +1865,21 @@ export class Shortcode {
 								undefined,
 								person.id > 0 ? '' : person.name
 							)
-							.then(refreshTagsPanel);
+							.then((saved) => {
+								if (saved) {
+									showPersonStatus(
+										`✓ ${person.name} getagd`,
+										false
+									);
+								} else {
+									taggedPersonKeys.delete(key);
+									showPersonStatus(
+										`${person.name} taggen is mislukt`,
+										true
+									);
+								}
+								refreshTagsPanel();
+							});
 					};
 					personScopes.addEventListener('click', (e) => {
 						e.stopPropagation();
@@ -5355,6 +5474,48 @@ export class Shortcode {
 		return person.id > 0
 			? `id:${String(person.id)}`
 			: `name:${person.name.toLowerCase()}`;
+	}
+
+	private static readonly RECENT_PERSONS_KEY = 'avpvh_recent_persons';
+
+	// The persons this viewer tagged most recently in this browser, newest
+	// first — shown with their current name from the persons list, so a
+	// corrected spelling shows up here too.
+	private static recentPersons(
+		current: Array<{ id: number; name: string }>
+	): Array<{ id: number; name: string }> {
+		let stored: Array<{ id: number; name: string }> = [];
+		try {
+			stored = JSON.parse(
+				localStorage.getItem(Shortcode.RECENT_PERSONS_KEY) ?? '[]'
+			) as Array<{ id: number; name: string }>;
+		} catch {
+			return [];
+		}
+		return stored.map(
+			(person) =>
+				current.find(
+					(member) => person.id > 0 && member.id === person.id
+				) ?? person
+		);
+	}
+
+	private static rememberPerson(person: { id: number; name: string }): void {
+		const key = Shortcode.personKey(person);
+		const recent = [
+			{ id: person.id, name: person.name },
+			...Shortcode.recentPersons([]).filter(
+				(other) => Shortcode.personKey(other) !== key
+			),
+		].slice(0, 10);
+		try {
+			localStorage.setItem(
+				Shortcode.RECENT_PERSONS_KEY,
+				JSON.stringify(recent)
+			);
+		} catch {
+			// Not remembered; fine for this visit.
+		}
 	}
 
 	// Activity participants first, then everyone else (by ID, without

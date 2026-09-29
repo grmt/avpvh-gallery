@@ -269,7 +269,7 @@ export class PhotoTagger {
 		region?: { x: number; y: number; width: number; height: number },
 		// For someone not in the persons list (memberId 0): their name.
 		personName = ''
-	): Promise<void> {
+	): Promise<boolean> {
 		try {
 			const response = await fetch('/wp-admin/admin-ajax.php', {
 				method: 'POST',
@@ -287,11 +287,16 @@ export class PhotoTagger {
 				}).toString(),
 			});
 
-			if (response.ok) {
-				await this.loadAndRenderTags();
+			const data = (await response.json().catch(() => null)) as {
+				success?: boolean;
+			} | null;
+			if (!response.ok || data?.success !== true) {
+				return false;
 			}
+			await this.loadAndRenderTags();
+			return true;
 		} catch {
-			// Network error — the tag simply doesn't appear; nothing more to do here.
+			return false;
 		}
 	}
 

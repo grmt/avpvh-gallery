@@ -518,7 +518,7 @@ final class Photo_Tags {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
 		$member = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, first_name, last_name FROM {$wpdb->prefix}avm_members WHERE id = %d",
+				"SELECT id, first_name, suffix, last_name FROM {$wpdb->prefix}avm_members WHERE id = %d",
 				$member_id
 			)
 		);
@@ -529,7 +529,7 @@ final class Photo_Tags {
 
 		return array(
 			'member_id'   => $member_id,
-			'member_name' => $member->first_name . ' ' . $member->last_name,
+			'member_name' => Person_Name::format( $member ),
 			'tag_key'     => (string) $member_id,
 		);
 	}

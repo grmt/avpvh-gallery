@@ -1190,6 +1190,15 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	padding: 0;
 }
 
+.avpvh-pswp-person-results-heading {
+	color: rgb(255, 255, 255, 60%);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	margin-top: 4px;
+	text-transform: uppercase;
+}
+
 .avpvh-pswp-person-results button {
 	background: none;
 	border: none;
@@ -1434,6 +1443,26 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	cursor: pointer;
 	font-size: 13px;
 	padding: 0 4px;
+}
+
+.avpvh-pswp-tagged-label {
+	color: rgb(255, 255, 255, 70%);
+	font-size: 12px;
+	margin: 2px 0;
+}
+
+.avpvh-pswp-person-status {
+	color: #a5d6a7;
+	font-size: 12px;
+	min-height: 1em;
+}
+
+.avpvh-pswp-person-status.failed {
+	color: #ff8a80;
+}
+
+.avpvh-pswp-person-tags-list li.pending {
+	opacity: 0.6;
 }
 
 /* Contents of the tagging panel's top-level sections, indented. */
