@@ -2494,13 +2494,14 @@ export class Shortcode {
 		//    the trowels, then arms a short idle countdown. Because every
 		//    interaction re-arms it, rapid clicking can never collide with an
 		//    auto-advance (the old "skipped photo" bug).
-		//  • Where the cursor comes to rest decides what happens when the
-		//    countdown elapses, in fullscreen and windowed mode alike:
-		//    – on the photo: the trowels hide and the slideshow resumes;
+		//  • When the countdown elapses the trowels and top bar hide. Where the
+		//    cursor came to rest decides whether the slideshow resumes, in
+		//    fullscreen and windowed mode alike:
+		//    – on the photo: it resumes;
 		//    – anywhere else in the lightbox — the black area around a photo
 		//      that doesn't fill the screen, the top bar, the path bar, the
-		//      tagging panel: the slideshow stays stopped (and the controls
-		//      visible) until the cursor goes back to the photo.
+		//      tagging panel: it stays stopped until the mouse moves again
+		//      and comes to rest on the photo.
 		//  • Leaving the lightbox entirely (windowed) resumes immediately, as
 		//    does opening it before the mouse has moved at all.
 		let pointerSpot: 'off' | 'photo' | 'unknown' = 'unknown';
@@ -2516,11 +2517,10 @@ export class Shortcode {
 			this.startSlideshow(pswp);
 		};
 		const goIdle = (): void => {
-			if (pointerSpot === 'off') {
-				return;
-			}
 			el.classList.add('pswp--ui-idle');
-			resumeShow();
+			if (pointerSpot !== 'off') {
+				resumeShow();
+			}
 		};
 		const overPhotoTarget = (t: EventTarget | null): boolean =>
 			t instanceof Element && null !== t.closest('.pswp__img, video');
