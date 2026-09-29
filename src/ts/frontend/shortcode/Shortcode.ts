@@ -2491,7 +2491,12 @@ export class Shortcode {
 		//  • In fullscreen the photo fills the screen, so there is no "off the
 		//    photo" area; the only way to restart the show is to stop moving the
 		//    mouse, hence we ignore the hover rule there.
+		//  • The lightbox's own controls — the top bar (tag/like buttons), the
+		//    path bar and the tagging panel — keep the show stopped while the
+		//    cursor rests on them, in fullscreen too: someone reaching for a
+		//    control is busy with the current photo.
 		let lastOverPhoto = false;
+		let lastOverControls = false;
 		const isFullscreen = (): boolean => document.fullscreenElement !== null;
 		const pauseShow = (): void => {
 			this.slideshowPaused = true;
@@ -2507,14 +2512,23 @@ export class Shortcode {
 		const goIdle = (): void => {
 			// In windowed mode, keep trowels visible while cursor rests on the photo
 			// (slideshow stays paused; arrows only hide when the cursor leaves the photo)
-			if (!isFullscreen() && lastOverPhoto) {
+			if (lastOverControls || (!isFullscreen() && lastOverPhoto)) {
 				return;
 			}
 			el.classList.add('pswp--ui-idle');
 			resumeShow();
 		};
-		const onActivity = (overPhoto: boolean): void => {
-			lastOverPhoto = overPhoto;
+		const overPhotoTarget = (t: EventTarget | null): boolean =>
+			t instanceof Element && null !== t.closest('.pswp__img');
+		const overControlsTarget = (t: EventTarget | null): boolean =>
+			t instanceof Element &&
+			null !==
+				t.closest(
+					'.pswp__top-bar, .avpvh-pswp-path, .avpvh-pswp-tags-panel'
+				);
+		const onActivity = (target: EventTarget | null): void => {
+			lastOverPhoto = overPhotoTarget(target);
+			lastOverControls = overControlsTarget(target);
 			el.classList.remove('pswp--ui-idle');
 			pauseShow();
 			if (this.idleTimer !== null) {
@@ -2522,34 +2536,33 @@ export class Shortcode {
 			}
 			this.idleTimer = setTimeout(goIdle, this.IDLE_HIDE_MS);
 		};
-		const overPhotoTarget = (t: EventTarget | null): boolean =>
-			t instanceof Element && null !== t.closest('.pswp__img');
 		// Down events use the capture phase: PhotoSwipe's gesture handler calls
 		// stopPropagation() on them for its drag logic, so a bubble-phase listener
 		// would never see arrow/image clicks.
 		el.addEventListener('mousemove', (e: MouseEvent) => {
-			onActivity(overPhotoTarget(e.target));
+			onActivity(e.target);
 		});
 		el.addEventListener(
 			'mousedown',
 			(e: MouseEvent) => {
-				onActivity(overPhotoTarget(e.target));
+				onActivity(e.target);
 			},
 			true
 		);
 		el.addEventListener(
 			'pointerdown',
 			(e: Event) => {
-				onActivity(overPhotoTarget(e.target));
+				onActivity(e.target);
 			},
 			true
 		);
 		el.addEventListener('touchstart', (e: Event) => {
-			onActivity(overPhotoTarget(e.target));
+			onActivity(e.target);
 		});
 		// Leaving the lightbox entirely (windowed only) resumes immediately.
 		el.addEventListener('mouseleave', () => {
 			lastOverPhoto = false;
+			lastOverControls = false;
 			el.classList.add('pswp--ui-idle');
 			if (!isFullscreen()) {
 				resumeShow();
@@ -2591,7 +2604,7 @@ export class Shortcode {
 				return;
 			}
 			if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-				onActivity(false);
+				onActivity(null);
 			}
 			if (e.key === 'ArrowLeft' && pswp.currIndex === 0) {
 				e.stopImmediatePropagation();
