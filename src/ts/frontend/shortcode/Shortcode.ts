@@ -27,6 +27,11 @@ import {
 	type ReactionData,
 	type TagContext,
 } from '../photo-tagger/PhotoTagger';
+import {
+	buildFilterBar,
+	type FilterCriteria,
+	hasCriteria,
+} from './PhotoFilter';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
 
@@ -80,6 +85,11 @@ export class Shortcode {
 	// Toggles "like" on the current lightbox slide — set while the lightbox
 	// UI is initialized, used by the right-click handler.
 	private toggleLightboxLike: (() => void) | null = null;
+	// While filtering (see PhotoFilter), the grid shows matching photos from
+	// the whole gallery instead of a folder; null in the normal folder view.
+	private filter: FilterCriteria | null = null;
+	// How many photos the current filter found (null while searching).
+	private filterTotal: number | null = null;
 	private hasMore = false;
 	private path = '';
 	private lastPage = 1;
@@ -2618,7 +2628,7 @@ export class Shortcode {
 	}
 
 	private prevBoundary(pswp: PhotoSwipe): void {
-		if (!this.folderNavigating) {
+		if (this.filter === null && !this.folderNavigating) {
 			this.folderNavigating = true;
 			this.navigateToAdjacentFolder('prev', pswp);
 		}
@@ -3056,7 +3066,11 @@ export class Shortcode {
 			if (this.lightbox.pswp !== undefined) {
 				return;
 			}
-			if ('' === this.path || this.folderNavigating) {
+			if (
+				'' === this.path ||
+				this.folderNavigating ||
+				this.filter !== null
+			) {
 				return;
 			}
 			if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
@@ -3144,7 +3158,11 @@ export class Shortcode {
 				if (Math.abs(dx) < 50) {
 					return;
 				}
-				if ('' === this.path || this.folderNavigating) {
+				if (
+					'' === this.path ||
+					this.folderNavigating ||
+					this.filter !== null
+				) {
 					return;
 				}
 
@@ -3414,7 +3432,8 @@ export class Shortcode {
 			loadingMore: false,
 			next: null,
 			prev: null,
-			nextSearched: false,
+			// Filter results are one list, not a folder with neighbours.
+			nextSearched: this.filter !== null,
 			loadingNext: false,
 		};
 		this.slideNodes.push(node);
@@ -3873,12 +3892,7 @@ export class Shortcode {
 
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
-			{
-				action: 'page',
-				hash: this.hash,
-				path: node.path,
-				page: node.lastPage,
-			},
+			this.pageRequest(node.path, node.lastPage),
 			(data: PageResponse) => {
 				node.loadingMore = false;
 				if (isError(data)) {
@@ -4405,6 +4419,8 @@ export class Shortcode {
 
 	private get(): void {
 		const epoch = ++this.getEpoch;
+		this.filter = null;
+		this.filterTotal = null;
 		this.path = this.pathQueryParameter.get();
 		this.lastPage = parseInt(this.pageQueryParameter.get()) || 1;
 		this.container
@@ -4532,10 +4548,86 @@ export class Shortcode {
 				'</div>';
 		}
 		this.container.html(html);
+		this.mountFilterBar();
 		this.hasMore = data.more ?? false;
 		this.storeKnownTotals(data.directories);
 		this.postLoad();
 		this.openLightboxIfPending();
+	}
+
+	// The filter bar above the grid, for logged-in users (the filter
+	// endpoints are wp_ajax_-only).
+	private mountFilterBar(): void {
+		if ('' === avpvhShortcodeLocalize.rest_nonce) {
+			return;
+		}
+		this.container.prepend(
+			buildFilterBar(
+				avpvhShortcodeLocalize.ajax_url,
+				this.filter,
+				this.filterTotal,
+				(criteria) => {
+					if (criteria === null) {
+						this.get();
+					} else {
+						this.getFiltered(criteria);
+					}
+				}
+			)
+		);
+	}
+
+	// Shows the first page of photos matching a filter, across the whole
+	// gallery, in place of the folder view.
+	private getFiltered(criteria: FilterCriteria): void {
+		const epoch = ++this.getEpoch;
+		this.filter = criteria;
+		this.filterTotal = null;
+		this.lastPage = 1;
+		this.container.html('<div class="avpvh-loading"><div></div></div>');
+		this.mountFilterBar();
+		void $.get(
+			avpvhShortcodeLocalize.ajax_url,
+			{ action: 'gallery_filter', hash: this.hash, page: 1, ...criteria },
+			(data: PageResponse & { total?: number }) => {
+				if (epoch !== this.getEpoch) {
+					return;
+				}
+				if (isError(data)) {
+					this.container.html(
+						printError(data, avpvhShortcodeLocalize)
+					);
+					return;
+				}
+				this.filterTotal = data.total ?? 0;
+				this.getSuccess({
+					images: data.images ?? [],
+					more: data.more ?? false,
+				});
+			}
+		).fail(() => {
+			if (epoch !== this.getEpoch) {
+				return;
+			}
+			this.container.html(
+				printError(
+					{ error: avpvhShortcodeLocalize.server_error },
+					avpvhShortcodeLocalize
+				)
+			);
+		});
+	}
+
+	// The request for one more page: of the folder, or of the filter results.
+	private pageRequest(path: string, page: number): Record<string, unknown> {
+		return this.filter !== null && hasCriteria(this.filter)
+			? {
+					action: 'gallery_filter',
+					hash: this.hash,
+					page,
+					...this.filter,
+				}
+			: { action: 'page', hash: this.hash, path, page };
 	}
 
 	private openLightboxIfPending(): void {
@@ -4627,7 +4719,7 @@ export class Shortcode {
 			);
 		this.container.find('.avpvh-more-button').remove();
 
-		const cacheKey = `page-${this.hash}-${this.pathQueryParameter.get()}-${this.lastPage.toString()}`;
+		const cacheKey = `page-${this.hash}-${this.pathQueryParameter.get()}-${JSON.stringify(this.filter)}-${this.lastPage.toString()}`;
 		if (Shortcode.cache.has(cacheKey)) {
 			const cachedData = Shortcode.cache.get(cacheKey) as PageResponse;
 			if (isError(cachedData)) {
@@ -4645,12 +4737,7 @@ export class Shortcode {
 
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
-			{
-				action: 'page',
-				hash: this.hash,
-				path: this.pathQueryParameter.get(),
-				page: this.lastPage,
-			},
+			this.pageRequest(this.pathQueryParameter.get(), this.lastPage),
 			(data: PageResponse) => {
 				if (isError(data)) {
 					this.container

@@ -1348,3 +1348,32 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 .avpvh-pswp-drive-error-retry:hover {
 	background: rgb(255, 255, 255, 22%);
 }
+
+.avpvh-filter-bar {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 10px;
+	margin: 0 0 10px;
+}
+
+.avpvh-filter-select {
+	font-size: 13px;
+	max-width: 220px;
+	padding: 3px 6px;
+}
+
+.avpvh-filter-found {
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.avpvh-filter-clear {
+	background: none;
+	border: none;
+	color: #2271b1;
+	cursor: pointer;
+	font-size: 13px;
+	padding: 0;
+	text-decoration: underline;
+}
