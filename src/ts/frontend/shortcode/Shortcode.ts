@@ -934,8 +934,33 @@ export class Shortcode {
 							subjectStatus.textContent = '';
 						}, 4000);
 					};
+					// Consecutive groups sharing a parent (Soort / Karakter / Doel
+					// under "Soort foto") are nested in one parent section.
+					let parentSection: {
+						label: string;
+						body: HTMLElement;
+					} | null = null;
+					const containerFor = (
+						parent: string | undefined
+					): HTMLElement => {
+						if (parent === undefined) {
+							parentSection = null;
+							return subjectTagsList;
+						}
+						if (parentSection?.label !== parent) {
+							const outer = document.createElement('details');
+							outer.className = 'avpvh-pswp-subject-tags-parent';
+							const summary = document.createElement('summary');
+							summary.textContent = parent;
+							outer.appendChild(summary);
+							subjectTagsList.appendChild(outer);
+							parentSection = { label: parent, body: outer };
+						}
+						return parentSection.body;
+					};
 					Object.entries(avpvhShortcodeLocalize.subject_tags).forEach(
 						([category, group]) => {
+							const container = containerFor(group.parent);
 							const section = document.createElement('details');
 							section.className =
 								'avpvh-pswp-subject-tags-section';
@@ -1011,7 +1036,7 @@ export class Shortcode {
 								}
 							);
 							section.appendChild(options);
-							subjectTagsList.appendChild(section);
+							container.appendChild(section);
 						}
 					);
 					subjectTagsList.appendChild(subjectStatus);

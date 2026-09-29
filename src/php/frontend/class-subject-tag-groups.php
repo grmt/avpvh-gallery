@@ -20,23 +20,40 @@ final class Subject_Tag_Groups {
 	// phpcs:disable SlevomatCodingStandard.Arrays.AlphabeticallySortedByKeys.IncorrectKeyOrder -- tags are in display order (Ochtend, Middag, Avond…).
 	/**
 	 * The fixed vocabulary: group key (stored as the tag row's category, max
-	 * 20 chars) => Dutch label, whether one tag per photo, and slug => label.
+	 * 20 chars) => Dutch label, optionally the label of the parent group it's
+	 * shown under (consecutive groups with the same parent are nested in
+	 * one section), whether one tag per photo, and slug => label.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility, SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- no-modifier matches the convention used elsewhere; the "multi constant" error is a PHPCSUtils false positive on a multi-line array value.
 	const GROUPS = array(
 		'soort_foto'        => array(
-			'label'  => 'Soort foto',
+			'label'  => 'Soort',
+			'parent' => 'Soort foto',
 			'single' => true,
 			'tags'   => array(
-				'portret'      => 'Portret',
-				'groepsfoto'   => 'Groepsfoto',
-				'overzicht'    => 'Overzicht',
-				'detail'       => 'Detail / close-up',
-				'actie'        => 'Actie',
-				'sfeer'        => 'Sfeer',
+				'portret'    => 'Portret',
+				'groepsfoto' => 'Groepsfoto',
+				'overzicht'  => 'Overzicht',
+				'detail'     => 'Detail / close-up',
+				'luchtfoto'  => 'Luchtfoto / drone',
+			),
+		),
+		'karakter'          => array(
+			'label'  => 'Karakter',
+			'parent' => 'Soort foto',
+			'single' => false,
+			'tags'   => array(
+				'actie' => 'Actie',
+				'sfeer' => 'Sfeer',
+			),
+		),
+		'doel'              => array(
+			'label'  => 'Doel',
+			'parent' => 'Soort foto',
+			'single' => false,
+			'tags'   => array(
 				'documentatie' => 'Documentatie (schaal, noordpijl)',
 				'vondstfoto'   => 'Vondstfoto',
-				'luchtfoto'    => 'Luchtfoto / drone',
 			),
 		),
 		'tijdstip'          => array(

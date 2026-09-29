@@ -30,7 +30,12 @@ declare const avpvhShortcodeLocalize: {
 	exif_date_url: string;
 	subject_tags: Record<
 		string,
-		{ label: string; single: boolean; tags: Record<string, string> }
+		{
+			label: string;
+			parent?: string;
+			single: boolean;
+			tags: Record<string, string>;
+		}
 	>;
 	subject_tags_url: string;
 	reactions: Record<string, Record<string, string>>;
