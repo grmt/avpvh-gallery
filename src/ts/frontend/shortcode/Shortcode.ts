@@ -2494,20 +2494,16 @@ export class Shortcode {
 		//    the trowels, then arms a short idle countdown. Because every
 		//    interaction re-arms it, rapid clicking can never collide with an
 		//    auto-advance (the old "skipped photo" bug).
-		//  • When the countdown elapses (user has stopped interacting) the
-		//    trowels hide and the slideshow resumes — EXCEPT in windowed mode
-		//    while the cursor is still resting on the photo, so hovering a photo
-		//    keeps the show stopped.
-		//  • In fullscreen the photo fills the screen, so there is no "off the
-		//    photo" area; the only way to restart the show is to stop moving the
-		//    mouse, hence we ignore the hover rule there.
-		//  • The lightbox's own controls — the top bar (tag/like buttons), the
-		//    path bar and the tagging panel — keep the show stopped while the
-		//    cursor rests on them, in fullscreen too: someone reaching for a
-		//    control is busy with the current photo.
-		let lastOverPhoto = false;
-		let lastOverControls = false;
-		const isFullscreen = (): boolean => document.fullscreenElement !== null;
+		//  • Where the cursor comes to rest decides what happens when the
+		//    countdown elapses, in fullscreen and windowed mode alike:
+		//    – on the photo: the trowels hide and the slideshow resumes;
+		//    – anywhere else in the lightbox — the black area around a photo
+		//      that doesn't fill the screen, the top bar, the path bar, the
+		//      tagging panel: the slideshow stays stopped (and the controls
+		//      visible) until the cursor goes back to the photo.
+		//  • Leaving the lightbox entirely (windowed) resumes immediately, as
+		//    does opening it before the mouse has moved at all.
+		let pointerSpot: 'off' | 'photo' | 'unknown' = 'unknown';
 		const pauseShow = (): void => {
 			this.slideshowPaused = true;
 			if (this.slideshowTimer !== null) {
@@ -2520,25 +2516,19 @@ export class Shortcode {
 			this.startSlideshow(pswp);
 		};
 		const goIdle = (): void => {
-			// In windowed mode, keep trowels visible while cursor rests on the photo
-			// (slideshow stays paused; arrows only hide when the cursor leaves the photo)
-			if (lastOverControls || (!isFullscreen() && lastOverPhoto)) {
+			if (pointerSpot === 'off') {
 				return;
 			}
 			el.classList.add('pswp--ui-idle');
 			resumeShow();
 		};
 		const overPhotoTarget = (t: EventTarget | null): boolean =>
-			t instanceof Element && null !== t.closest('.pswp__img');
-		const overControlsTarget = (t: EventTarget | null): boolean =>
-			t instanceof Element &&
-			null !==
-				t.closest(
-					'.pswp__top-bar, .avpvh-pswp-path, .avpvh-pswp-tags-panel'
-				);
+			t instanceof Element && null !== t.closest('.pswp__img, video');
 		const onActivity = (target: EventTarget | null): void => {
-			lastOverPhoto = overPhotoTarget(target);
-			lastOverControls = overControlsTarget(target);
+			// Keyboard activity (no target) leaves the cursor where it was.
+			if (target !== null) {
+				pointerSpot = overPhotoTarget(target) ? 'photo' : 'off';
+			}
 			el.classList.remove('pswp--ui-idle');
 			pauseShow();
 			if (this.idleTimer !== null) {
@@ -2571,12 +2561,9 @@ export class Shortcode {
 		});
 		// Leaving the lightbox entirely (windowed only) resumes immediately.
 		el.addEventListener('mouseleave', () => {
-			lastOverPhoto = false;
-			lastOverControls = false;
+			pointerSpot = 'unknown';
 			el.classList.add('pswp--ui-idle');
-			if (!isFullscreen()) {
-				resumeShow();
-			}
+			resumeShow();
 		});
 		// Start: trowels visible, slideshow running, idle countdown armed.
 		resumeShow();
