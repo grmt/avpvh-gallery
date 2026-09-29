@@ -108,8 +108,32 @@ function tokenCost(query: string, nameTokens: Array<string>): number | null {
 	return best;
 }
 
+// Two capitals ("GB") search by initials: the first letter of the first
+// name and of the surname, tussenvoegsels skipped — so "GB" matches both
+// "Garmt Boekholt" and "Germie van den Berg" (or "Berg, van den"). Typed
+// in lowercase, the same letters are an ordinary search.
+function matchesInitials(query: string, name: string): boolean {
+	if (!/^[A-Z]{2}$/.test(query)) {
+		return false;
+	}
+	const tokens = significant(normalizeName(name));
+	const first = tokens[0] ?? '';
+	// The surname: in "Anna Berg, van den" it's the word before the comma.
+	const surname = name.includes(',')
+		? (significant(normalizeName(name.split(',')[0] ?? '')).pop() ?? '')
+		: (tokens[tokens.length - 1] ?? '');
+	return (
+		tokens.length >= 2 &&
+		first.startsWith(query.charAt(0).toLowerCase()) &&
+		surname.startsWith(query.charAt(1).toLowerCase())
+	);
+}
+
 // Lower is better; null means no match.
 export function matchScore(query: string, name: string): number | null {
+	if (matchesInitials(query.trim(), name)) {
+		return 0;
+	}
 	const queryTokens = significant(normalizeName(query));
 	if (queryTokens.length === 0) {
 		return 0;
