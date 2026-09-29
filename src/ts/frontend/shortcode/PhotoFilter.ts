@@ -1,15 +1,19 @@
 // Gallery-wide photo filters (see Photo_Filter on the PHP side): who liked
-// a photo, who's tagged in it, a subject tag, or its own place. Logged-in
-// users only.
+// a photo, who's tagged in it, a subject tag, or its own place — any number
+// of them, each as "Alle" (the photo must match), "Een van" (it must match
+// at least one of these) or "Niet" (it must not match). Logged-in users
+// only; likes only of people whose likes the viewer may see.
 
-export interface FilterCriteria {
-	liked_by?: string;
-	person?: string;
-	tag?: string;
-	place?: string;
+export type FilterKind = 'liked_by' | 'person' | 'place' | 'tag';
+export type FilterOperator = 'and' | 'not' | 'or';
+
+export interface FilterCondition {
+	kind: FilterKind;
+	value: string;
+	op: FilterOperator;
+	// For display only; not sent to the server.
+	label: string;
 }
-
-export type FilterKey = keyof FilterCriteria;
 
 interface FilterOption {
 	value: string;
@@ -17,13 +21,19 @@ interface FilterOption {
 	count: number;
 }
 
-type FilterOptions = Record<FilterKey, Array<FilterOption>>;
+type FilterOptions = Record<FilterKind, Array<FilterOption>>;
 
-const FILTERS: Array<[FilterKey, string]> = [
-	['liked_by', 'Geliket door'],
-	['person', 'Persoon'],
+const KINDS: Array<[FilterKind, string]> = [
 	['tag', 'Tag'],
+	['person', 'Persoon'],
+	['liked_by', 'Geliket door'],
 	['place', 'Locatie'],
+];
+
+const OPERATORS: Array<[FilterOperator, string, string]> = [
+	['and', 'Alle', '✓'],
+	['or', 'Een van', '∨'],
+	['not', 'Niet', '✗'],
 ];
 
 let optionsPromise: Promise<FilterOptions> | null = null;
@@ -53,85 +63,158 @@ async function fetchFilterOptions(ajaxUrl: string): Promise<FilterOptions> {
 	return optionsPromise;
 }
 
-export function hasCriteria(criteria: FilterCriteria | null): boolean {
-	return (
-		criteria !== null &&
-		FILTERS.some(([key]) => (criteria[key] ?? '') !== '')
+// A filter needs at least one "Alle" or "Een van" condition: "Niet" alone
+// would mean "every photo except…".
+export function isActiveFilter(conditions: Array<FilterCondition>): boolean {
+	return conditions.some((condition) => condition.op !== 'not');
+}
+
+// What the server needs: the conditions without their display labels.
+export function conditionsParam(conditions: Array<FilterCondition>): string {
+	return JSON.stringify(
+		conditions.map(({ kind, value, op }) => ({ kind, value, op }))
 	);
 }
 
-// The filter bar shown above the gallery: one dropdown per kind of filter
-// (only kinds that have anything to filter on), plus, while filtering, the
-// number of photos found and a button to go back to the folders.
+function select(
+	className: string,
+	options: Array<[string, string]>
+): HTMLSelectElement {
+	const element = document.createElement('select');
+	element.className = className;
+	options.forEach(([value, label]) => {
+		const option = document.createElement('option');
+		option.value = value;
+		option.textContent = label;
+		element.appendChild(option);
+	});
+	return element;
+}
+
+// The filter bar shown above the gallery: the current conditions as
+// removable chips, a row to add one (how · what kind · which), and while
+// filtering the number of photos found and a button to clear the filter.
 export function buildFilterBar(
 	ajaxUrl: string,
-	criteria: FilterCriteria | null,
+	conditions: Array<FilterCondition>,
 	total: number | null,
-	onChange: (criteria: FilterCriteria | null) => void
+	onChange: (conditions: Array<FilterCondition>) => void
 ): HTMLElement {
 	const bar = document.createElement('div');
 	bar.className = 'avpvh-filter-bar';
-	const selects = new Map<FilterKey, HTMLSelectElement>();
-	const readCriteria = (): FilterCriteria => {
-		const next: FilterCriteria = {};
-		selects.forEach((select, key) => {
-			if (select.value !== '') {
-				next[key] = select.value;
-			}
-		});
-		return next;
-	};
 
-	FILTERS.forEach(([key, label]) => {
-		const select = document.createElement('select');
-		select.className = 'avpvh-filter-select';
-		select.dataset['filter'] = key;
-		select.disabled = true;
-		select.hidden = true;
-		const all = document.createElement('option');
-		all.value = '';
-		all.textContent = label;
-		select.appendChild(all);
-		select.addEventListener('change', () => {
-			const next = readCriteria();
-			onChange(hasCriteria(next) ? next : null);
+	const adder = document.createElement('div');
+	adder.className = 'avpvh-filter-add';
+	const opSelect = select(
+		'avpvh-filter-select',
+		OPERATORS.map(([op, label]) => [op, label])
+	);
+	const kindSelect = select('avpvh-filter-select', [
+		['', 'Filteren op…'],
+		...KINDS,
+	]);
+	const valueSelect = select('avpvh-filter-select', []);
+	valueSelect.hidden = true;
+	const addButton = document.createElement('button');
+	addButton.type = 'button';
+	addButton.className = 'avpvh-filter-add-button';
+	addButton.textContent = '+ Toevoegen';
+	addButton.hidden = true;
+	adder.append(opSelect, kindSelect, valueSelect, addButton);
+	bar.appendChild(adder);
+
+	kindSelect.addEventListener('change', () => {
+		const kind = kindSelect.value as FilterKind | '';
+		valueSelect.innerHTML = '';
+		valueSelect.hidden = kind === '';
+		addButton.hidden = true;
+		if (kind === '') {
+			return;
+		}
+		void fetchFilterOptions(ajaxUrl).then((options) => {
+			const taken = new Set(
+				conditions
+					.filter((condition) => condition.kind === kind)
+					.map((condition) => condition.value)
+			);
+			const choices = options[kind].filter(
+				(option) => !taken.has(option.value)
+			);
+			const prompt = document.createElement('option');
+			prompt.value = '';
+			prompt.textContent =
+				choices.length > 0 ? 'Kies…' : 'Niets om op te filteren';
+			valueSelect.appendChild(prompt);
+			choices.forEach((option) => {
+				const element = document.createElement('option');
+				element.value = option.value;
+				element.textContent = `${option.label} (${String(option.count)})`;
+				element.dataset['label'] = option.label;
+				valueSelect.appendChild(element);
+			});
 		});
-		selects.set(key, select);
-		bar.appendChild(select);
+	});
+	valueSelect.addEventListener('change', () => {
+		addButton.hidden = valueSelect.value === '';
+	});
+	addButton.addEventListener('click', () => {
+		const chosen = valueSelect.selectedOptions.item(0);
+		if (chosen === null || chosen.value === '') {
+			return;
+		}
+		onChange([
+			...conditions,
+			{
+				kind: kindSelect.value as FilterKind,
+				value: chosen.value,
+				op: opSelect.value as FilterOperator,
+				label: chosen.dataset['label'] ?? chosen.value,
+			},
+		]);
 	});
 
-	if (hasCriteria(criteria)) {
-		const found = document.createElement('span');
-		found.className = 'avpvh-filter-found';
-		found.textContent =
-			total === null
-				? 'Zoeken…'
-				: `${String(total)} foto${total === 1 ? '' : "'s"} gevonden`;
-		bar.appendChild(found);
+	if (conditions.length > 0) {
+		const chips = document.createElement('div');
+		chips.className = 'avpvh-filter-chips';
+		conditions.forEach((condition, index) => {
+			const operator = OPERATORS.find(([op]) => op === condition.op);
+			const kind = KINDS.find(([key]) => key === condition.kind);
+			const chip = document.createElement('span');
+			chip.className = `avpvh-filter-chip avpvh-filter-chip-${condition.op}`;
+			chip.title = `${operator?.[1] ?? ''} · ${kind?.[1] ?? ''}`;
+			chip.textContent = `${operator?.[2] ?? ''} ${condition.label}`;
+			const remove = document.createElement('button');
+			remove.type = 'button';
+			remove.className = 'avpvh-filter-chip-remove';
+			remove.textContent = '×';
+			remove.title = 'Verwijderen';
+			remove.addEventListener('click', () => {
+				onChange(conditions.filter((_, other) => other !== index));
+			});
+			chip.appendChild(remove);
+			chips.appendChild(chip);
+		});
+		bar.appendChild(chips);
+
+		const status = document.createElement('span');
+		status.className = 'avpvh-filter-found';
+		if (!isActiveFilter(conditions)) {
+			status.textContent = 'Voeg een "Alle"- of "Een van"-voorwaarde toe';
+		} else if (total === null) {
+			status.textContent = 'Zoeken…';
+		} else {
+			status.textContent = `${String(total)} foto${total === 1 ? '' : "'s"} gevonden`;
+		}
+		bar.appendChild(status);
 		const clear = document.createElement('button');
 		clear.type = 'button';
 		clear.className = 'avpvh-filter-clear';
 		clear.textContent = 'Filter wissen';
 		clear.addEventListener('click', () => {
-			onChange(null);
+			onChange([]);
 		});
 		bar.appendChild(clear);
 	}
-
-	void fetchFilterOptions(ajaxUrl).then((options) => {
-		selects.forEach((select, key) => {
-			const selected = criteria?.[key] ?? '';
-			options[key].forEach((option) => {
-				const element = document.createElement('option');
-				element.value = option.value;
-				element.textContent = `${option.label} (${String(option.count)})`;
-				element.selected = option.value === selected;
-				select.appendChild(element);
-			});
-			select.disabled = false;
-			select.hidden = options[key].length === 0 && selected === '';
-		});
-	});
 
 	return bar;
 }

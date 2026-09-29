@@ -109,6 +109,8 @@ require_once __DIR__ . '/frontend/class-exif-date-rest.php';
 require_once __DIR__ . '/frontend/class-subject-tag-groups.php';
 require_once __DIR__ . '/frontend/class-subject-tags.php';
 require_once __DIR__ . '/frontend/class-photo-places.php';
+require_once __DIR__ . '/frontend/class-like-visibility.php';
+require_once __DIR__ . '/frontend/class-photo-filter-options.php';
 require_once __DIR__ . '/frontend/class-photo-filter.php';
 
 require_once __DIR__ . '/admin/class-oauth-helpers.php';

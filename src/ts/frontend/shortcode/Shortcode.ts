@@ -29,8 +29,9 @@ import {
 } from '../photo-tagger/PhotoTagger';
 import {
 	buildFilterBar,
-	type FilterCriteria,
-	hasCriteria,
+	conditionsParam,
+	type FilterCondition,
+	isActiveFilter,
 } from './PhotoFilter';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
@@ -87,7 +88,10 @@ export class Shortcode {
 	private toggleLightboxLike: (() => void) | null = null;
 	// While filtering (see PhotoFilter), the grid shows matching photos from
 	// the whole gallery instead of a folder; null in the normal folder view.
-	private filter: FilterCriteria | null = null;
+	private filter: Array<FilterCondition> | null = null;
+	// Conditions being put together that don't filter yet (only "Niet"
+	// ones), shown in the bar over the normal folder view.
+	private draftConditions: Array<FilterCondition> = [];
 	// How many photos the current filter found (null while searching).
 	private filterTotal: number | null = null;
 	private hasMore = false;
@@ -1748,15 +1752,18 @@ export class Shortcode {
 									'avpvh-liked',
 									like?.mine === true
 								);
-								const names = like?.names ?? [];
+								const likers = Shortcode.likersText(
+									like?.names ?? [],
+									like?.count ?? 0
+								);
 								button.title =
-									names.length > 0
-										? `Leuk gevonden door: ${names.join(', ')}`
-										: 'Leuke foto (of rechtsklik op de foto)';
+									likers === ''
+										? 'Leuke foto (of rechtsklik op de foto)'
+										: `Leuk gevonden door: ${likers}`;
 								likedBy.textContent =
-									names.length > 0
-										? `👍 Leuk gevonden door: ${names.join(', ')}`
-										: '';
+									likers === ''
+										? ''
+										: `👍 Leuk gevonden door: ${likers}`;
 							}
 						);
 					};
@@ -4551,13 +4558,15 @@ export class Shortcode {
 		this.container.prepend(
 			buildFilterBar(
 				avpvhShortcodeLocalize.ajax_url,
-				this.filter,
+				this.filter ?? this.draftConditions,
 				this.filterTotal,
-				(criteria) => {
-					if (criteria === null) {
-						this.get();
+				(conditions) => {
+					if (isActiveFilter(conditions)) {
+						this.draftConditions = [];
+						this.getFiltered(conditions);
 					} else {
-						this.getFiltered(criteria);
+						this.draftConditions = conditions;
+						this.get();
 					}
 				}
 			)
@@ -4566,16 +4575,21 @@ export class Shortcode {
 
 	// Shows the first page of photos matching a filter, across the whole
 	// gallery, in place of the folder view.
-	private getFiltered(criteria: FilterCriteria): void {
+	private getFiltered(conditions: Array<FilterCondition>): void {
 		const epoch = ++this.getEpoch;
-		this.filter = criteria;
+		this.filter = conditions;
 		this.filterTotal = null;
 		this.lastPage = 1;
 		this.container.html('<div class="avpvh-loading"><div></div></div>');
 		this.mountFilterBar();
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
-			{ action: 'gallery_filter', hash: this.hash, page: 1, ...criteria },
+			{
+				action: 'gallery_filter',
+				hash: this.hash,
+				page: 1,
+				conditions: conditionsParam(conditions),
+			},
 			(data: PageResponse & { total?: number }) => {
 				if (epoch !== this.getEpoch) {
 					return;
@@ -4607,12 +4621,12 @@ export class Shortcode {
 
 	// The request for one more page: of the folder, or of the filter results.
 	private pageRequest(path: string, page: number): Record<string, unknown> {
-		return this.filter !== null && hasCriteria(this.filter)
+		return this.filter !== null
 			? {
 					action: 'gallery_filter',
 					hash: this.hash,
 					page,
-					...this.filter,
+					conditions: conditionsParam(this.filter),
 				}
 			: { action: 'page', hash: this.hash, path, page };
 	}
@@ -5210,6 +5224,20 @@ export class Shortcode {
 	}
 
 	private static readonly LIKE_SLUG = 'like';
+
+	// "Jan, Piet en 3 anderen": the names the viewer may see (their own
+	// household, see Like_Visibility on the PHP side) plus how many more.
+	private static likersText(names: Array<string>, count: number): string {
+		const others = count - names.length;
+		if (names.length === 0) {
+			return others > 0
+				? `${String(others)} ${others === 1 ? 'persoon' : 'personen'}`
+				: '';
+		}
+		return others > 0
+			? `${names.join(', ')} en ${String(others)} ${others === 1 ? 'ander' : 'anderen'}`
+			: names.join(', ');
+	}
 
 	// The reaction group holding "like", which has its own top-bar button
 	// and so is left out of the tagging panel's reaction list.

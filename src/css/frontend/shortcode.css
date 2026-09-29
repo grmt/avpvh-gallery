@@ -1377,3 +1377,43 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	padding: 0;
 	text-decoration: underline;
 }
+
+.avpvh-filter-add {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.avpvh-filter-add-button {
+	cursor: pointer;
+	font-size: 13px;
+}
+
+.avpvh-filter-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.avpvh-filter-chip {
+	background: #e7f1f9;
+	border-radius: 12px;
+	font-size: 12px;
+	padding: 2px 4px 2px 10px;
+}
+
+.avpvh-filter-chip-not {
+	background: #fbe9e9;
+}
+
+.avpvh-filter-chip-or {
+	background: #eef6e7;
+}
+
+.avpvh-filter-chip-remove {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 13px;
+	padding: 0 4px;
+}

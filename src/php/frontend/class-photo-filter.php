@@ -15,7 +15,6 @@ use Avpvh\API_Client;
 use Avpvh\API_Facade;
 use Avpvh\Frontend\Page\Images;
 use Avpvh\Helpers;
-use Avpvh\Tag_Log;
 
 /**
  * Finds photos across the whole gallery by what people added to them:
@@ -36,6 +35,18 @@ final class Photo_Filter {
 	 * Photos per page of results.
 	 */
 	private const PAGE_SIZE = 60;
+
+	/**
+	 * Per kind of condition: the photos it matches ({prefix} = table prefix;
+	 * one placeholder for the condition's value).
+	 */
+	// phpcs:ignore SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- PHPCSUtils false positive on a multi-line array value.
+	private const SUBQUERIES = array(
+		'liked_by' => "SELECT image_id FROM {prefix}agallery_photo_reactions WHERE emoji = 'like' AND user_id = %d",
+		'person'   => "SELECT image_id FROM {prefix}agallery_photo_tags WHERE category = 'personen' AND tag_key = %s",
+		'place'    => 'SELECT image_id FROM {prefix}agallery_photo_places WHERE place = %s',
+		'tag'      => "SELECT image_id FROM {prefix}agallery_photo_tags WHERE category <> 'personen' AND tag_key = %s",
+	);
 
 	/**
 	 * The Drive fields fetched per photo — the same as a folder page uses,
@@ -84,18 +95,24 @@ final class Photo_Filter {
 	 * Returns one page of matching photos, as a folder page (`images`,
 	 * `more`) plus the total number of matches.
 	 *
-	 * Query: hash (the gallery), page, and any of liked_by (user ID),
-	 * person (person tag key), tag (subject tag slug), place.
+	 * Query: hash (the gallery), page, and conditions — a JSON list of
+	 * {kind, value, op}: kind is liked_by (user ID), person (person tag
+	 * key), tag (subject tag slug) or place; op is "and" (the photo must
+	 * match), "or" (it must match at least one of the "or" conditions) or
+	 * "not" (it must not match). At least one and/or condition is needed.
 	 *
 	 * @return void
 	 */
 	public static function filter_body() {
 		list( , $options ) = Gallery_Context::get();
-		$criteria          = self::criteria_from_request();
+		$conditions        = self::conditions_from_request();
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
 		$page = max( 1, intval( $_GET['page'] ?? 1 ) );
 
-		if ( array() === $criteria ) {
+		// Only "not" conditions would mean "every photo except…": not offered.
+		$operators = array_column( $conditions, 'op' );
+
+		if ( array() === array_intersect( array( 'and', 'or' ), $operators ) ) {
 			wp_send_json(
 				array(
 					'images' => array(),
@@ -105,7 +122,7 @@ final class Photo_Filter {
 			);
 		}
 
-		list( $ids, $total ) = self::matching_ids( $criteria, $page );
+		list( $ids, $total ) = self::matching_ids( $conditions, $page );
 
 		wp_send_json(
 			array(
@@ -123,69 +140,105 @@ final class Photo_Filter {
 	 * @return void
 	 */
 	public static function handle_options() {
-		wp_send_json_success(
-			array(
-				'liked_by' => self::likers(),
-				'persons'  => self::tagged_persons(),
-				'places'   => self::places(),
-				'tags'     => self::used_tags(),
-			)
-		);
+		wp_send_json_success( Photo_Filter_Options::all() );
 	}
 
 	/**
-	 * The filter criteria in the request, keyed by kind; empty ones left out.
+	 * The valid conditions in the request. A liked_by condition on someone
+	 * whose likes the viewer may not see (Like_Visibility) is dropped.
 	 *
-	 * @return array<string, string|int>
+	 * @return array<array{kind: string, value: string|int, op: string}>
 	 */
-	private static function criteria_from_request() {
-		$criteria = array();
+	private static function conditions_from_request() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only lookup; decoded JSON is validated field by field below.
+		$raw        = json_decode( wp_unslash( (string) ( $_GET['conditions'] ?? '[]' ) ), true );
+		$conditions = array();
 
-		foreach ( array( 'liked_by', 'person', 'tag', 'place' ) as $key ) {
-			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
-			$value = sanitize_text_field( wp_unslash( (string) ( $_GET[ $key ] ?? '' ) ) );
+		foreach ( is_array( $raw ) ? $raw : array() as $condition ) {
+			$valid = self::valid_condition( $condition );
 
-			if ( '' !== $value ) {
-				$criteria[ $key ] = 'liked_by' === $key ? intval( $value ) : $value;
+			if ( null !== $valid ) {
+				$conditions[] = $valid;
 			}
 		}
 
-		return $criteria;
+		return $conditions;
 	}
 
 	/**
-	 * The IDs of one page of photos matching every criterion, in capture
+	 * One condition, sanitized, or null if it isn't valid or allowed.
+	 *
+	 * @param mixed $condition A decoded condition.
+	 *
+	 * @return array{kind: string, value: string|int, op: string}|null
+	 */
+	private static function valid_condition( $condition ) {
+		if ( ! is_array( $condition ) ) {
+			return null;
+		}
+
+		$kind     = (string) ( $condition['kind'] ?? '' );
+		$value    = sanitize_text_field( (string) ( $condition['value'] ?? '' ) );
+		$operator = (string) ( $condition['op'] ?? 'and' );
+
+		if (
+			! isset( self::SUBQUERIES[ $kind ] )
+			|| '' === $value
+			|| ! in_array( $operator, array( 'and', 'or', 'not' ), true )
+		) {
+			return null;
+		}
+
+		if ( 'liked_by' === $kind && ! Like_Visibility::can_see( (int) $value ) ) {
+			return null;
+		}
+
+		return array(
+			'kind'  => $kind,
+			'op'    => $operator,
+			'value' => 'liked_by' === $kind ? (int) $value : $value,
+		);
+	}
+
+	/**
+	 * The IDs of one page of photos matching the conditions, in capture
 	 * order (photos without a known capture date last), plus the total.
 	 *
-	 * @param array<string, string|int> $criteria See criteria_from_request().
-	 * @param int                       $page     1-based page number.
+	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See conditions_from_request().
+	 * @param int                                                       $page       1-based page number.
 	 *
 	 * @return array{0: array<string>, 1: int}
 	 */
-	private static function matching_ids( array $criteria, $page ) {
+	private static function matching_ids( array $conditions, $page ) {
 		global $wpdb;
-		$prefix     = $wpdb->prefix;
-		$reactions  = $prefix . 'agallery_photo_reactions';
-		$tags       = $prefix . 'agallery_photo_tags';
-		$subqueries = array(
-			'liked_by' => "SELECT image_id FROM {$reactions} WHERE emoji = 'like' AND user_id = %d",
-			'person'   => "SELECT image_id FROM {$tags} WHERE category = 'personen' AND tag_key = %s",
-			'place'    => "SELECT image_id FROM {$prefix}agallery_photo_places WHERE place = %s",
-			'tag'      => "SELECT image_id FROM {$tags} WHERE category <> 'personen' AND tag_key = %s",
-		);
-		$conditions = array();
-		$args       = array();
+		$prefix = $wpdb->prefix;
+		$where  = array();
+		$either = array();
+		$args   = array();
 
-		foreach ( $criteria as $key => $value ) {
-			$conditions[] = 'm.image_id IN (' . $subqueries[ $key ] . ')';
-			$args[]       = $value;
+		foreach ( $conditions as $condition ) {
+			$subquery = str_replace( '{prefix}', $prefix, self::SUBQUERIES[ $condition['kind'] ] );
+
+			if ( 'or' === $condition['op'] ) {
+				$either[] = array( "m.image_id IN ({$subquery})", $condition['value'] );
+
+				continue;
+			}
+
+			$where[] = 'm.image_id ' . ( 'not' === $condition['op'] ? 'NOT IN' : 'IN' ) . " ({$subquery})";
+			$args[]  = $condition['value'];
+		}
+
+		if ( array() !== $either ) {
+			$where[] = '(' . implode( ' OR ', array_column( $either, 0 ) ) . ')';
+			$args    = array_merge( $args, array_column( $either, 1 ) );
 		}
 
 		$from = "FROM ( SELECT image_id FROM {$prefix}agallery_photo_reactions
 		                UNION SELECT image_id FROM {$prefix}agallery_photo_tags
 		                UNION SELECT image_id FROM {$prefix}agallery_photo_places ) m
 		         LEFT JOIN {$prefix}agallery_photo_exif_dates d ON d.image_id = m.image_id
-		         WHERE " . implode( ' AND ', $conditions ) . "
+		         WHERE " . implode( ' AND ', $where ) . "
 		           AND m.image_id NOT IN ( SELECT image_id FROM {$prefix}agallery_photo_exclusions )";
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- plugin tables with fixed names; every value is a placeholder (in $from, one per criterion) filled by prepare().
@@ -270,119 +323,6 @@ final class Photo_Filter {
 						&& str_starts_with( (string) ( $record['mimeType'] ?? '' ), 'image/' );
 				}
 			)
-		);
-	}
-
-	/**
-	 * Users who liked at least one photo, most likes first.
-	 *
-	 * @return array<array{value: string, label: string, count: int}>
-	 */
-	private static function likers() {
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin table, fixed name, no user input.
-		$rows = $wpdb->get_results(
-			"SELECT user_id, COUNT(*) AS n FROM {$wpdb->prefix}agallery_photo_reactions
-			 WHERE emoji = 'like' GROUP BY user_id ORDER BY n DESC"
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$names = Tag_Log::user_names( array_map( 'intval', array_column( $rows, 'user_id' ) ) );
-
-		return array_map(
-			static function ( $row ) use ( $names ) {
-				return array(
-					'count' => (int) $row->n,
-					'label' => $names[ (int) $row->user_id ] ?? '',
-					'value' => (string) $row->user_id,
-				);
-			},
-			$rows
-		);
-	}
-
-	/**
-	 * Persons tagged in at least one photo, by name.
-	 *
-	 * @return array<array{value: string, label: string, count: int}>
-	 */
-	private static function tagged_persons() {
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin table, fixed name, no user input.
-		$rows = $wpdb->get_results(
-			"SELECT tag_key, MAX(member_name) AS name, COUNT(*) AS n FROM {$wpdb->prefix}agallery_photo_tags
-			 WHERE category = 'personen' GROUP BY tag_key ORDER BY name"
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		return array_map(
-			static function ( $row ) {
-				return array(
-					'count' => (int) $row->n,
-					'label' => (string) $row->name,
-					'value' => (string) $row->tag_key,
-				);
-			},
-			$rows
-		);
-	}
-
-	/**
-	 * Subject tags used on at least one photo, in vocabulary order, labelled
-	 * with their group ("Weer › Regen").
-	 *
-	 * @return array<array{value: string, label: string, count: int}>
-	 */
-	private static function used_tags() {
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin table, fixed name, no user input.
-		$counts = $wpdb->get_results(
-			"SELECT tag_key, COUNT(*) AS n FROM {$wpdb->prefix}agallery_photo_tags
-			 WHERE category <> 'personen' GROUP BY tag_key",
-			OBJECT_K
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$tags = array();
-
-		foreach ( Subject_Tag_Groups::GROUPS as $group ) {
-			foreach ( $group['tags'] as $slug => $label ) {
-				if ( ! isset( $counts[ $slug ] ) ) {
-					continue;
-				}
-
-				$tags[] = array(
-					'count' => (int) $counts[ $slug ]->n,
-					'label' => $group['label'] . ' › ' . $label,
-					'value' => (string) $slug,
-				);
-			}
-		}
-
-		return $tags;
-	}
-
-	/**
-	 * Places set on at least one photo, most used first.
-	 *
-	 * @return array<array{value: string, label: string, count: int}>
-	 */
-	private static function places() {
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin table, fixed name, no user input.
-		$rows = $wpdb->get_results(
-			"SELECT place, COUNT(*) AS n FROM {$wpdb->prefix}agallery_photo_places
-			 GROUP BY place ORDER BY n DESC, place"
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		return array_map(
-			static function ( $row ) {
-				return array(
-					'count' => (int) $row->n,
-					'label' => (string) $row->place,
-					'value' => (string) $row->place,
-				);
-			},
-			$rows
 		);
 	}
 }

@@ -430,7 +430,11 @@ final class Photo_Tags {
 			$user_ids = array_merge( $user_ids, array_map( 'intval', explode( ',', (string) $row->user_ids ) ) );
 		}
 
-		$user_names = Tag_Log::user_names( $user_ids );
+		// Names only of the users whose likes this viewer may see (their own
+		// household, or everyone for the IT administrator — Like_Visibility);
+		// the count stays the total.
+		$visible    = array_filter( array_unique( $user_ids ), array( Like_Visibility::class, 'can_see' ) );
+		$user_names = Tag_Log::user_names( $visible );
 		$reactions  = array_map(
 			static function ( $row ) use ( $user_names ) {
 				return array(
