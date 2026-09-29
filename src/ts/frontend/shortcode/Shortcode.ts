@@ -16,6 +16,7 @@ import {
 	type CommentData,
 	PhotoTagger,
 	type ReactionData,
+	type TagContext,
 } from '../photo-tagger/PhotoTagger';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
@@ -920,6 +921,9 @@ export class Shortcode {
 					personTagsSection.className = 'avpvh-pswp-person-tags';
 					personTagsSection.appendChild(personTagsHeading);
 					personTagsSection.appendChild(personTagsList);
+					const personScopes = document.createElement('div');
+					personScopes.className = 'avpvh-pswp-person-scopes';
+					personTagsSection.appendChild(personScopes);
 					personTagsSection.appendChild(personSearch);
 					personTagsSection.appendChild(personResults);
 					// People already tagged on the current photo (see
@@ -1116,31 +1120,110 @@ export class Shortcode {
 					// PhotoTagger.getCandidates()) but searches the whole
 					// membership, so anyone can be tagged. No position on the
 					// photo is needed — the tag is just "this person is in it".
-					let candidatesFolderId: string | null = null;
-					let activityCandidates: Array<{
-						id: number;
-						name: string;
-					}> = [];
+					// Which persons the list offers (see PhotoTagger.getTagContext()):
+					// the dig's participants, the members in the photo's year,
+					// the archaeologists, or everyone. Persons born after the
+					// photo's year are never offered.
+					type PersonScope =
+						'all' | 'archaeologists' | 'members' | 'participants';
+					let contextFolderId: string | null = null;
+					let tagContext: TagContext | null = null;
+					let personScope: PersonScope = 'all';
+					let scopeChosenByViewer = false;
+					const scopePool = (
+						scope: PersonScope
+					): Array<{ id: number; name: string }> => {
+						if (tagContext === null) {
+							return this.photoTagger.getMembersForDropdown();
+						}
+						const context = tagContext;
+						const everyone = Shortcode.mergeMembers(
+							context.participants,
+							this.photoTagger.getMembersForDropdown()
+						);
+						const pool =
+							scope === 'participants'
+								? context.participants
+								: everyone.filter(
+										(person) =>
+											scope === 'all' ||
+											(scope === 'members' &&
+												context.membersThen.has(
+													person.id
+												)) ||
+											(scope === 'archaeologists' &&
+												context.archaeologists.has(
+													person.id
+												))
+									);
+						return pool.filter(
+							(person) => !context.bornAfter.has(person.id)
+						);
+					};
+					const renderPersonScopes = (): void => {
+						personScopes.innerHTML = '';
+						const scopes: Array<[PersonScope, string]> = [
+							['participants', 'Deelnemers'],
+							[
+								'members',
+								tagContext?.year !== null &&
+								tagContext?.year !== undefined
+									? `Leden ${String(tagContext.year)}`
+									: 'Leden',
+							],
+							['archaeologists', 'Archeologen'],
+							['all', 'Iedereen'],
+						];
+						scopes.forEach(([scope, label]) => {
+							const count = scopePool(scope).length;
+							if (scope !== 'all' && count === 0) {
+								return;
+							}
+							const button = document.createElement('button');
+							button.type = 'button';
+							button.textContent =
+								scope === 'all'
+									? label
+									: `${label} (${String(count)})`;
+							button.dataset['scope'] = scope;
+							button.classList.toggle(
+								'active',
+								scope === personScope
+							);
+							personScopes.appendChild(button);
+						});
+					};
 					const loadPersonCandidates = async (): Promise<void> => {
-						if (candidatesFolderId === exclusionFolderId) {
+						if (contextFolderId === exclusionFolderId) {
 							return;
 						}
 						const folderId = exclusionFolderId;
-						const candidates =
-							await this.photoTagger.getCandidates(folderId);
-						candidatesFolderId = folderId;
-						activityCandidates = candidates;
+						const context =
+							await PhotoTagger.getTagContext(folderId);
+						contextFolderId = folderId;
+						tagContext = context;
+						// Default to the narrowest list that has anyone in it,
+						// unless the viewer picked one that still does.
+						if (
+							!scopeChosenByViewer ||
+							scopePool(personScope).length === 0
+						) {
+							personScope =
+								(
+									[
+										'participants',
+										'members',
+									] as Array<PersonScope>
+								).find(
+									(scope) => scopePool(scope).length > 0
+								) ?? 'all';
+						}
+						renderPersonScopes();
 					};
 					const renderPersonResults = (): void => {
 						personResults.innerHTML = '';
 						const query = personSearch.value.trim();
-						const pool =
-							query === ''
-								? activityCandidates
-								: Shortcode.mergeMembers(
-										activityCandidates,
-										this.photoTagger.getMembersForDropdown()
-									);
+						const pool = scopePool(personScope);
 						const matches = searchPeople(
 							query,
 							pool.filter(
@@ -1199,6 +1282,20 @@ export class Shortcode {
 							)
 							.then(refreshTagsPanel);
 					};
+					personScopes.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const button =
+							e.target instanceof Element
+								? e.target.closest<HTMLElement>('[data-scope]')
+								: null;
+						if (button === null) {
+							return;
+						}
+						personScope = button.dataset['scope'] as PersonScope;
+						scopeChosenByViewer = true;
+						renderPersonScopes();
+						renderPersonResults();
+					});
 					personResults.addEventListener('click', (e) => {
 						e.stopPropagation();
 						const pick =

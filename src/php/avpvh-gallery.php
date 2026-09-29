@@ -100,6 +100,8 @@ require_once __DIR__ . '/frontend/class-video-proxy.php';
 require_once __DIR__ . '/frontend/class-image-proxy.php';
 require_once __DIR__ . '/frontend/class-pdf-proxy.php';
 require_once __DIR__ . '/frontend/class-activity-participants.php';
+require_once __DIR__ . '/frontend/class-person-filters.php';
+require_once __DIR__ . '/frontend/class-photo-folder-context.php';
 require_once __DIR__ . '/frontend/class-photo-tags.php';
 require_once __DIR__ . '/frontend/class-members-api.php';
 require_once __DIR__ . '/frontend/class-exif-date-rest.php';

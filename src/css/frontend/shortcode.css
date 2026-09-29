@@ -1063,6 +1063,28 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	padding: 0 4px;
 }
 
+.avpvh-pswp-person-scopes {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin: 4px 0 6px;
+}
+
+.avpvh-pswp-person-scopes button {
+	background: none;
+	border: 1px solid rgb(255, 255, 255, 30%);
+	border-radius: 12px;
+	color: #fff;
+	cursor: pointer;
+	font-size: 12px;
+	padding: 2px 10px;
+}
+
+.avpvh-pswp-person-scopes button.active {
+	background: #2271b1;
+	border-color: #2271b1;
+}
+
 .avpvh-pswp-person-search {
 	background: rgb(255, 255, 255, 10%);
 	border: 1px solid rgb(255, 255, 255, 30%);

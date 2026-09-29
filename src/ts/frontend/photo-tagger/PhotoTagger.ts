@@ -54,6 +54,14 @@ interface ReactionListResponse {
 	};
 }
 
+export interface TagContext {
+	year: number | null;
+	participants: Array<{ id: number; name: string }>;
+	membersThen: Set<number>;
+	archaeologists: Set<number>;
+	bornAfter: Set<number>;
+}
+
 export class PhotoTagger {
 	private membersCache: Array<Member> = [];
 	private currentImageId = '';
@@ -152,6 +160,46 @@ export class PhotoTagger {
 				: [];
 		} catch {
 			return [];
+		}
+	}
+
+	// Who could plausibly be in photos from a folder (see the PHP
+	// Person_Filters/Photo_Folder_Context): the year the folder belongs to,
+	// the matching activity's participants, the persons who were members
+	// that year, the archaeologists, and the persons born after that year.
+	public static async getTagContext(folderId: string): Promise<TagContext> {
+		const empty: TagContext = {
+			year: null,
+			participants: [],
+			membersThen: new Set(),
+			archaeologists: new Set(),
+			bornAfter: new Set(),
+		};
+		try {
+			const response = await fetch(
+				`/wp-admin/admin-ajax.php?action=gallery_tag_candidates&folder_id=${encodeURIComponent(folderId)}`
+			);
+			if (!response.ok) {
+				return empty;
+			}
+			const data = (await response.json()) as {
+				data?: {
+					members?: Array<{ id: number; name: string }>;
+					year?: number | null;
+					members_then?: Array<number>;
+					archaeologists?: Array<number>;
+					born_after?: Array<number>;
+				};
+			};
+			return {
+				year: data.data?.year ?? null,
+				participants: data.data?.members ?? [],
+				membersThen: new Set(data.data?.members_then ?? []),
+				archaeologists: new Set(data.data?.archaeologists ?? []),
+				bornAfter: new Set(data.data?.born_after ?? []),
+			};
+		} catch {
+			return empty;
 		}
 	}
 
