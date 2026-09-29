@@ -115,6 +115,29 @@ final class Images {
 	}
 
 	/**
+	 * Formats Drive image records from one folder the way a folder page
+	 * does — excluded photos dropped, orientation corrections merged — but
+	 * without the folder's ordering. Used for filter results (Photo_Filter),
+	 * whose photos come from all over the gallery.
+	 *
+	 * @param array<array<string, mixed>> $records   Raw Google Drive image records.
+	 * @param string                      $parent_id The Drive folder the records are in.
+	 * @param Options_Proxy               $options   The configuration of the gallery.
+	 *
+	 * @return array<array<string, mixed>>
+	 */
+	public static function from_records( array $records, $parent_id, $options ) {
+		$images = array_map(
+			static function ( $image ) use ( $options, $parent_id ) {
+				return self::format_image( $image, $options, $parent_id );
+			},
+			self::filter_excluded( $records )
+		);
+
+		return self::merge_corrections( $images, $parent_id, $options );
+	}
+
+	/**
 	 * Normalizes a raw Google Drive image record into the gallery's image shape.
 	 *
 	 * @param array<string, mixed> $image The raw Google Drive image record.
