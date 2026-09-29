@@ -934,33 +934,54 @@ export class Shortcode {
 							subjectStatus.textContent = '';
 						}, 4000);
 					};
-					// Consecutive groups sharing a parent (Soort / Karakter / Doel
-					// under "Soort foto") are nested in one parent section.
-					let parentSection: {
-						label: string;
-						body: HTMLElement;
-					} | null = null;
-					const containerFor = (
-						parent: string | undefined
-					): HTMLElement => {
-						if (parent === undefined) {
-							parentSection = null;
-							return subjectTagsList;
-						}
-						if (parentSection?.label !== parent) {
-							const outer = document.createElement('details');
-							outer.className = 'avpvh-pswp-subject-tags-parent';
-							const summary = document.createElement('summary');
-							summary.textContent = parent;
-							outer.appendChild(summary);
-							subjectTagsList.appendChild(outer);
-							parentSection = { label: parent, body: outer };
-						}
-						return parentSection.body;
+					// Groups are nested by their path — Wie, Wat › Graven, Waar,
+					// Wanneer, Hoe (see Subject_Tag_Groups). The top-level
+					// sections start open; everything below starts collapsed.
+					const pathSections = new Map<string, HTMLElement>();
+					const containerFor = (path: Array<string>): HTMLElement => {
+						let container: HTMLElement = subjectTagsList;
+						path.forEach((label, depth) => {
+							const key = path.slice(0, depth + 1).join(' › ');
+							let section = pathSections.get(key);
+							if (section === undefined) {
+								const details =
+									document.createElement('details');
+								details.className =
+									'avpvh-pswp-subject-tags-parent';
+								details.open = depth === 0;
+								const summary =
+									document.createElement('summary');
+								summary.textContent = label;
+								details.appendChild(summary);
+								container.appendChild(details);
+								pathSections.set(key, details);
+								section = details;
+							}
+							container = section;
+						});
+						return container;
+					};
+					// Read-only facts from the photo's folder ("2026 Goeblange"),
+					// filled in once PhotoTagger.getTagContext() has answered.
+					const folderPlace = document.createElement('div');
+					folderPlace.className = 'avpvh-pswp-folder-fact';
+					const folderYear = document.createElement('div');
+					folderYear.className = 'avpvh-pswp-folder-fact';
+					const showFolderFacts = (
+						context: TagContext | null
+					): void => {
+						const place = context?.place ?? '';
+						const year = context?.year ?? null;
+						folderPlace.textContent =
+							place === '' ? '' : `Locatie: ${place} (uit map)`;
+						folderYear.textContent =
+							year === null
+								? ''
+								: `Jaar: ${String(year)} (uit map)`;
 					};
 					Object.entries(avpvhShortcodeLocalize.subject_tags).forEach(
 						([category, group]) => {
-							const container = containerFor(group.parent);
+							const container = containerFor(group.path);
 							const section = document.createElement('details');
 							section.className =
 								'avpvh-pswp-subject-tags-section';
@@ -1107,8 +1128,27 @@ export class Shortcode {
 					commentsSection.appendChild(commentInput);
 					commentsSection.appendChild(commentSubmit);
 
+					// Persons go first under "Wie"; the folder's place and year
+					// first under "Waar" and "Wanneer".
+					const placeFirst = (
+						key: string,
+						element: HTMLElement
+					): void => {
+						const section = pathSections.get(key);
+						if (section === undefined) {
+							tagsPanel.appendChild(element);
+							return;
+						}
+						section.insertBefore(
+							element,
+							section.querySelector(':scope > summary')
+								?.nextSibling ?? null
+						);
+					};
 					tagsPanel.appendChild(subjectTagsList);
-					tagsPanel.appendChild(personTagsSection);
+					placeFirst('Wie', personTagsSection);
+					placeFirst('Waar', folderPlace);
+					placeFirst('Wanneer', folderYear);
 					tagsPanel.appendChild(reactionsSection);
 					tagsPanel.appendChild(commentsSection);
 
@@ -1338,6 +1378,7 @@ export class Shortcode {
 							await PhotoTagger.getTagContext(folderId);
 						contextFolderId = folderId;
 						tagContext = context;
+						showFolderFacts(context);
 						// Default to the narrowest list that has anyone in it,
 						// unless the viewer picked one that still does.
 						if (

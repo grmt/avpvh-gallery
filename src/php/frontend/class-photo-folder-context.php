@@ -30,15 +30,20 @@ final class Photo_Folder_Context {
 	 *
 	 * @param string $folder_id Google Drive folder ID.
 	 *
-	 * @return array{year: int|null, participants: array<array{id: int, name: string}>}
+	 * @return array{year: int|null, place: string, participants: array<array{id: int, name: string}>}
 	 */
 	public static function for_folder( $folder_id ) {
-		$cache_key = 'avpvh_folder_context_' . md5( $folder_id );
+		$cache_key = 'avpvh_folder_context_v2_' . md5( $folder_id );
 		$cached    = get_transient( $cache_key );
 
-		if ( is_array( $cached ) && isset( $cached['participants'] ) && is_array( $cached['participants'] ) ) {
+		if (
+			is_array( $cached )
+			&& isset( $cached['participants'], $cached['place'] )
+			&& is_array( $cached['participants'] )
+		) {
 			return array(
 				'participants' => $cached['participants'],
+				'place'        => (string) $cached['place'],
 				'year'         => isset( $cached['year'] ) ? (int) $cached['year'] : null,
 			);
 		}
@@ -49,6 +54,7 @@ final class Photo_Folder_Context {
 			// @phan-suppress-previous-line PhanUnusedVariableCaughtException -- best-effort lookup; any failure just means no context.
 			$context = array(
 				'participants' => array(),
+				'place'        => '',
 				'year'         => null,
 			);
 		}
@@ -60,21 +66,26 @@ final class Photo_Folder_Context {
 
 	/**
 	 * Tries the folder and up to three of its ancestors, nearest first: the
-	 * year is taken from the first folder name starting with one ("2026
-	 * Goeblange"), the participants from the first one matching an activity.
+	 * year and place are taken from the first folder name starting with a
+	 * year ("2026 Goeblange", "2025 Goeblange - GKA" → 2025, "Goeblange"),
+	 * the participants from the first one matching an activity.
 	 *
 	 * @param string $folder_id Google Drive folder ID.
 	 *
-	 * @return array{year: int|null, participants: array<array{id: int, name: string}>}
+	 * @return array{year: int|null, place: string, participants: array<array{id: int, name: string}>}
 	 */
 	private static function context_from_ancestors( $folder_id ) {
-		$year = null;
+		$year  = null;
+		$place = '';
 
 		for ( $level = 0; $level < 4 && '' !== $folder_id; ++$level ) {
 			list( $folder_name, $parent_id ) = self::folder_name_and_parent( $folder_id );
 
-			if ( null === $year && 1 === preg_match( '/^(\d{4})\b/', trim( $folder_name ), $matches ) ) {
-				$year = (int) $matches[1];
+			$is_dated = 1 === preg_match( '/^(\d{4})\s*(.*?)(?:\s+-\s+.*)?$/', trim( $folder_name ), $matches );
+
+			if ( null === $year && $is_dated ) {
+				$year  = (int) $matches[1];
+				$place = $matches[2];
 			}
 
 			$participants = Activity_Participants::for_folder_name( $folder_name );
@@ -82,6 +93,7 @@ final class Photo_Folder_Context {
 			if ( array() !== $participants ) {
 				return array(
 					'participants' => $participants,
+					'place'        => $place,
 					'year'         => $year,
 				);
 			}
@@ -91,6 +103,7 @@ final class Photo_Folder_Context {
 
 		return array(
 			'participants' => array(),
+			'place'        => $place,
 			'year'         => $year,
 		);
 	}

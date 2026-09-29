@@ -32,7 +32,7 @@ declare const avpvhShortcodeLocalize: {
 		string,
 		{
 			label: string;
-			parent?: string;
+			path: Array<string>;
 			single: boolean;
 			tags: Record<string, string>;
 		}

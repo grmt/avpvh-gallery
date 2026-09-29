@@ -92,7 +92,10 @@ final class Photo_Tags {
 
 		wp_send_json_success(
 			array_merge(
-				array( 'members' => $context['participants'] ),
+				array(
+					'members' => $context['participants'],
+					'place'   => $context['place'],
+				),
 				Person_Filters::for_year( $context['year'] )
 			)
 		);

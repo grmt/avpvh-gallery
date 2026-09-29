@@ -58,6 +58,8 @@ interface ReactionListResponse {
 
 export interface TagContext {
 	year: number | null;
+	// The place from the folder name ("2026 Goeblange" → "Goeblange").
+	place: string;
 	participants: Array<{ id: number; name: string }>;
 	membersThen: Set<number>;
 	archaeologists: Set<number>;
@@ -172,6 +174,7 @@ export class PhotoTagger {
 	public static async getTagContext(folderId: string): Promise<TagContext> {
 		const empty: TagContext = {
 			year: null,
+			place: '',
 			participants: [],
 			membersThen: new Set(),
 			archaeologists: new Set(),
@@ -188,6 +191,7 @@ export class PhotoTagger {
 				data?: {
 					members?: Array<{ id: number; name: string }>;
 					year?: number | null;
+					place?: string;
 					members_then?: Array<number>;
 					archaeologists?: Array<number>;
 					born_after?: Array<number>;
@@ -195,6 +199,7 @@ export class PhotoTagger {
 			};
 			return {
 				year: data.data?.year ?? null,
+				place: data.data?.place ?? '',
 				participants: data.data?.members ?? [],
 				membersThen: new Set(data.data?.members_then ?? []),
 				archaeologists: new Set(data.data?.archaeologists ?? []),
