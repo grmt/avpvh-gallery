@@ -987,6 +987,24 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	text-shadow: 0 1px 2px rgb(0, 0, 0, 80%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
+.avpvh-pswp-tags-header {
+	align-items: center;
+	display: flex;
+	font-weight: 700;
+	justify-content: space-between;
+	margin-bottom: 6px;
+}
+
+.avpvh-pswp-tags-close {
+	background: none;
+	border: none;
+	color: #fff;
+	cursor: pointer;
+	font-size: 22px;
+	line-height: 1;
+	padding: 0 4px;
+}
+
 .avpvh-pswp-tags-panel {
 	background-color: rgb(0, 0, 0, 85%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	border-radius: 6px;
@@ -1416,4 +1434,11 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	cursor: pointer;
 	font-size: 13px;
 	padding: 0 4px;
+}
+
+/* Contents of the tagging panel's top-level sections, indented. */
+.avpvh-pswp-top > .avpvh-pswp-subject-tags,
+.avpvh-pswp-top > .avpvh-pswp-reactions-group,
+.avpvh-pswp-top > .avpvh-pswp-comments {
+	margin-left: 14px;
 }

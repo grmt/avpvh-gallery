@@ -190,6 +190,8 @@ final class Subject_Tag_Groups {
 				'groepsfoto' => 'Groepsfoto',
 				'overzicht'  => 'Overzicht',
 				'detail'     => 'Detail / close-up',
+				'tafereel'   => 'Tafereel',
+				'telelens'   => 'Telelens',
 				'luchtfoto'  => 'Luchtfoto / drone',
 			),
 		),

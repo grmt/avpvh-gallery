@@ -878,6 +878,77 @@ export class Shortcode {
 					const tagsPanel = document.createElement('div');
 					tagsPanel.className = 'avpvh-pswp-tags-panel';
 					tagsPanel.style.display = 'none';
+					// Header with a close button (Escape closes the panel too,
+					// rather than the whole lightbox).
+					const tagsHeader = document.createElement('div');
+					tagsHeader.className = 'avpvh-pswp-tags-header';
+					const tagsTitle = document.createElement('span');
+					tagsTitle.textContent = 'Taggen';
+					const tagsClose = document.createElement('button');
+					tagsClose.type = 'button';
+					tagsClose.className = 'avpvh-pswp-tags-close';
+					tagsClose.title = 'Sluiten (Esc)';
+					tagsClose.textContent = '×';
+					tagsHeader.append(tagsTitle, tagsClose);
+					tagsPanel.appendChild(tagsHeader);
+					const closeTagsPanel = (): void => {
+						tagsPanel.style.display = 'none';
+					};
+					tagsClose.addEventListener('click', (e) => {
+						e.stopPropagation();
+						closeTagsPanel();
+					});
+					const onEscape = (e: KeyboardEvent): void => {
+						if (
+							e.key === 'Escape' &&
+							tagsPanel.style.display !== 'none'
+						) {
+							e.preventDefault();
+							e.stopImmediatePropagation();
+							closeTagsPanel();
+						}
+					};
+					document.addEventListener('keydown', onEscape, true);
+					instance.on('close', () => {
+						document.removeEventListener('keydown', onEscape, true);
+					});
+
+					// Which sections of the panel are open, remembered per
+					// browser: everything starts collapsed until opened.
+					const openSections = ((): Set<string> => {
+						try {
+							return new Set(
+								JSON.parse(
+									localStorage.getItem(
+										'avpvh_tag_sections_open'
+									) ?? '[]'
+								) as Array<string>
+							);
+						} catch {
+							return new Set<string>();
+						}
+					})();
+					const rememberOpen = (
+						details: HTMLDetailsElement,
+						key: string
+					): void => {
+						details.open = openSections.has(key);
+						details.addEventListener('toggle', () => {
+							if (details.open) {
+								openSections.add(key);
+							} else {
+								openSections.delete(key);
+							}
+							try {
+								localStorage.setItem(
+									'avpvh_tag_sections_open',
+									JSON.stringify(Array.from(openSections))
+								);
+							} catch {
+								// Not remembered; fine for this visit.
+							}
+						});
+					};
 
 					// Subject tags, one collapsible section per group (Soort foto,
 					// Tijdstip, Weer, …). Anyone logged in may add a tag; only
@@ -954,8 +1025,9 @@ export class Shortcode {
 						}, 4000);
 					};
 					// Groups are nested by their path — Wie, Wat › Graven, Waar,
-					// Wanneer, Hoe (see Subject_Tag_Groups). The top-level
-					// sections start open; everything below starts collapsed.
+					// Wanneer, Hoe (see Subject_Tag_Groups) — inside the panel's
+					// "Tags" section. Every section starts collapsed unless the
+					// viewer left it open (rememberOpen).
 					const pathSections = new Map<string, HTMLElement>();
 					const containerFor = (path: Array<string>): HTMLElement => {
 						let container: HTMLElement = subjectTagsList;
@@ -967,7 +1039,7 @@ export class Shortcode {
 									document.createElement('details');
 								details.className =
 									'avpvh-pswp-subject-tags-parent';
-								details.open = depth === 0;
+								rememberOpen(details, key);
 								const summary =
 									document.createElement('summary');
 								summary.textContent = label;
@@ -1186,6 +1258,7 @@ export class Shortcode {
 						([category, group]) => {
 							const container = containerFor(group.path);
 							const section = document.createElement('details');
+							rememberOpen(section, `group:${category}`);
 							section.className =
 								'avpvh-pswp-subject-tags-section';
 							section.dataset['category'] = category;
@@ -1307,15 +1380,22 @@ export class Shortcode {
 							if (Shortcode.isLikeGroup(group)) {
 								return;
 							}
-							const heading = document.createElement('div');
-							heading.className = 'avpvh-pswp-reactions-heading';
-							heading.textContent = group;
-							reactionsSection.appendChild(heading);
+							// Each group (Kwaliteit, Zorgen) is its own top-level,
+							// collapsible section of the panel, next to "Tags".
+							const section = document.createElement('details');
+							section.className =
+								'avpvh-pswp-subject-tags-parent avpvh-pswp-top';
+							rememberOpen(section, `top:${group}`);
+							const summary = document.createElement('summary');
+							summary.textContent =
+								group.charAt(0).toUpperCase() + group.slice(1);
+							section.appendChild(summary);
 
 							const row = document.createElement('div');
 							row.className = 'avpvh-pswp-reactions-group';
 							row.dataset['group'] = group;
-							reactionsSection.appendChild(row);
+							section.appendChild(row);
+							reactionsSection.appendChild(section);
 						}
 					);
 
@@ -1352,12 +1432,27 @@ export class Shortcode {
 								?.nextSibling ?? null
 						);
 					};
-					tagsPanel.appendChild(subjectTagsList);
+					// Top level of the panel: Tags · Kwaliteit · Zorgen · Opmerkingen.
+					const tagsTop = document.createElement('details');
+					tagsTop.className =
+						'avpvh-pswp-subject-tags-parent avpvh-pswp-top';
+					rememberOpen(tagsTop, 'top:tags');
+					const tagsTopSummary = document.createElement('summary');
+					tagsTopSummary.textContent = 'Tags';
+					tagsTop.append(tagsTopSummary, subjectTagsList);
+					tagsPanel.appendChild(tagsTop);
 					placeFirst('Wie', personTagsSection);
 					placeFirst('Waar', placeBlock);
 					placeFirst('Wanneer', folderYear);
 					tagsPanel.appendChild(reactionsSection);
-					tagsPanel.appendChild(commentsSection);
+					const commentsTop = document.createElement('details');
+					commentsTop.className =
+						'avpvh-pswp-subject-tags-parent avpvh-pswp-top';
+					rememberOpen(commentsTop, 'top:comments');
+					const commentsSummary = document.createElement('summary');
+					commentsSummary.textContent = 'Opmerkingen';
+					commentsTop.append(commentsSummary, commentsSection);
+					tagsPanel.appendChild(commentsTop);
 
 					refreshTagsPanel = (): void => {
 						if (exclusionFileId === '') {
@@ -1712,9 +1807,7 @@ export class Shortcode {
 					// PhotoSwipe's document-level keyboard shortcuts (arrows
 					// change slide, Escape closes).
 					tagsPanel.addEventListener('keydown', (e) => {
-						if (e.key !== 'Escape') {
-							e.stopPropagation();
-						}
+						e.stopPropagation();
 					});
 
 					onTagsBarClick = (): void => {
