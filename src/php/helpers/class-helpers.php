@@ -35,6 +35,45 @@ final class Helpers {
 	}
 
 	/**
+	 * Runs a members-only AJAX handler: visitors who aren't logged in get a
+	 * 401 asking them to log in. The gallery is only shown on the members
+	 * pages, and its AJAX endpoints used to rely on the gallery hash alone.
+	 *
+	 * @param callable $handler The actual handler.
+	 *
+	 * @return void
+	 */
+	public static function members_only_ajax( $handler ) {
+		if ( ! is_user_logged_in() ) {
+			wp_send_json( array( 'error' => "Log in om de foto's te bekijken." ), 401 );
+		}
+
+		self::ajax_wrapper( $handler );
+	}
+
+	/**
+	 * Sends a JSON response that the web server may keep and hand to other
+	 * (logged-in) members for a while, so the slow Google Drive calls behind
+	 * it aren't repeated on every visit. nginx's FastCGI cache honours
+	 * X-Accel-Expires; browsers still get WordPress's no-cache headers.
+	 *
+	 * Only for responses that are the same for every user — nothing
+	 * personal (likes, tags, permissions) may ever be added to them.
+	 *
+	 * @param mixed $data    The response.
+	 * @param int   $seconds How long it may be kept.
+	 *
+	 * @return void
+	 */
+	public static function send_shared_json( $data, $seconds = 900 ) {
+		if ( ! headers_sent() ) {
+			header( 'X-Accel-Expires: ' . $seconds );
+		}
+
+		wp_send_json( $data );
+	}
+
+	/**
 	 * Runs an AJAX handler and handles errors.
 	 *
 	 * @param callable $handler The actual handler.

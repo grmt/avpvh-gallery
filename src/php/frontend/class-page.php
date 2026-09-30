@@ -55,7 +55,7 @@ final class Page {
 	 * @return void
 	 */
 	public static function handle_ajax() {
-		Helpers::ajax_wrapper( array( self::class, 'ajax_handler_body' ) );
+		Helpers::members_only_ajax( array( self::class, 'ajax_handler_body' ) );
 	}
 
 	/**
@@ -85,7 +85,8 @@ final class Page {
 		$page_promise = self::get( $parent_id, $pagination_helper, $options );
 		list( $page ) = API_Client::execute( array( $page_promise, $path_verification ) );
 
-		wp_send_json( $page );
+		// The same for every member: the web server may share it for 15 minutes.
+		Helpers::send_shared_json( $page );
 	}
 
 	/**
