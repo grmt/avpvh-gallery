@@ -15,23 +15,15 @@ use Avpvh\API_Facade;
 use Avpvh\Frontend\API_Fields;
 use Avpvh\Frontend\Options_Proxy;
 use Avpvh\Frontend\Paging_Pagination_Helper;
-use Avpvh\Vendor\GuzzleHttp\Promise\FulfilledPromise;
 use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
 use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
 
 /**
  * The cover photo on a folder tile: the folder's first (non-excluded)
  * photo, shown with the same grid orientation correction it gets inside
- * the folder — per photo, or the folder's default. A folder without photos
- * of its own (only subfolders, e.g. a dig split per photographer) borrows
- * the cover of its first subfolder that has one, up to two levels down.
+ * the folder — per photo, or the folder's default.
  */
 final class Folder_Covers {
-
-	/**
-	 * How many levels of subfolders to look into for a cover.
-	 */
-	private const MAX_DEPTH = 2;
 
 	/**
 	 * Covers for a list of folders.
@@ -45,7 +37,7 @@ final class Folder_Covers {
 		return Utils::all(
 			array_map(
 				static function ( $folder_id ) use ( $options ) {
-					return self::cover( (string) $folder_id, $options, 0 );
+					return self::cover( (string) $folder_id, $options );
 				},
 				$folder_ids
 			)
@@ -53,15 +45,14 @@ final class Folder_Covers {
 	}
 
 	/**
-	 * One folder's cover, falling back to its subfolders'.
+	 * One folder's cover.
 	 *
 	 * @param string        $folder_id Drive folder ID.
 	 * @param Options_Proxy $options   The configuration of the gallery.
-	 * @param int           $depth     How many levels down from the tile's folder this is.
 	 *
 	 * @return PromiseInterface Resolving to false or a cover.
 	 */
-	private static function cover( $folder_id, $options, $depth ) {
+	private static function cover( $folder_id, $options ) {
 		$ordering = (string) $options->get( 'image_ordering' );
 
 		return API_Facade::list_images(
@@ -76,57 +67,10 @@ final class Folder_Covers {
 			( new Paging_Pagination_Helper() )->withValues( 0, 100 ),
 			$ordering
 		)->then(
-			static function ( $images ) use ( $folder_id, $options, $depth ) {
+			static function ( $images ) use ( $folder_id, $options ) {
 				$images = self::without_excluded( $images );
 
-				if ( array() !== $images ) {
-					return self::cover_from( $images[0], $folder_id, $options );
-				}
-
-				return self::MAX_DEPTH > $depth ? self::subfolder_cover( $folder_id, $options, $depth + 1 ) : false;
-			}
-		);
-	}
-
-	/**
-	 * The cover of the first of a folder's subfolders that has one.
-	 *
-	 * @param string        $folder_id Drive folder ID.
-	 * @param Options_Proxy $options   The configuration of the gallery.
-	 * @param int           $depth     The subfolders' depth.
-	 *
-	 * @return PromiseInterface Resolving to false or a cover.
-	 */
-	private static function subfolder_cover( $folder_id, $options, $depth ) {
-		return API_Facade::list_directories(
-			$folder_id,
-			new API_Fields( array( 'id' ) ),
-			( new Paging_Pagination_Helper() )->withValues( 0, 5 ),
-			'name'
-		)->then(
-			static function ( $subfolders ) use ( $options, $depth ) {
-				return self::first_cover( array_column( $subfolders, 'id' ), $options, $depth );
-			}
-		);
-	}
-
-	/**
-	 * Tries folders in order until one has a cover.
-	 *
-	 * @param array<string> $folder_ids Drive folder IDs.
-	 * @param Options_Proxy $options    The configuration of the gallery.
-	 * @param int           $depth      Their depth.
-	 *
-	 * @return PromiseInterface Resolving to false or a cover.
-	 */
-	private static function first_cover( array $folder_ids, $options, $depth ) {
-		if ( array() === $folder_ids ) {
-			return new FulfilledPromise( false );
-		}
-
-		return self::cover( (string) array_shift( $folder_ids ), $options, $depth )->then(
-			static function ( $cover ) use ( $folder_ids, $options, $depth ) {
-				return false !== $cover ? $cover : self::first_cover( $folder_ids, $options, $depth );
+				return array() !== $images ? self::cover_from( $images[0], $folder_id, $options ) : false;
 			}
 		);
 	}
