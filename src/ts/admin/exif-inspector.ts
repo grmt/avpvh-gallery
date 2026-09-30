@@ -715,6 +715,26 @@ class ExifInspector {
 		}
 	}
 
+	// For a photo hidden as a duplicate: a button to the photo it copies,
+	// opened in the Inspector (by its Drive ID, like other deep links).
+	private static showDuplicateOriginal(fileId: string, name: string): void {
+		const link = document.getElementById('photo-exclusion-original');
+		if (!(link instanceof HTMLAnchorElement)) {
+			return;
+		}
+		if (fileId === '') {
+			link.style.display = 'none';
+			return;
+		}
+		const url = new URL(window.location.href);
+		url.searchParams.set('avpvh_file_id', fileId);
+		link.href = url.toString();
+		link.textContent =
+			name === '' ? 'Toon origineel' : `Toon origineel: ${name}`;
+		link.title = 'Dit is een dubbel; open de foto die bewaard is';
+		link.style.display = '';
+	}
+
 	private static setExclusionDetailsVisible(visible: boolean): void {
 		const details = document.getElementById('photo-exclusion-details');
 		if (details) {
@@ -1206,6 +1226,7 @@ class ExifInspector {
 									<textarea id="photo-exclusion-note" rows="2" maxlength="1000"></textarea>
 								</label>
 							</div>
+							<a id="photo-exclusion-original" class="button" style="display:none;"></a>
 							<div class="photo-exclusion-actions">
 								<button id="save-photo-exclusion" type="button">Wijziging opslaan</button>
 								<span id="photo-exclusion-status"></span>
@@ -4315,8 +4336,13 @@ class ExifInspector {
 				state.reasons,
 				state.note
 			);
+			ExifInspector.showDuplicateOriginal(
+				state.duplicateOf,
+				state.duplicateOfName
+			);
 		} catch {
 			if (this.currentFile === file) {
+				ExifInspector.showDuplicateOriginal('', '');
 				this.renderPhotoExclusion(
 					false,
 					[],

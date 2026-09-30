@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Avpvh\Exceptions\Exception as Avpvh_Exception;
 use Exception as Base_Exception;
+use Throwable;
 use const WP_DEBUG;
 use const WP_DEBUG_DISPLAY;
 
@@ -105,6 +106,24 @@ final class Helpers {
 			}
 
 			wp_send_json( array( 'error' => esc_html__( 'Unknown error.', 'avpvh-gallery' ) ) );
+		}
+	}
+
+	/**
+	 * A Drive file's name, or '' if it can't be looked up (e.g. deleted).
+	 *
+	 * @param string $file_id Drive file ID.
+	 *
+	 * @return string
+	 */
+	public static function drive_file_name( $file_id ) {
+		try {
+			$names = API_Client::execute( array( API_Facade::get_file_name( $file_id ) ) );
+
+			return is_string( $names[0] ) ? $names[0] : '';
+		} catch ( Throwable $e ) {
+			// @phan-suppress-previous-line PhanUnusedVariableCaughtException -- best-effort label only.
+			return '';
 		}
 	}
 }

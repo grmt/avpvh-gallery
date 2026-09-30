@@ -8,6 +8,9 @@ export interface ExclusionState {
 	excluded: boolean;
 	reasons: Array<string>;
 	note: string;
+	// Hidden as a duplicate: the Drive ID and name of the photo it copies.
+	duplicateOf: string;
+	duplicateOfName: string;
 }
 
 export interface SaveExclusionParams {
@@ -38,11 +41,15 @@ export async function fetchExclusion(
 		excluded?: boolean;
 		reasons?: Array<string>;
 		note?: string;
+		duplicate_of?: string;
+		duplicate_of_name?: string;
 	};
 	return {
 		excluded: data.excluded === true,
 		reasons: data.reasons ?? [],
 		note: data.note ?? '',
+		duplicateOf: data.duplicate_of ?? '',
+		duplicateOfName: data.duplicate_of_name ?? '',
 	};
 }
 
