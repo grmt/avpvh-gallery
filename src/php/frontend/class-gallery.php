@@ -104,6 +104,7 @@ final class Gallery {
 			array( Page::get( $parent_id, $pagination_helper, $options ), $path_name_promise, $path_verification )
 		);
 		$page['path']            = $path_names;
+		$page                    = Page::with_borrowed_covers( $page, $options );
 
 		// The same for every member (folder contents, covers, counts,
 		// corrections): the web server may share it for 15 minutes.
