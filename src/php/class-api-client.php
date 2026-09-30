@@ -313,7 +313,13 @@ final class API_Client {
 			return;
 		}
 
-		self::$current_batch = null;
+		// Take this batch's handlers with it: a handler may queue a new request
+		// (e.g. the next page of a listing), which starts a fresh batch with
+		// its own handlers — that must not wipe the ones still to be called
+		// here (it used to, crashing with "must be a valid callback").
+		$pending                = self::$pending_requests;
+		self::$pending_requests = array();
+		self::$current_batch    = null;
 		/**
 		 * The closure executes the batch and throws the exception if it is a rate limit exceeded exception (this is needed by the task runner).
 		 *
@@ -349,8 +355,9 @@ final class API_Client {
 		$responses = $task->run();
 
 		foreach ( $responses as $key => $response ) {
-			call_user_func( self::$pending_requests[ $key ], $response );
-			unset( self::$pending_requests[ $key ] );
+			if ( isset( $pending[ $key ] ) ) {
+				call_user_func( $pending[ $key ], $response );
+			}
 		}
 	}
 
