@@ -78,7 +78,8 @@ final class Photo_Filter_Options {
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin table, fixed name, no user input.
 		$rows = $wpdb->get_results(
-			"SELECT tag_key, MAX(member_name) AS name, COUNT(*) AS n FROM {$wpdb->prefix}agallery_photo_tags
+			"SELECT tag_key, MAX(member_name) AS name, COUNT(DISTINCT image_id) AS n
+			 FROM {$wpdb->prefix}agallery_photo_tags
 			 WHERE category = 'personen' GROUP BY tag_key ORDER BY name"
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -105,7 +106,7 @@ final class Photo_Filter_Options {
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin table, fixed name, no user input.
 		$counts = $wpdb->get_results(
-			"SELECT tag_key, COUNT(*) AS n FROM {$wpdb->prefix}agallery_photo_tags
+			"SELECT tag_key, COUNT(DISTINCT image_id) AS n FROM {$wpdb->prefix}agallery_photo_tags
 			 WHERE category <> 'personen' GROUP BY tag_key",
 			OBJECT_K
 		);

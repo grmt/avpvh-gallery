@@ -4,10 +4,10 @@
 // the same REST route (GET/POST avpvh-gallery/v1/subject-tags).
 
 export interface SubjectTagState {
-	// Slugs of the tags on the photo.
+	// Slugs of the tags you tagged the photo with (your votes).
 	tags: Array<string>;
-	// Per slug: who added it and when.
-	details: Partial<Record<string, { by: string; at: string }>>;
+	// Per slug: how many tagged it (a tag is a vote), who, and when first.
+	details: Partial<Record<string, { by: string; at: string; count: number }>>;
 }
 
 export async function fetchSubjectTags(
@@ -30,7 +30,9 @@ export async function toggleSubjectTag(
 	nonce: string,
 	fileId: string,
 	tagSlug: string,
-	active: boolean
+	active: boolean,
+	// Remove everyone's votes, not just your own (admins only).
+	everyone = false
 ): Promise<void> {
 	const response = await fetch(restUrl, {
 		method: 'POST',
@@ -43,6 +45,7 @@ export async function toggleSubjectTag(
 			file_id: fileId,
 			tag_slug: tagSlug,
 			active,
+			everyone,
 		}),
 	});
 	if (!response.ok) {

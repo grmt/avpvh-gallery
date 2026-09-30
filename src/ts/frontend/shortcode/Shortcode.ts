@@ -980,30 +980,48 @@ export class Shortcode {
 										'input[type="checkbox"]'
 									)
 								);
-								const single =
-									section.dataset['single'] === '1';
-								const anyChecked = boxes.some((box) =>
-									subjectState.tags.includes(box.value)
-								);
 								const chosen: Array<string> = [];
 								boxes.forEach((box) => {
+									// Ticked = your vote; the count is everyone's.
 									box.checked = subjectState.tags.includes(
 										box.value
 									);
-									box.disabled =
-										!canRemoveTags &&
-										(box.checked || (single && anyChecked));
 									const detail =
 										subjectState.details[box.value];
+									const count = detail?.count ?? 0;
 									const label = box.parentElement;
 									if (label !== null) {
 										label.title =
 											detail === undefined
 												? ''
-												: `Getagd door ${detail.by || 'onbekend'} op ${detail.at.slice(0, 10)}`;
+												: `Getagd door ${detail.by || 'onbekend'} (sinds ${detail.at.slice(0, 10)})`;
+										const votes =
+											label.querySelector<HTMLElement>(
+												'.avpvh-tag-votes'
+											);
+										if (votes !== null) {
+											votes.textContent =
+												count > 1 ||
+												(count === 1 && !box.checked)
+													? ` (${String(count)})`
+													: '';
+										}
+										const clear =
+											label.querySelector<HTMLElement>(
+												'.avpvh-tag-clear'
+											);
+										if (clear !== null) {
+											clear.hidden =
+												count <= (box.checked ? 1 : 0);
+										}
 									}
-									if (box.checked) {
-										chosen.push(box.dataset['label'] ?? '');
+									if (count > 0) {
+										chosen.push(
+											(box.dataset['label'] ?? '') +
+												(count > 1
+													? ` ×${String(count)}`
+													: '')
+										);
 									}
 								});
 								const summaryValue =
@@ -1329,6 +1347,45 @@ export class Shortcode {
 									optionLabel.appendChild(
 										document.createTextNode(' ' + label)
 									);
+									const votes =
+										document.createElement('span');
+									votes.className = 'avpvh-tag-votes';
+									optionLabel.appendChild(votes);
+									// Admins can remove a tag for everyone.
+									if (canRemoveTags) {
+										const clear =
+											document.createElement('button');
+										clear.type = 'button';
+										clear.className = 'avpvh-tag-clear';
+										clear.title =
+											'Tag voor iedereen verwijderen';
+										clear.textContent = '✕';
+										clear.hidden = true;
+										clear.addEventListener('click', (e) => {
+											e.preventDefault();
+											e.stopPropagation();
+											if (exclusionFileId === '') {
+												return;
+											}
+											void toggleSubjectTag(
+												avpvhShortcodeLocalize.subject_tags_url,
+												avpvhShortcodeLocalize.rest_nonce,
+												exclusionFileId,
+												slug,
+												false,
+												true
+											)
+												.catch((error: unknown) => {
+													showSubjectError(
+														error instanceof Error
+															? error.message
+															: 'Verwijderen mislukt'
+													);
+												})
+												.finally(refreshTagsPanel);
+										});
+										optionLabel.appendChild(clear);
+									}
 									options.appendChild(optionLabel);
 								}
 							);
@@ -1536,37 +1593,104 @@ export class Shortcode {
 												.join(', ')
 										: '';
 							}
+							// The search leaves out only persons you tagged
+							// yourself; others' tags can be confirmed from it.
 							taggedPersonKeys = new Set(
-								tags.map((tag) =>
-									Shortcode.personKey({
-										id: tag.member_id,
-										name: tag.member_name,
-									})
-								)
+								tags
+									.filter((tag) => tag.mine)
+									.map((tag) =>
+										Shortcode.personKey({
+											id: tag.member_id,
+											name: tag.member_name,
+										})
+									)
 							);
 							tags.forEach((tag) => {
 								const li = document.createElement('li');
-								const nameSpan = document.createElement('span');
-								nameSpan.textContent = tag.member_name;
-								li.title = `Getagd door ${tag.tagged_by || 'onbekend'} op ${tag.tagged_at.slice(0, 10)}`;
-								li.appendChild(nameSpan);
-								personTagsList.appendChild(li);
-								if (!canRemoveTags) {
-									return;
+								if (tag.mine) {
+									li.classList.add('mine');
 								}
-								const delBtn = document.createElement('button');
-								delBtn.type = 'button';
-								delBtn.className =
-									'avpvh-pswp-person-tag-delete';
-								delBtn.title = 'Tag verwijderen';
-								delBtn.textContent = '×';
-								delBtn.addEventListener('click', (e) => {
-									e.stopPropagation();
-									void this.photoTagger
-										.deleteTag(tag.id)
-										.then(refreshTagsPanel);
-								});
-								li.appendChild(delBtn);
+								const nameSpan = document.createElement('span');
+								nameSpan.textContent =
+									tag.votes > 1
+										? `${tag.member_name} ×${String(tag.votes)}`
+										: tag.member_name;
+								li.title = `Getagd door ${tag.tagged_by || 'onbekend'} (sinds ${tag.tagged_at.slice(0, 10)})`;
+								li.appendChild(nameSpan);
+								const actions = document.createElement('span');
+								actions.className =
+									'avpvh-pswp-person-tag-actions';
+								const addAction = (
+									text: string,
+									title: string,
+									run: () => Promise<boolean>
+								): void => {
+									const button =
+										document.createElement('button');
+									button.type = 'button';
+									button.className =
+										'avpvh-pswp-person-tag-action';
+									button.textContent = text;
+									button.title = title;
+									button.addEventListener('click', (e) => {
+										e.stopPropagation();
+										void run().then((done) => {
+											if (!done) {
+												showPersonStatus(
+													'Dat is niet gelukt',
+													true
+												);
+											}
+											refreshTagsPanel();
+										});
+									});
+									actions.appendChild(button);
+								};
+								// A tag is a vote: confirm someone else's, or
+								// withdraw your own; admins can remove it for all.
+								if (tag.mine) {
+									addAction(
+										'×',
+										'Mijn tag intrekken',
+										async () =>
+											this.photoTagger.deleteTag(
+												fileId,
+												tag.tag_key,
+												false
+											)
+									);
+								} else {
+									addAction(
+										'+1',
+										'Ik zie deze persoon ook',
+										async () =>
+											this.photoTagger.addTag(
+												fileId,
+												tag.member_id,
+												undefined,
+												tag.member_id > 0
+													? ''
+													: tag.member_name
+											)
+									);
+								}
+								if (
+									canRemoveTags &&
+									tag.votes > (tag.mine ? 1 : 0)
+								) {
+									addAction(
+										'🗑',
+										'Tag voor iedereen verwijderen',
+										async () =>
+											this.photoTagger.deleteTag(
+												fileId,
+												tag.tag_key,
+												true
+											)
+									);
+								}
+								li.appendChild(actions);
+								personTagsList.appendChild(li);
 							});
 						});
 

@@ -133,6 +133,24 @@ final class Photo_Tags {
 		$person = $member_id ? self::member_person( $member_id ) : self::free_text_person( $free_name );
 
 		global $wpdb;
+
+		// A tag is a vote: tagging someone you already tagged changes nothing.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- custom plugin table, fixed name; values are prepared.
+		$already = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}agallery_photo_tags
+				 WHERE image_id = %s AND category = 'personen' AND tag_key = %s AND created_by = %d",
+				$image_id,
+				$person['tag_key'],
+				get_current_user_id()
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		if ( null !== $already ) {
+			wp_send_json_success( array( 'tag_id' => (int) $already ) );
+		}
+
 		$this->insert_or_error(
 			$wpdb->prefix . 'agallery_photo_tags',
 			array(
@@ -170,7 +188,9 @@ final class Photo_Tags {
 	}
 
 	/**
-	 * AJAX handler: List all tags for an image
+	 * AJAX handler: the persons tagged on a photo. A tag is a vote — every
+	 * user can tag the same person once — so each person comes with how
+	 * many tagged them, whether the viewer did, and who did (names).
 	 *
 	 * @return void
 	 */
@@ -183,79 +203,93 @@ final class Photo_Tags {
 		}
 
 		global $wpdb;
-		$tags_table = $wpdb->prefix . 'agallery_photo_tags';
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
-		$tags = $wpdb->get_results(
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- custom plugin table, fixed name; values are prepared.
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $tags_table is concatenated (not user-supplied); the %s placeholder below is filled via $wpdb->prepare().
-				"SELECT id, member_id, member_name, region_data, created_by, created_at FROM {$tags_table}
-				 WHERE image_id = %s AND category = 'personen' ORDER BY created_at",
+				"SELECT tag_key, MAX(member_id) AS member_id, MAX(member_name) AS member_name,
+				        MAX(region_data) AS region_data, COUNT(*) AS votes,
+				        MAX(created_by = %d) AS mine, MIN(created_at) AS first_at,
+				        GROUP_CONCAT(created_by ORDER BY created_at) AS taggers
+				 FROM {$wpdb->prefix}agallery_photo_tags
+				 WHERE image_id = %s AND category = 'personen'
+				 GROUP BY tag_key ORDER BY first_at",
+				get_current_user_id(),
 				$image_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows    = is_array( $rows ) ? $rows : array();
+		$taggers = array();
 
-		$tagger_names   = Tag_Log::user_names( array_map( 'intval', array_column( $tags, 'created_by' ) ) );
-		$tags_with_meta = array_map(
-			static function ( $tag ) use ( $tagger_names ) {
-				return array(
-					'id'          => intval( $tag->id ),
-					'member_id'   => intval( $tag->member_id ),
-					'member_name' => $tag->member_name,
-					'region_data' => $tag->region_data ? json_decode( $tag->region_data ) : null,
-					'tagged_at'   => (string) $tag->created_at,
-					'tagged_by'   => $tagger_names[ (int) $tag->created_by ] ?? '',
-				);
-			},
-			$tags
+		foreach ( $rows as $row ) {
+			$taggers = array_merge( $taggers, array_map( 'intval', explode( ',', (string) $row->taggers ) ) );
+		}
+
+		$names = Tag_Log::user_names( $taggers );
+
+		wp_send_json_success(
+			array(
+				'tags' => array_map(
+					static function ( $row ) use ( $names ) {
+						return array(
+							'member_id'   => intval( $row->member_id ),
+							'member_name' => (string) $row->member_name,
+							'mine'        => (bool) intval( $row->mine ),
+							'region_data' => $row->region_data ? json_decode( $row->region_data ) : null,
+							'tag_key'     => (string) $row->tag_key,
+							'tagged_at'   => (string) $row->first_at,
+							'tagged_by'   => self::tagger_names( (string) $row->taggers, $names ),
+							'votes'       => intval( $row->votes ),
+						);
+					},
+					$rows
+				),
+			)
 		);
-
-		wp_send_json_success( array( 'tags' => $tags_with_meta ) );
 	}
 
 	/**
-	 * AJAX handler: Delete a tag
+	 * AJAX handler: withdraws a person tag — the viewer's own vote, or (scope
+	 * "all", admins and "boek" members only) everyone's.
+	 *
+	 * POST: image_id, tag_key, scope ("mine" or "all").
 	 *
 	 * @return void
 	 */
 	public function ajax_delete_tag() {
 		$this->check_can_tag();
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce is verified above via check_can_tag().
-		$tag_id = intval( $_POST['tag_id'] ?? 0 );
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce is verified above via check_can_tag().
+		$image_id = sanitize_text_field( wp_unslash( (string) ( $_POST['image_id'] ?? '' ) ) );
+		$tag_key  = sanitize_text_field( wp_unslash( (string) ( $_POST['tag_key'] ?? '' ) ) );
+		$for_all  = 'all' === sanitize_key( wp_unslash( (string) ( $_POST['scope'] ?? '' ) ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
-		if ( ! $tag_id ) {
-			wp_send_json_error( array( 'message' => esc_html__( 'Invalid tag ID', 'avpvh-gallery' ) ), 400 );
+		if ( '' === $image_id || '' === $tag_key ) {
+			wp_send_json_error( array( 'message' => esc_html__( 'Invalid tag', 'avpvh-gallery' ) ), 400 );
+		}
+
+		if ( $for_all && ! Exclusion_Permission::check() ) {
+			wp_send_json_error( array( 'message' => 'Alleen beheerders kunnen tags van anderen verwijderen' ), 403 );
 		}
 
 		global $wpdb;
-		$table = $wpdb->prefix . 'agallery_photo_tags';
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
-		$tag = $wpdb->get_row(
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table is concatenated (not user-supplied); the %d placeholder above is filled via $wpdb->prepare().
-			$wpdb->prepare( "SELECT image_id, tag_key, member_name FROM {$table} WHERE id = %d", $tag_id )
+		$where = array(
+			'category' => 'personen',
+			'image_id' => $image_id,
+			'tag_key'  => $tag_key,
 		);
 
-		if ( ! $tag ) {
-			wp_send_json_error( array( 'message' => esc_html__( 'Tag not found', 'avpvh-gallery' ) ), 404 );
-		}
-
-		// Anyone logged in may tag; only admins and "boek" members may remove
-		// a tag (the same people who may exclude photos).
-		if ( ! Exclusion_Permission::check() ) {
-			wp_send_json_error( array( 'message' => 'Alleen boek-leden kunnen tags verwijderen' ), 403 );
+		if ( ! $for_all ) {
+			$where['created_by'] = get_current_user_id();
 		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
-		$wpdb->delete( $table, array( 'id' => $tag_id ), array( '%d' ) );
-		Tag_Log::record(
-			(string) $tag->image_id,
-			'personen',
-			(string) $tag->tag_key,
-			(string) $tag->member_name,
-			'remove'
-		);
+		$removed = $wpdb->delete( $wpdb->prefix . 'agallery_photo_tags', $where );
+
+		if ( 0 < (int) $removed ) {
+			Tag_Log::record( $image_id, 'personen', $tag_key, $for_all ? 'alle stemmen' : 'eigen stem', 'remove' );
+		}
 
 		wp_send_json_success();
 	}
@@ -553,6 +587,28 @@ final class Photo_Tags {
 			'member_id'   => null,
 			'member_name' => $name,
 			'tag_key'     => 'name:' . mb_strtolower( $name ),
+		);
+	}
+
+	/**
+	 * "Anna, Piet" from a comma-separated list of user IDs.
+	 *
+	 * @param string             $user_ids Comma-separated WordPress user IDs.
+	 * @param array<int, string> $names    User ID => display name.
+	 *
+	 * @return string
+	 */
+	private static function tagger_names( $user_ids, array $names ) {
+		return implode(
+			', ',
+			array_filter(
+				array_map(
+					static function ( $user_id ) use ( $names ) {
+						return $names[ (int) $user_id ] ?? '';
+					},
+					explode( ',', $user_ids )
+				)
+			)
 		);
 	}
 }

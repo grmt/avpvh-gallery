@@ -2,8 +2,10 @@
  * Photo tagging module using Annotorious for region annotations.
  */
 
+// One person tagged on a photo. A tag is a vote: several users can tag
+// the same person, so it comes with how many did and whether you did.
 export interface TagData {
-	id: number;
+	tag_key: string;
 	member_id: number;
 	member_name: string;
 	region_data: {
@@ -12,8 +14,11 @@ export interface TagData {
 		width: number;
 		height: number;
 	} | null;
+	// Who tagged the person ("Anna, Piet") and when first.
 	tagged_by: string;
 	tagged_at: string;
+	votes: number;
+	mine: boolean;
 }
 
 interface Member {
@@ -300,7 +305,12 @@ export class PhotoTagger {
 		}
 	}
 
-	public async deleteTag(tagId: number): Promise<void> {
+	// Withdraws your own tag of a person, or — admins only — everyone's.
+	public async deleteTag(
+		imageId: string,
+		tagKey: string,
+		everyone: boolean
+	): Promise<boolean> {
 		try {
 			const response = await fetch('/wp-admin/admin-ajax.php', {
 				method: 'POST',
@@ -309,16 +319,19 @@ export class PhotoTagger {
 				},
 				body: new URLSearchParams({
 					action: 'gallery_tag_delete',
-					tag_id: String(tagId),
+					image_id: imageId,
+					tag_key: tagKey,
+					scope: everyone ? 'all' : 'mine',
 					_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
 				}).toString(),
 			});
-
-			if (response.ok) {
-				await this.loadAndRenderTags();
+			if (!response.ok) {
+				return false;
 			}
+			await this.loadAndRenderTags();
+			return true;
 		} catch {
-			// Network error — the tag simply stays; nothing more to do here.
+			return false;
 		}
 	}
 
@@ -487,7 +500,7 @@ export class PhotoTagger {
 
 				// Store tag data for quick lookup
 				tags.forEach((tag) => {
-					this.annotationMap.set(`tag-${String(tag.id)}`, tag);
+					this.annotationMap.set(`tag-${tag.tag_key}`, tag);
 				});
 
 				// Display tags on the image

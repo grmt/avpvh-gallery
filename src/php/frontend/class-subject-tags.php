@@ -77,6 +77,10 @@ final class Subject_Tags {
 						'required' => true,
 						'type'     => 'boolean',
 					),
+					'everyone' => array(
+						'default' => false,
+						'type'    => 'boolean',
+					),
 					'file_id'  => array(
 						'required' => true,
 						'type'     => 'string',
@@ -115,27 +119,42 @@ final class Subject_Tags {
 		$rows    = self::rows_for( $file_id );
 		$names   = Tag_Log::user_names( array_map( 'intval', array_column( $rows, 'created_by' ) ) );
 		$details = array();
+		$mine    = array();
 
+		// A tag is a vote: per tag, how many tagged it and who (first first).
 		foreach ( $rows as $row ) {
-			$details[ $row->tag_key ] = array(
-				'at' => (string) $row->created_at,
-				'by' => $names[ (int) $row->created_by ] ?? '',
+			$details[ $row->tag_key ]       ??= array(
+				'at'    => (string) $row->created_at,
+				'by'    => array(),
+				'count' => 0,
 			);
+			$details[ $row->tag_key ]['by'][] = $names[ (int) $row->created_by ] ?? '';
+			++$details[ $row->tag_key ]['count'];
+
+			if ( get_current_user_id() === (int) $row->created_by ) {
+				$mine[] = $row->tag_key;
+			}
+		}
+
+		foreach ( $details as $slug => $detail ) {
+			$details[ $slug ]['by'] = implode( ', ', array_filter( $detail['by'] ) );
 		}
 
 		return new WP_REST_Response(
 			array(
 				'details' => (object) $details,
-				'tags'    => array_keys( $details ),
+				'tags'    => array_values( array_unique( $mine ) ),
 			),
 			200
 		);
 	}
 
 	/**
-	 * Adds or removes one subject tag. Any logged-in user may add; removing
-	 * — including replacing the tag in a one-per-photo group — is limited to
-	 * the same people who may exclude photos (admins and "boek" members).
+	 * Adds or withdraws the viewer's vote for one subject tag. Anyone logged
+	 * in may add and withdraw their own; removing everyone's ("everyone")
+	 * is limited to the same people who may exclude photos (admins and
+	 * "boek" members). In a one-per-photo group, voting for another tag
+	 * moves the viewer's vote.
 	 *
 	 * @param WP_REST_Request $request The request object.
 	 *
@@ -150,26 +169,28 @@ final class Subject_Tags {
 			return new WP_Error( 'invalid_tag', 'file_id and a known tag_slug are required', array( 'status' => 400 ) );
 		}
 
-		$current = array_column( self::rows_for( $file_id ), 'tag_key' );
-
 		if ( ! (bool) $request->get_param( 'active' ) ) {
-			return self::remove_tags( $file_id, array_intersect( array( $tag_slug ), $current ) );
+			return self::remove_tags( $file_id, array( $tag_slug ), ! (bool) $request->get_param( 'everyone' ) );
 		}
 
-		if ( in_array( $tag_slug, $current, true ) ) {
+		$mine = array_column(
+			array_filter(
+				self::rows_for( $file_id ),
+				static function ( $row ) {
+					return get_current_user_id() === (int) $row->created_by;
+				}
+			),
+			'tag_key'
+		);
+
+		if ( in_array( $tag_slug, $mine, true ) ) {
 			return new WP_REST_Response( array( 'success' => true ), 200 );
 		}
 
-		$replaced = self::CATEGORIES[ $category ]['single']
-			? array_intersect( array_keys( self::CATEGORIES[ $category ]['tags'] ), $current )
-			: array();
-
-		if ( array() !== $replaced ) {
-			$removed = self::remove_tags( $file_id, $replaced );
-
-			if ( $removed instanceof WP_Error ) {
-				return $removed;
-			}
+		// One vote per person in a one-per-photo group: yours moves.
+		if ( self::CATEGORIES[ $category ]['single'] ) {
+			$siblings = array_keys( self::CATEGORIES[ $category ]['tags'] );
+			self::remove_tags( $file_id, array_intersect( $siblings, $mine ), true );
 		}
 
 		self::add_tag( $file_id, $category, $tag_slug );
@@ -268,25 +289,30 @@ final class Subject_Tags {
 	}
 
 	/**
-	 * Removes subject tags (if the current user may) and logs each.
+	 * Removes the current user's votes for subject tags — or, when not
+	 * $own_only, everyone's (admins and "boek" members only) — and logs it.
 	 *
 	 * @param string        $file_id Drive file ID.
-	 * @param array<string> $slugs   The tags to remove; only those actually on the photo.
+	 * @param array<string> $slugs    The tags to remove.
+	 * @param bool          $own_only Only the current user's votes.
 	 *
 	 * @return WP_REST_Response|WP_Error
 	 */
-	private static function remove_tags( $file_id, array $slugs ) {
+	private static function remove_tags( $file_id, array $slugs, $own_only ) {
 		if ( array() === $slugs ) {
 			return new WP_REST_Response( array( 'success' => true ), 200 );
 		}
 
-		if ( ! Exclusion_Permission::check() ) {
+		if ( ! $own_only && ! Exclusion_Permission::check() ) {
 			return new WP_Error(
 				'forbidden',
-				'Alleen boek-leden kunnen tags verwijderen of wijzigen',
+				'Alleen beheerders kunnen tags van anderen verwijderen',
 				array( 'status' => 403 )
 			);
 		}
+
+		// Only integers are interpolated below.
+		$by_whom = $own_only ? ' AND created_by = ' . get_current_user_id() : '';
 
 		global $wpdb;
 
@@ -295,7 +321,7 @@ final class Subject_Tags {
 			$wpdb->query(
 				$wpdb->prepare(
 					"DELETE FROM {$wpdb->prefix}agallery_photo_tags
-					 WHERE image_id = %s AND tag_key = %s AND category <> 'personen'",
+					 WHERE image_id = %s AND tag_key = %s AND category <> 'personen'{$by_whom}",
 					$file_id,
 					$slug
 				)

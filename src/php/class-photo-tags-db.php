@@ -20,7 +20,7 @@ final class Photo_Tags_DB {
 	 * Schema version stored in wp_options.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility -- matches the no-modifier convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION).
-	const SCHEMA_VERSION = 4;
+	const SCHEMA_VERSION = 5;
 
 	/**
 	 * Runs schema migration if needed; hooked to init.
@@ -71,10 +71,11 @@ final class Photo_Tags_DB {
 			created_by BIGINT UNSIGNED,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			UNIQUE KEY image_category_key (image_id, category, tag_key),
+			UNIQUE KEY image_category_key_user (image_id, category, tag_key, created_by),
 			INDEX idx_image_id (image_id),
 			INDEX idx_member_id (member_id)
 		) {$charset_collate};";
+		self::drop_one_tag_per_photo_key( $table_tags );
 		dbDelta( $sql_tags );
 
 		$table_comments = $wpdb->prefix . 'agallery_photo_comments';
@@ -155,5 +156,30 @@ final class Photo_Tags_DB {
 		}
 
 		delete_option( 'avpvh_photo_tags_schema' );
+	}
+
+	/**
+	 * Schema v5 made a tag a vote: each user can add the same tag to a photo
+	 * once, so tags are unique per user (image_category_key_user) instead of
+	 * per photo. dbDelta doesn't drop indexes, so the old one goes here.
+	 *
+	 * @param string $table The tags table.
+	 *
+	 * @return void
+	 */
+	private static function drop_one_tag_per_photo_key( $table ) {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- one-off schema migration of a custom plugin table.
+
+		if ( $table !== $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) ) {
+			return;
+		}
+
+		$old_key = $wpdb->get_var( "SHOW INDEX FROM {$table} WHERE Key_name = 'image_category_key'" );
+
+		if ( null !== $old_key ) {
+			$wpdb->query( "ALTER TABLE {$table} DROP INDEX image_category_key" );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 }
