@@ -83,7 +83,6 @@ require_once __DIR__ . '/helpers/class-helpers.php';
 require_once __DIR__ . '/helpers/class-script-and-style-helpers.php';
 
 require_once __DIR__ . '/frontend/page/class-directories.php';
-require_once __DIR__ . '/frontend/page/class-folder-covers.php';
 require_once __DIR__ . '/frontend/page/class-images.php';
 require_once __DIR__ . '/frontend/page/class-videos.php';
 

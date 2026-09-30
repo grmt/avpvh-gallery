@@ -5418,21 +5418,10 @@ export class Shortcode {
 			this.pathQueryParameter.add(newPath) +
 			'"';
 		if (hasThumb) {
-			// The cover is its own layer under the name bar, so it can be
-			// turned upright (like the photo inside the folder) without
-			// turning the text.
-			const flips =
-				(directory.cover?.h_flip === true ? 'scaleX(-1) ' : '') +
-				(directory.cover?.v_flip === true ? 'scaleY(-1) ' : '');
-			const rotation = directory.cover?.rotation ?? 0;
 			html +=
-				'><span class="avpvh-dir-cover" style="background-image: url(\'' +
+				' style="background-image: url(\'' +
 				directory.thumbnail +
-				"');" +
-				(flips !== '' || rotation !== 0
-					? ` transform: ${flips}rotate(${String(rotation)}deg);`
-					: '') +
-				'"></span>';
+				'\')">';
 		} else {
 			html += '>';
 

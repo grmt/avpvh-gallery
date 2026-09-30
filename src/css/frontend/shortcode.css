@@ -134,13 +134,6 @@ html.pswp-is-open body {
 	overflow: hidden;
 }
 
-.avpvh-dir-cover {
-	background-position: center;
-	background-size: cover; /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	inset: 0;
-	position: absolute;
-}
-
 .avpvh-grid-square {
 	background-position: center;
 	background-size: cover; /* stylelint-disable-line plugin/no-unsupported-browser-features */
