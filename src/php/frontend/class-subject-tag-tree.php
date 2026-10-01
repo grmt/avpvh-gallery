@@ -22,7 +22,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * re-sorting tags by number.
  *
  * Sections may also hold tags directly (Plek › Opgraving next to the group
- * Plek › Kamp).
+ * Plek › Kamp). A group can be "taggable" itself (Kamp: somewhere on the
+ * camp); its key is then "t<id>" like a tag's, and tagging anything in it
+ * also tags the group (see Subject_Tags), so the group's photos are all
+ * photos of its branch.
  *
  * Read-only here; changed through Subject_Tag_Editor (the admin "Tags"
  * page), which also seeded it from the old in-code vocabulary.
@@ -32,14 +35,14 @@ final class Subject_Tag_Tree {
 	/**
 	 * The nodes, loaded once per request (null: not loaded yet).
 	 *
-	 * @var array<int, array{id: int, parent_id: int|null, type: string, label: string, single: bool, sort_order: int}>|null
+	 * @var array<int, array{id: int, parent_id: int|null, type: string, label: string, single: bool, sort_order: int, taggable: bool}>|null
 	 */
 	private static $nodes = null;
 
 	/**
 	 * All nodes by id, in display order.
 	 *
-	 * @return array<int, array{id: int, parent_id: int|null, type: string, label: string, single: bool, sort_order: int}>
+	 * @return array<int, array{id: int, parent_id: int|null, type: string, label: string, single: bool, sort_order: int, taggable: bool}>
 	 */
 	public static function nodes() {
 		$nodes       = self::$nodes ?? self::load();
@@ -62,7 +65,7 @@ final class Subject_Tag_Tree {
 	 *
 	 * @param int|null $parent_id Parent node id.
 	 *
-	 * @return array<array{id: int, parent_id: int|null, type: string, label: string, single: bool, sort_order: int}>
+	 * @return array<array{id: int, parent_id: int|null, type: string, label: string, single: bool, sort_order: int, taggable: bool}>
 	 */
 	public static function children( $parent_id ) {
 		return array_values(
@@ -82,26 +85,60 @@ final class Subject_Tag_Tree {
 	 *
 	 * Tags placed directly in a section (Waar › Plek › Opgraving) come as a
 	 * group without a label ("s<section id>"), listed before the section's
-	 * own groups and subsections.
+	 * own groups and subsections. A taggable group's own key is "key" (""
+	 * when it can't be tagged itself).
 	 *
-	 * @return array<string, array{label: string, path: array<string>, single: bool, tags: array<string, string>}>
+	 * @return array<string, array{key: string, label: string, path: array<string>, single: bool, tags: array<string, string>}>
 	 */
 	public static function groups() {
 		return self::collect_groups( null, array() );
 	}
 
 	/**
-	 * The tag a key ("t12") stands for, if it exists.
+	 * The tag (or taggable group) a key ("t12") stands for, if it exists.
 	 *
 	 * @param string $key Tag key.
 	 *
-	 * @return array{id: int, parent_id: int|null, type: string, label: string, single: bool, sort_order: int}|null
+	 * @return array{id: int, parent_id: int|null, type: string, label: string, single: bool, sort_order: int, taggable: bool}|null
 	 */
 	public static function tag( $key ) {
 		$node_id = 1 === preg_match( '/^t(\d+)$/', $key, $matches ) ? (int) $matches[1] : 0;
 		$nodes   = self::nodes();
 
-		return isset( $nodes[ $node_id ] ) && 'tag' === $nodes[ $node_id ]['type'] ? $nodes[ $node_id ] : null;
+		$node = $nodes[ $node_id ] ?? null;
+
+		return null !== $node && ( 'tag' === $node['type'] || $node['taggable'] ) ? $node : null;
+	}
+
+	/**
+	 * The key of the taggable group a tag is in, if it is in one.
+	 *
+	 * @param string $key Tag key.
+	 *
+	 * @return string|null
+	 */
+	public static function group_key( $key ) {
+		$tag    = self::tag( $key );
+		$parent = null !== $tag && null !== $tag['parent_id'] ? self::nodes()[ $tag['parent_id'] ] ?? null : null;
+
+		return null !== $parent && $parent['taggable'] ? 't' . $parent['id'] : null;
+	}
+
+	/**
+	 * A key and, for a taggable group, the keys of its tags.
+	 *
+	 * @param string $key Tag key.
+	 *
+	 * @return array<string>
+	 */
+	public static function branch( $key ) {
+		$tag = self::tag( $key );
+
+		if ( null === $tag || 'group' !== $tag['type'] ) {
+			return array( $key );
+		}
+
+		return array_merge( array( $key ), array_keys( self::tags_below( $tag['id'] ) ) );
 	}
 
 	/**
@@ -161,13 +198,13 @@ final class Subject_Tag_Tree {
 	/**
 	 * Reads all nodes, by id, in display order.
 	 *
-	 * @return array<int, array{id: int, parent_id: int|null, type: string, label: string, single: bool, sort_order: int}>
+	 * @return array<int, array{id: int, parent_id: int|null, type: string, label: string, single: bool, sort_order: int, taggable: bool}>
 	 */
 	private static function load() {
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin table, fixed name; cached per request by nodes().
 		$rows = $wpdb->get_results(
-			"SELECT id, parent_id, type, label, single, sort_order FROM {$wpdb->prefix}agallery_tag_nodes
+			"SELECT id, parent_id, type, label, single, sort_order, taggable FROM {$wpdb->prefix}agallery_tag_nodes
 			 ORDER BY sort_order, id",
 			ARRAY_A
 		);
@@ -181,6 +218,7 @@ final class Subject_Tag_Tree {
 				'parent_id'  => null === $row['parent_id'] ? null : (int) $row['parent_id'],
 				'single'     => (bool) (int) $row['single'],
 				'sort_order' => (int) $row['sort_order'],
+				'taggable'   => 'group' === $row['type'] && (bool) (int) $row['taggable'],
 				'type'       => (string) $row['type'],
 			);
 		}
@@ -194,7 +232,7 @@ final class Subject_Tag_Tree {
 	 * @param int|null      $parent_id Where to start.
 	 * @param array<string> $path      Section labels above it.
 	 *
-	 * @return array<string, array{label: string, path: array<string>, single: bool, tags: array<string, string>}>
+	 * @return array<string, array{key: string, label: string, path: array<string>, single: bool, tags: array<string, string>}>
 	 */
 	private static function collect_groups( $parent_id, array $path ) {
 		$groups = self::loose_tags( $parent_id, $path );
@@ -211,6 +249,7 @@ final class Subject_Tag_Tree {
 			}
 
 			$groups[ 'g' . $node['id'] ] = array(
+				'key'    => $node['taggable'] ? 't' . $node['id'] : '',
 				'label'  => $node['label'],
 				'path'   => $path,
 				'single' => $node['single'],
@@ -228,7 +267,7 @@ final class Subject_Tag_Tree {
 	 * @param int|null      $section_id Section id.
 	 * @param array<string> $path       Section labels down to and including it.
 	 *
-	 * @return array<string, array{label: string, path: array<string>, single: bool, tags: array<string, string>}>
+	 * @return array<string, array{key: string, label: string, path: array<string>, single: bool, tags: array<string, string>}>
 	 */
 	private static function loose_tags( $section_id, array $path ) {
 		$tags = null === $section_id ? array() : self::tags_below( $section_id );
@@ -239,6 +278,7 @@ final class Subject_Tag_Tree {
 
 		return array(
 			's' . $section_id => array(
+				'key'    => '',
 				'label'  => '',
 				'path'   => $path,
 				'single' => false,

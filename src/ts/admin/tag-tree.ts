@@ -15,6 +15,7 @@ interface TagNode {
 	type: NodeType;
 	label: string;
 	single: boolean;
+	taggable: boolean;
 	sort_order: number;
 }
 
@@ -335,6 +336,23 @@ function nodeRow(node: TagNode): HTMLElement {
 		});
 		single.append(checkbox, document.createTextNode(' één keuze per foto'));
 		row.appendChild(single);
+		const taggable = element('label', '', 'avpvh-tag-tree-single');
+		taggable.title =
+			'De groep zelf kan ook getagd worden; een tag erin tagt de groep mee';
+		const taggableBox = element('input');
+		taggableBox.type = 'checkbox';
+		taggableBox.checked = node.taggable;
+		taggableBox.addEventListener('change', () => {
+			void call('/update', {
+				id: node.id,
+				taggable: taggableBox.checked,
+			});
+		});
+		taggable.append(
+			taggableBox,
+			document.createTextNode(' zelf aan te vinken')
+		);
+		row.appendChild(taggable);
 	}
 
 	row.append(

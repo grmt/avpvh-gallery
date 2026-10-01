@@ -1058,7 +1058,10 @@ export class Shortcode {
 												count <= (box.checked ? 1 : 0);
 										}
 									}
-									if (count > 0) {
+									if (
+										count > 0 &&
+										box.dataset['head'] === undefined
+									) {
 										chosen.push(
 											(box.dataset['label'] ?? '') +
 												(count > 1
@@ -1335,103 +1338,124 @@ export class Shortcode {
 
 							const options = document.createElement('div');
 							options.className = 'avpvh-pswp-subject-tags-group';
-							Object.entries(group.tags).forEach(
-								([slug, label]) => {
-									const optionLabel =
-										document.createElement('label');
-									const checkbox =
-										document.createElement('input');
-									checkbox.type = 'checkbox';
-									checkbox.value = slug;
-									checkbox.dataset['label'] = label;
-									checkbox.addEventListener('change', (e) => {
+							// A taggable group (Kamp) can be ticked itself, first;
+							// ticking anything in it ticks the group too, and
+							// unticking the group unticks your tags in it (as
+							// Subject_Tags does on the server).
+							const groupTags = Object.keys(group.tags);
+							const choices = Object.entries(group.tags);
+							if (group.key !== '') {
+								choices.unshift([group.key, group.label]);
+							}
+							choices.forEach(([slug, label]) => {
+								const optionLabel =
+									document.createElement('label');
+								const checkbox =
+									document.createElement('input');
+								checkbox.type = 'checkbox';
+								checkbox.value = slug;
+								checkbox.dataset['label'] = label;
+								if (slug === group.key) {
+									checkbox.dataset['head'] = '1';
+									optionLabel.classList.add('avpvh-tag-head');
+								}
+								checkbox.addEventListener('change', (e) => {
+									e.stopPropagation();
+									if (exclusionFileId === '') {
+										return;
+									}
+									const fileId = exclusionFileId;
+									const active = checkbox.checked;
+									const isHead = slug === group.key;
+									const siblings =
+										group.single && !isHead
+											? groupTags
+											: [];
+									const added =
+										group.key === '' || isHead
+											? [slug]
+											: [slug, group.key];
+									const removed = isHead
+										? [slug, ...groupTags]
+										: [slug];
+									subjectState = {
+										...subjectState,
+										tags: active
+											? subjectState.tags
+													.filter(
+														(tag) =>
+															!siblings.includes(
+																tag
+															) &&
+															!added.includes(tag)
+													)
+													.concat(added)
+											: subjectState.tags.filter(
+													(tag) =>
+														!removed.includes(tag)
+												),
+									};
+									applySubjectState();
+									void toggleSubjectTag(
+										avpvhShortcodeLocalize.subject_tags_url,
+										avpvhShortcodeLocalize.rest_nonce,
+										fileId,
+										slug,
+										active
+									)
+										.catch((error: unknown) => {
+											showSubjectError(
+												error instanceof Error
+													? error.message
+													: 'Opslaan mislukt'
+											);
+										})
+										.finally(refreshTagsPanel);
+								});
+								optionLabel.appendChild(checkbox);
+								optionLabel.appendChild(
+									document.createTextNode(' ' + label)
+								);
+								const votes = document.createElement('span');
+								votes.className = 'avpvh-tag-votes';
+								optionLabel.appendChild(votes);
+								// Admins can remove a tag for everyone.
+								if (canRemoveTags) {
+									const clear =
+										document.createElement('button');
+									clear.type = 'button';
+									clear.className = 'avpvh-tag-clear';
+									clear.title =
+										'Tag voor iedereen verwijderen';
+									clear.textContent = '✕';
+									clear.hidden = true;
+									clear.addEventListener('click', (e) => {
+										e.preventDefault();
 										e.stopPropagation();
 										if (exclusionFileId === '') {
 											return;
 										}
-										const fileId = exclusionFileId;
-										const active = checkbox.checked;
-										const siblings = group.single
-											? Object.keys(group.tags)
-											: [];
-										subjectState = {
-											...subjectState,
-											tags: active
-												? subjectState.tags
-														.filter(
-															(tag) =>
-																!siblings.includes(
-																	tag
-																)
-														)
-														.concat(slug)
-												: subjectState.tags.filter(
-														(tag) => tag !== slug
-													),
-										};
-										applySubjectState();
 										void toggleSubjectTag(
 											avpvhShortcodeLocalize.subject_tags_url,
 											avpvhShortcodeLocalize.rest_nonce,
-											fileId,
+											exclusionFileId,
 											slug,
-											active
+											false,
+											true
 										)
 											.catch((error: unknown) => {
 												showSubjectError(
 													error instanceof Error
 														? error.message
-														: 'Opslaan mislukt'
+														: 'Verwijderen mislukt'
 												);
 											})
 											.finally(refreshTagsPanel);
 									});
-									optionLabel.appendChild(checkbox);
-									optionLabel.appendChild(
-										document.createTextNode(' ' + label)
-									);
-									const votes =
-										document.createElement('span');
-									votes.className = 'avpvh-tag-votes';
-									optionLabel.appendChild(votes);
-									// Admins can remove a tag for everyone.
-									if (canRemoveTags) {
-										const clear =
-											document.createElement('button');
-										clear.type = 'button';
-										clear.className = 'avpvh-tag-clear';
-										clear.title =
-											'Tag voor iedereen verwijderen';
-										clear.textContent = '✕';
-										clear.hidden = true;
-										clear.addEventListener('click', (e) => {
-											e.preventDefault();
-											e.stopPropagation();
-											if (exclusionFileId === '') {
-												return;
-											}
-											void toggleSubjectTag(
-												avpvhShortcodeLocalize.subject_tags_url,
-												avpvhShortcodeLocalize.rest_nonce,
-												exclusionFileId,
-												slug,
-												false,
-												true
-											)
-												.catch((error: unknown) => {
-													showSubjectError(
-														error instanceof Error
-															? error.message
-															: 'Verwijderen mislukt'
-													);
-												})
-												.finally(refreshTagsPanel);
-										});
-										optionLabel.appendChild(clear);
-									}
-									options.appendChild(optionLabel);
+									optionLabel.appendChild(clear);
 								}
-							);
+								options.appendChild(optionLabel);
+							});
 							// Tags directly in a section (Plek › Opgraving) go
 							// straight into it, above its groups.
 							// (A plain block, so applySubjectState() still

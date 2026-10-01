@@ -84,7 +84,7 @@ final class Subject_Tag_Editor {
 	 * node under another parent (at the end of its children).
 	 *
 	 * @param int                  $node_id Node id.
-	 * @param array<string, mixed> $changes Any of label, single, parent_id.
+	 * @param array<string, mixed> $changes Any of label, single, taggable, parent_id.
 	 *
 	 * @return string|null An error message, or null when done.
 	 */
@@ -105,11 +105,15 @@ final class Subject_Tag_Editor {
 
 		$fields = $label_fields + $parent_fields;
 
-		if ( isset( $changes['single'] ) && 'group' === $node['type'] ) {
-			$fields['single'] = $changes['single'] ? 1 : 0;
+		if ( 'group' === $node['type'] ) {
+			$fields += self::group_settings( $changes );
 		}
 
 		self::write( $node_id, $fields );
+
+		if ( 1 === ( $fields['taggable'] ?? 0 ) && ! $node['taggable'] ) {
+			self::tag_groups_of_tagged( $node_id );
+		}
 
 		return null;
 	}
@@ -159,7 +163,7 @@ final class Subject_Tag_Editor {
 		$keys = array();
 
 		foreach ( $ids as $node_id ) {
-			if ( 'tag' === Subject_Tag_Tree::nodes()[ $node_id ]['type'] ) {
+			if ( 'section' !== Subject_Tag_Tree::nodes()[ $node_id ]['type'] ) {
 				$keys[] = 't' . $node_id;
 			}
 		}
@@ -298,6 +302,61 @@ final class Subject_Tag_Editor {
 		}
 
 		return self::placement_problem( $parent_id, $node['type'] );
+	}
+
+	/**
+	 * A group's one-tag-per-photo and taggable settings, as asked for.
+	 *
+	 * @param array<string, mixed> $changes Requested changes.
+	 *
+	 * @return array<string, int>
+	 */
+	private static function group_settings( array $changes ) {
+		$fields = array();
+
+		foreach ( array( 'single', 'taggable' ) as $setting ) {
+			if ( isset( $changes[ $setting ] ) ) {
+				$fields[ $setting ] = $changes[ $setting ] ? 1 : 0;
+			}
+		}
+
+		return $fields;
+	}
+
+	/**
+	 * Tags a group that just became taggable on every photo with a tag in
+	 * it, for everyone who tagged one (as Subject_Tags does from now on).
+	 *
+	 * @param int $group_id Group node id.
+	 *
+	 * @return void
+	 */
+	private static function tag_groups_of_tagged( $group_id ) {
+		$keys = array_map(
+			static function ( $node ) {
+				return 't' . $node['id'];
+			},
+			Subject_Tag_Tree::children( $group_id )
+		);
+
+		if ( array() === $keys ) {
+			return;
+		}
+
+		global $wpdb;
+		$table        = $wpdb->prefix . 'agallery_photo_tags';
+		$placeholders = implode( ', ', array_fill( 0, count( $keys ), '%s' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- plugin table, fixed name; one placeholder per key.
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$table} (image_id, category, tag_key, created_by, created_at)
+				 SELECT image_id, 'subject', %s, created_by, MIN(created_at) FROM {$table}
+				 WHERE category = 'subject' AND tag_key IN ({$placeholders})
+				 GROUP BY image_id, created_by",
+				array_merge( array( 't' . $group_id ), $keys )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 	}
 
 	/**

@@ -26,6 +26,9 @@ use WP_REST_Response;
  * (a photo is either a portrait or an overview, taken in the morning or
  * the evening): checking one unchecks the others.
  *
+ * Tagging something in a taggable group (Plek › Kamp › Keuken) also
+ * tags the group; withdrawing the group withdraws your tags in it.
+ *
  * Tags are identified by slug alone — a slug is only ever listed in one
  * group — so tags saved under an older grouping (rows whose category is
  * the former 'graven'/'kamp') still count as the same tag.
@@ -164,7 +167,11 @@ final class Subject_Tags {
 		}
 
 		if ( ! (bool) $request->get_param( 'active' ) ) {
-			return self::remove_tags( $file_id, array( $tag_slug ), ! (bool) $request->get_param( 'everyone' ) );
+			return self::remove_tags(
+				$file_id,
+				Subject_Tag_Tree::branch( $tag_slug ),
+				! (bool) $request->get_param( 'everyone' )
+			);
 		}
 
 		$mine = array_column(
@@ -177,17 +184,17 @@ final class Subject_Tags {
 			'tag_key'
 		);
 
-		if ( in_array( $tag_slug, $mine, true ) ) {
-			return new WP_REST_Response( array( 'success' => true ), 200 );
-		}
-
 		// One vote per person in a one-per-photo group: yours moves.
-		if ( Subject_Tag_Tree::single( $tag_slug ) ) {
+		if ( ! in_array( $tag_slug, $mine, true ) && Subject_Tag_Tree::single( $tag_slug ) ) {
 			$siblings = Subject_Tag_Tree::siblings( $tag_slug );
 			self::remove_tags( $file_id, array_intersect( $siblings, $mine ), true );
 		}
 
-		self::add_tag( $file_id, $category, $tag_slug );
+		$group = Subject_Tag_Tree::group_key( $tag_slug );
+
+		foreach ( array_diff( array_filter( array( $tag_slug, $group ) ), $mine ) as $slug ) {
+			self::add_tag( $file_id, $category, $slug );
+		}
 
 		return new WP_REST_Response( array( 'success' => true ), 200 );
 	}

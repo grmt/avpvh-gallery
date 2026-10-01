@@ -110,6 +110,15 @@ final class Photo_Filter_Options {
 			// Tags directly in a section are labelled with the section.
 			$heading = '' !== $group['label'] ? $group['label'] : (string) end( $group['path'] );
 
+			// A taggable group itself (its photos: all of its branch).
+			if ( isset( $counts[ $group['key'] ] ) ) {
+				$tags[] = array(
+					'count' => (int) $counts[ $group['key'] ],
+					'label' => end( $group['path'] ) . ' › ' . $group['label'],
+					'value' => $group['key'],
+				);
+			}
+
 			foreach ( $group['tags'] as $key => $label ) {
 				if ( ! isset( $counts[ $key ] ) ) {
 					continue;

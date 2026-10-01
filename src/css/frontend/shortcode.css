@@ -1128,6 +1128,11 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	white-space: nowrap;
 }
 
+/* A group that can be tagged itself (Kamp), before its own tags. */
+.avpvh-pswp-subject-tags-group label.avpvh-tag-head {
+	font-weight: 700;
+}
+
 /* Shown first inside the "Wie" section. */
 .avpvh-pswp-person-tags {
 	margin-left: 14px;

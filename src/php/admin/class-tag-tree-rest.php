@@ -101,8 +101,8 @@ final class Tag_Tree_REST {
 	}
 
 	/**
-	 * Renames, moves, or sets one-tag-per-photo. Body: id, and any of label,
-	 * single, parent_id (null: top level).
+	 * Renames, moves, or changes a group's settings. Body: id, and any of
+	 * label, single, taggable, parent_id (null: top level).
 	 *
 	 * @param WP_REST_Request $request The request.
 	 *
@@ -110,7 +110,7 @@ final class Tag_Tree_REST {
 	 */
 	public static function update( $request ) {
 		$body    = $request->get_json_params() ?? array();
-		$changes = array_intersect_key( $body, array_flip( array( 'label', 'single', 'parent_id' ) ) );
+		$changes = array_intersect_key( $body, array_flip( array( 'label', 'single', 'taggable', 'parent_id' ) ) );
 
 		if ( isset( $changes['label'] ) ) {
 			$changes['label'] = sanitize_text_field( (string) $changes['label'] );

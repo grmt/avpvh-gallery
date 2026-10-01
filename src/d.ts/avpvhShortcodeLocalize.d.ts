@@ -31,6 +31,7 @@ declare const avpvhShortcodeLocalize: {
 	subject_tags: Record<
 		string,
 		{
+			key: string;
 			label: string;
 			path: Array<string>;
 			single: boolean;
