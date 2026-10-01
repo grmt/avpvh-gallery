@@ -508,6 +508,9 @@ export class PhotoTagger {
 	}
 
 	private async loadAndRenderTags(): Promise<void> {
+		if (this.currentImageId === '') {
+			return;
+		}
 		try {
 			const response = await fetch(
 				`/wp-admin/admin-ajax.php?action=gallery_tag_list&image_id=${this.currentImageId}`
