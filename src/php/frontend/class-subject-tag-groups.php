@@ -142,9 +142,21 @@ final class Subject_Tag_Groups {
 				'gids'      => 'Gids',
 			),
 		),
+		'soort_plek'        => array(
+			'label'  => 'Soort plek',
+			'path'   => array( 'Waar', 'Plek' ),
+			'single' => true,
+			'tags'   => array(
+				'plek_kamp'      => 'Kamp',
+				'plek_opgraving' => 'Opgraving',
+				'plek_excursie'  => 'Excursie',
+				'plek_reunie'    => 'Reünie',
+			),
+		),
+		// The places at camp. Key stays "plek" (it's stored with each tag).
 		'plek'              => array(
-			'label'  => 'Plek',
-			'path'   => array( 'Waar' ),
+			'label'  => 'Kamp',
+			'path'   => array( 'Waar', 'Plek' ),
 			'single' => false,
 			'tags'   => array(
 				'grote_tent' => 'Grote tent',
