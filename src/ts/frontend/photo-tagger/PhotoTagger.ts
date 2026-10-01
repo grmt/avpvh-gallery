@@ -83,6 +83,10 @@ export class PhotoTagger {
 	// annotationMap, so callers (e.g. a tags panel listing) can use it
 	// without disturbing the MutationObserver-driven overlay state.
 	public static async listTags(imageId: string): Promise<Array<TagData>> {
+		// No photo (yet): nothing to ask the server.
+		if (imageId === '') {
+			return [];
+		}
 		try {
 			const response = await fetch(
 				`/wp-admin/admin-ajax.php?action=gallery_tag_list&image_id=${encodeURIComponent(imageId)}`
@@ -145,6 +149,9 @@ export class PhotoTagger {
 	public static async listComments(
 		imageId: string
 	): Promise<Array<CommentData>> {
+		if (imageId === '') {
+			return [];
+		}
 		try {
 			const response = await fetch(
 				`/wp-admin/admin-ajax.php?action=gallery_comment_list&image_id=${encodeURIComponent(imageId)}`
@@ -161,6 +168,9 @@ export class PhotoTagger {
 	public static async listReactions(
 		imageId: string
 	): Promise<Array<ReactionData>> {
+		if (imageId === '') {
+			return [];
+		}
 		try {
 			const response = await fetch(
 				`/wp-admin/admin-ajax.php?action=gallery_reaction_list&image_id=${encodeURIComponent(imageId)}`
@@ -187,6 +197,10 @@ export class PhotoTagger {
 			archaeologists: new Set(),
 			bornAfter: new Set(),
 		};
+		// No folder (yet): no context to look up.
+		if (folderId === '') {
+			return empty;
+		}
 		try {
 			const response = await fetch(
 				`/wp-admin/admin-ajax.php?action=gallery_tag_candidates&folder_id=${encodeURIComponent(folderId)}`
@@ -396,6 +410,9 @@ export class PhotoTagger {
 	// Falls back to the full list when there's no matching taggable
 	// activity (or the request fails).
 	public async getCandidates(folderId: string): Promise<Array<Member>> {
+		if (folderId === '') {
+			return this.membersCache;
+		}
 		try {
 			const response = await fetch(
 				`/wp-admin/admin-ajax.php?action=gallery_tag_candidates&folder_id=${encodeURIComponent(folderId)}`
@@ -480,7 +497,11 @@ export class PhotoTagger {
 
 		const newImageId = imageLink.getAttribute('data-avpvh-id');
 
-		if (null !== newImageId && newImageId !== this.currentImageId) {
+		if (
+			null !== newImageId &&
+			'' !== newImageId &&
+			newImageId !== this.currentImageId
+		) {
 			this.currentImageId = newImageId;
 			await this.loadAndRenderTags();
 		}
