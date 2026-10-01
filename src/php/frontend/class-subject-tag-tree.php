@@ -121,7 +121,7 @@ final class Subject_Tag_Tree {
 		$tag    = self::tag( $key );
 		$parent = null !== $tag && null !== $tag['parent_id'] ? self::nodes()[ $tag['parent_id'] ] ?? null : null;
 
-		return null !== $parent && $parent['taggable'] ? 't' . $parent['id'] : null;
+		return null !== $parent && true === $parent['taggable'] ? 't' . $parent['id'] : null;
 	}
 
 	/**

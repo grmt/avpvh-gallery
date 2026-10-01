@@ -96,7 +96,7 @@ function select(
 export interface FilterScope {
 	available: boolean;
 	here: boolean;
-	onToggle: (here: boolean) => void;
+	onToggle(here: boolean): void;
 }
 
 // The filter bar shown above the gallery: the current conditions as
