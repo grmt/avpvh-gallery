@@ -136,8 +136,12 @@ export class Shortcode {
 	private readonly BOUNDARY_PRELOAD_THRESHOLD = 10;
 
 	private readonly SLIDESHOW_DELAY_MS = 4000;
-	// Shortest time between two lightbox steps (see the step pacing).
-	private static readonly MIN_STEP_MS = 400;
+	// Steps closer together than this are "fast stepping": only thumbnails
+	// (see setupFastStepping()).
+	private static readonly FAST_STEP_MS = 400;
+	// How long the viewer must stay on a photo before its full size loads
+	// after fast stepping.
+	private static readonly SETTLE_MS = 300;
 	private readonly IDLE_HIDE_MS = 3000;
 
 	private readonly navigationIconUrl: string;
@@ -2840,8 +2844,83 @@ export class Shortcode {
 			}
 			this.setupLightboxBehavior(pswp);
 		});
+		Shortcode.setupFastStepping(lightbox);
 
 		return lightbox;
+	}
+
+	// Every photo shown loads its full size from Google, which refuses
+	// images for a while when asked for too many at once. So while the
+	// viewer steps quickly through the photos, they only get the grid
+	// thumbnail (already in the browser) stretched over the slide; once
+	// they stay on a photo for a moment, it and its neighbours load in full.
+	private static setupFastStepping(lightbox: PhotoSwipeLightbox): void {
+		let lastChangeAt = 0;
+		let refreshing = false;
+		let settleTimer: ReturnType<typeof setTimeout> | null = null;
+		const deferred = new Set<number>();
+
+		// Photos load just before the step's 'change', so this is the time
+		// since the previous step.
+		lightbox.on('contentLoad', (e) => {
+			if (
+				!refreshing &&
+				'image' === e.content.type &&
+				Date.now() - lastChangeAt < Shortcode.FAST_STEP_MS
+			) {
+				e.preventDefault();
+				deferred.add(e.content.index);
+			}
+		});
+		const loadDeferred = (): void => {
+			const pswp = lightbox.pswp;
+			if (pswp === undefined) {
+				return;
+			}
+			refreshing = true;
+			[pswp.currIndex, pswp.currIndex + 1, pswp.currIndex - 1]
+				.filter((index) => deferred.delete(index))
+				.forEach((index) => {
+					pswp.refreshSlideContent(index);
+				});
+			refreshing = false;
+		};
+		lightbox.on('change', () => {
+			if (refreshing) {
+				return;
+			}
+			lastChangeAt = Date.now();
+			if (settleTimer !== null) {
+				clearTimeout(settleTimer);
+			}
+			settleTimer = setTimeout(() => {
+				settleTimer = null;
+				loadDeferred();
+			}, Shortcode.SETTLE_MS);
+		});
+		lightbox.on('close', () => {
+			if (settleTimer !== null) {
+				clearTimeout(settleTimer);
+				settleTimer = null;
+			}
+			lastChangeAt = 0;
+			deferred.clear();
+		});
+		// Show the thumbnail while a photo loads (PhotoSwipe only does so for
+		// the first one) — but only when the grid shows it unturned, as
+		// the slide will (no orientation correction or rotated thumbnail).
+		lightbox.addFilter('placeholderSrc', (src, content) => {
+			const el = content.data.element;
+			const turned =
+				!(el instanceof HTMLElement) ||
+				'1' === el.dataset['avpvhHasCorrection'] ||
+				'0' !== (el.dataset['avpvhThumbRotation'] ?? '0') ||
+				undefined !== el.dataset['avpvhThumbHflip'] ||
+				undefined !== el.dataset['avpvhThumbVflip'];
+			return !turned && content.data.msrc !== undefined
+				? content.data.msrc
+				: src;
+		});
 	}
 
 	private async acquireScreenWakeLock(): Promise<void> {
@@ -3085,20 +3164,6 @@ export class Shortcode {
 		// which is deliberately NOT treated as user activity — otherwise the
 		// slideshow would pause itself after a single frame.
 
-		// ── Step pacing ───────────────────────────────────────────────
-		// Every step loads a full-size photo from Google, which refuses
-		// images for a while when asked for too many at once. So arrow
-		// clicks and keys right after the previous step are ignored.
-		let lastStepAt = 0;
-		const tooSoon = (): boolean => {
-			const now = Date.now();
-			if (now - lastStepAt < Shortcode.MIN_STEP_MS) {
-				return true;
-			}
-			lastStepAt = now;
-			return false;
-		};
-
 		// ── Boundary navigation ───────────────────────────────────────
 		// Capture click on the prev arrow when at the start of the first node.
 		// Forward navigation is handled seamlessly via preloaded items.
@@ -3107,16 +3172,6 @@ export class Shortcode {
 			(e: MouseEvent) => {
 				const target = e.target;
 				if (!(target instanceof Element)) {
-					return;
-				}
-				if (
-					target.closest(
-						'.pswp__button--arrow--prev, .pswp__button--arrow--next'
-					) !== null &&
-					tooSoon()
-				) {
-					e.stopImmediatePropagation();
-					e.preventDefault();
 					return;
 				}
 				if (
@@ -3138,11 +3193,6 @@ export class Shortcode {
 				return;
 			}
 			if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-				if (tooSoon()) {
-					e.stopImmediatePropagation();
-					e.preventDefault();
-					return;
-				}
 				onActivity(null);
 			}
 			if (e.key === 'ArrowLeft' && pswp.currIndex === 0) {
