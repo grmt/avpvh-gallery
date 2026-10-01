@@ -160,7 +160,10 @@ final class Images {
 			: 0;
 
 		return array(
-			'description' => array_key_exists( 'description', $image ) ? esc_attr( $image['description'] ) : '',
+			// Raw text: the browser escapes it where it ends up in HTML (and shows
+			// it as plain text in the lightbox caption). Escaping it here as well
+			// showed quotes as "&quot;".
+			'description' => array_key_exists( 'description', $image ) ? (string) $image['description'] : '',
 			'exif'        => self::format_exif( $metadata ),
 			'folder_id'   => $parent_id,
 			'height'      => $height,
