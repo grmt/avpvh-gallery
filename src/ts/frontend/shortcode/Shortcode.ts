@@ -136,6 +136,8 @@ export class Shortcode {
 	private readonly BOUNDARY_PRELOAD_THRESHOLD = 10;
 
 	private readonly SLIDESHOW_DELAY_MS = 4000;
+	// Shortest time between two lightbox steps (see the step pacing).
+	private static readonly MIN_STEP_MS = 400;
 	private readonly IDLE_HIDE_MS = 3000;
 
 	private readonly navigationIconUrl: string;
@@ -3083,6 +3085,20 @@ export class Shortcode {
 		// which is deliberately NOT treated as user activity — otherwise the
 		// slideshow would pause itself after a single frame.
 
+		// ── Step pacing ───────────────────────────────────────────────
+		// Every step loads a full-size photo from Google, which refuses
+		// images for a while when asked for too many at once. So arrow
+		// clicks and keys right after the previous step are ignored.
+		let lastStepAt = 0;
+		const tooSoon = (): boolean => {
+			const now = Date.now();
+			if (now - lastStepAt < Shortcode.MIN_STEP_MS) {
+				return true;
+			}
+			lastStepAt = now;
+			return false;
+		};
+
 		// ── Boundary navigation ───────────────────────────────────────
 		// Capture click on the prev arrow when at the start of the first node.
 		// Forward navigation is handled seamlessly via preloaded items.
@@ -3091,6 +3107,16 @@ export class Shortcode {
 			(e: MouseEvent) => {
 				const target = e.target;
 				if (!(target instanceof Element)) {
+					return;
+				}
+				if (
+					target.closest(
+						'.pswp__button--arrow--prev, .pswp__button--arrow--next'
+					) !== null &&
+					tooSoon()
+				) {
+					e.stopImmediatePropagation();
+					e.preventDefault();
 					return;
 				}
 				if (
@@ -3112,6 +3138,11 @@ export class Shortcode {
 				return;
 			}
 			if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+				if (tooSoon()) {
+					e.stopImmediatePropagation();
+					e.preventDefault();
+					return;
+				}
 				onActivity(null);
 			}
 			if (e.key === 'ArrowLeft' && pswp.currIndex === 0) {
