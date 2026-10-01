@@ -1500,3 +1500,45 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 .avpvh-pswp-top > .avpvh-pswp-comments {
 	margin-left: 14px;
 }
+
+/* Previous/next trowels in the tagging panel's header. */
+.avpvh-pswp-tags-nav {
+	display: flex;
+	gap: 2px;
+	margin-left: auto;
+	margin-right: 6px;
+}
+
+.avpvh-pswp-tags-nav-button {
+	align-items: center;
+	background: none;
+	border: none;
+	color: #fff;
+	cursor: pointer;
+	display: flex;
+	font-size: 20px;
+	height: 26px;
+	justify-content: center;
+	padding: 0;
+	width: 26px;
+}
+
+.avpvh-pswp-tags-nav-button:hover {
+	background: rgb(255, 255, 255, 15%);
+	border-radius: 4px;
+}
+
+/* The trowel points upper-right: turned right (next), mirrored (previous). */
+.avpvh-pswp-tags-nav-icon {
+	filter: brightness(0) invert(1); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	height: 18px;
+	width: 18px;
+}
+
+.avpvh-pswp-tags-nav-icon-next {
+	transform: rotate(45deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-pswp-tags-nav-icon-prev {
+	transform: scaleX(-1) rotate(45deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}

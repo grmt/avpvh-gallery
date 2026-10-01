@@ -889,7 +889,45 @@ export class Shortcode {
 					tagsClose.className = 'avpvh-pswp-tags-close';
 					tagsClose.title = 'Sluiten (Esc)';
 					tagsClose.textContent = '×';
-					tagsHeader.append(tagsTitle, tagsClose);
+					// Previous/next photo without closing the panel (it covers the
+					// lightbox's own trowels), as small trowels next to the ×.
+					const tagsNav = document.createElement('span');
+					tagsNav.className = 'avpvh-pswp-tags-nav';
+					const navButton = (
+						direction: 'next' | 'prev',
+						title: string
+					): HTMLButtonElement => {
+						const navigate = document.createElement('button');
+						navigate.type = 'button';
+						navigate.className = 'avpvh-pswp-tags-nav-button';
+						navigate.title = title;
+						const iconUrl =
+							avpvhShortcodeLocalize.navigation_icon_url;
+						if (iconUrl === '') {
+							navigate.textContent =
+								direction === 'next' ? '›' : '‹';
+						} else {
+							const icon = document.createElement('img');
+							icon.src = iconUrl;
+							icon.alt = '';
+							icon.className = `avpvh-pswp-tags-nav-icon avpvh-pswp-tags-nav-icon-${direction}`;
+							navigate.appendChild(icon);
+						}
+						navigate.addEventListener('click', (e) => {
+							e.stopPropagation();
+							if (direction === 'next') {
+								instance.next();
+							} else {
+								instance.prev();
+							}
+						});
+						return navigate;
+					};
+					tagsNav.append(
+						navButton('prev', 'Vorige foto'),
+						navButton('next', 'Volgende foto')
+					);
+					tagsHeader.append(tagsTitle, tagsNav, tagsClose);
 					tagsPanel.appendChild(tagsHeader);
 					const closeTagsPanel = (): void => {
 						tagsPanel.style.display = 'none';
