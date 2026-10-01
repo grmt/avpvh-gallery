@@ -38,6 +38,7 @@ final class Photo_Tags {
 	const REACTIONS = array(
 		'kwaliteit' => array(
 			'blurry' => '🔍 Niet scherp',
+			'dark'   => '🌑 Donker',
 			'goodq'  => '✅ Goede kwaliteit',
 			'shaky'  => '📸 Bewogen',
 		),
