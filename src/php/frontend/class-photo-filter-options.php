@@ -103,26 +103,19 @@ final class Photo_Filter_Options {
 	 * @return array<array{value: string, label: string, count: int}>
 	 */
 	private static function used_tags() {
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin table, fixed name, no user input.
-		$counts = $wpdb->get_results(
-			"SELECT tag_key, COUNT(DISTINCT image_id) AS n FROM {$wpdb->prefix}agallery_photo_tags
-			 WHERE category <> 'personen' GROUP BY tag_key",
-			OBJECT_K
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$tags = array();
+		$counts = Subject_Tag_Tree::usage();
+		$tags   = array();
 
-		foreach ( Subject_Tag_Groups::GROUPS as $group ) {
-			foreach ( $group['tags'] as $slug => $label ) {
-				if ( ! isset( $counts[ $slug ] ) ) {
+		foreach ( Subject_Tag_Tree::groups() as $group ) {
+			foreach ( $group['tags'] as $key => $label ) {
+				if ( ! isset( $counts[ $key ] ) ) {
 					continue;
 				}
 
 				$tags[] = array(
-					'count' => (int) $counts[ $slug ]->n,
+					'count' => (int) $counts[ $key ],
 					'label' => $group['label'] . ' › ' . $label,
-					'value' => (string) $slug,
+					'value' => (string) $key,
 				);
 			}
 		}

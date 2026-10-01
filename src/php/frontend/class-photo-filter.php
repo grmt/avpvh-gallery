@@ -45,7 +45,7 @@ final class Photo_Filter {
 		'liked_by' => "SELECT image_id FROM {prefix}agallery_photo_reactions WHERE emoji = 'like' AND user_id = %d",
 		'person'   => "SELECT image_id FROM {prefix}agallery_photo_tags WHERE category = 'personen' AND tag_key = %s",
 		'place'    => 'SELECT image_id FROM {prefix}agallery_photo_places WHERE place = %s',
-		'tag'      => "SELECT image_id FROM {prefix}agallery_photo_tags WHERE category <> 'personen' AND tag_key = %s",
+		'tag'      => "SELECT image_id FROM {prefix}agallery_photo_tags WHERE category = 'subject' AND tag_key = %s",
 	);
 
 	/**

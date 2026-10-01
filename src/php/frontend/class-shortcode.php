@@ -219,7 +219,7 @@ final class Shortcode {
 			'reactions'            => Photo_Tags::REACTIONS,
 			'rest_nonce'           => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : '',
 			'server_error'         => esc_html__( 'The server returned an unexpected response.', 'avpvh-gallery' ),
-			'subject_tags'         => Subject_Tags::CATEGORIES,
+			'subject_tags'         => Subject_Tag_Tree::groups(),
 			'subject_tags_url'     => rest_url( 'avpvh-gallery/v1/subject-tags' ),
 			'tag_nonce'            => wp_create_nonce( 'avpvh_tag_nonce' ),
 		);

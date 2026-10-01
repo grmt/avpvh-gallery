@@ -12,8 +12,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * The fixed subject-tag vocabulary (see Subject_Tags), grouped by what the
- * tags describe. Tags are listed in display order, not alphabetically.
+ * The subject-tag vocabulary as it was before it became editable: only used
+ * once, to seed the tree in the database (Subject_Tag_Tree::seed_from_code())
+ * and to convert tags stored by these slugs. Edit tags on the admin "Tags"
+ * page, not here.
  */
 final class Subject_Tag_Groups {
 

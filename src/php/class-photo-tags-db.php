@@ -11,6 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Frontend\Subject_Tag_Seed;
+
 /**
  * Photo Tags Database Migration
  */
@@ -20,7 +22,7 @@ final class Photo_Tags_DB {
 	 * Schema version stored in wp_options.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility -- matches the no-modifier convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION).
-	const SCHEMA_VERSION = 5;
+	const SCHEMA_VERSION = 6;
 
 	/**
 	 * Runs schema migration if needed; hooked to init.
@@ -131,6 +133,8 @@ final class Photo_Tags_DB {
 		) {$charset_collate};";
 		dbDelta( $sql_places );
 
+		self::create_tag_tree_table( $charset_collate );
+
 		update_option( 'avpvh_photo_tags_schema', self::SCHEMA_VERSION );
 	}
 
@@ -143,6 +147,7 @@ final class Photo_Tags_DB {
 		global $wpdb;
 
 		$tables = array(
+			$wpdb->prefix . 'agallery_tag_nodes',
 			$wpdb->prefix . 'agallery_photo_places',
 			$wpdb->prefix . 'agallery_tag_log',
 			$wpdb->prefix . 'agallery_photo_reactions',
@@ -181,5 +186,34 @@ final class Photo_Tags_DB {
 			$wpdb->query( "ALTER TABLE {$table} DROP INDEX image_category_key" );
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Creates the subject-tag tree table and fills it once (see
+	 * Subject_Tag_Tree): sections (Wie, Wat …) hold sections and groups,
+	 * groups hold tags. Photos refer to a tag by its id, so it can be renamed
+	 * or moved freely. legacy_key is the slug a node had when the vocabulary
+	 * still lived in code (Subject_Tag_Groups), used once to convert tags.
+	 *
+	 * @param string $charset_collate The table charset/collation clause.
+	 *
+	 * @return void
+	 */
+	private static function create_tag_tree_table( $charset_collate ) {
+		global $wpdb;
+		$table_nodes = $wpdb->prefix . 'agallery_tag_nodes';
+		$sql_nodes   = "CREATE TABLE {$table_nodes} (
+			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			parent_id BIGINT UNSIGNED NULL,
+			type VARCHAR(10) NOT NULL,
+			label VARCHAR(100) NOT NULL,
+			single TINYINT(1) NOT NULL DEFAULT 0,
+			sort_order INT NOT NULL DEFAULT 0,
+			legacy_key VARCHAR(64) NULL,
+			INDEX idx_parent (parent_id),
+			INDEX idx_legacy (legacy_key)
+		) {$charset_collate};";
+		dbDelta( $sql_nodes );
+		Subject_Tag_Seed::seed_from_code();
 	}
 }

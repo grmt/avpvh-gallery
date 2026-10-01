@@ -35,12 +35,6 @@ use WP_REST_Response;
 final class Subject_Tags {
 
 	/**
-	 * The fixed vocabulary — see Subject_Tag_Groups.
-	 */
-	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility -- no-modifier matches the convention used elsewhere.
-	const CATEGORIES = Subject_Tag_Groups::GROUPS;
-
-	/**
 	 * Registers the REST routes.
 	 */
 	public function __construct() {
@@ -89,7 +83,7 @@ final class Subject_Tags {
 						'required'          => true,
 						'type'              => 'string',
 						'validate_callback' => static function ( $value ) {
-							return isset( self::all_tags()[ $value ] );
+							return null !== Subject_Tag_Tree::tag( (string) $value );
 						},
 					),
 				),
@@ -163,7 +157,7 @@ final class Subject_Tags {
 	public function toggle_tag( $request ) {
 		$file_id  = sanitize_text_field( (string) $request->get_param( 'file_id' ) );
 		$tag_slug = sanitize_text_field( (string) $request->get_param( 'tag_slug' ) );
-		$category = self::category_for_slug( $tag_slug );
+		$category = null !== Subject_Tag_Tree::tag( $tag_slug ) ? 'subject' : null;
 
 		if ( '' === $file_id || null === $category ) {
 			return new WP_Error( 'invalid_tag', 'file_id and a known tag_slug are required', array( 'status' => 400 ) );
@@ -188,8 +182,8 @@ final class Subject_Tags {
 		}
 
 		// One vote per person in a one-per-photo group: yours moves.
-		if ( self::CATEGORIES[ $category ]['single'] ) {
-			$siblings = array_keys( self::CATEGORIES[ $category ]['tags'] );
+		if ( Subject_Tag_Tree::single( $tag_slug ) ) {
+			$siblings = Subject_Tag_Tree::siblings( $tag_slug );
 			self::remove_tags( $file_id, array_intersect( $siblings, $mine ), true );
 		}
 
@@ -199,36 +193,16 @@ final class Subject_Tags {
 	}
 
 	/**
-	 * Resolves which group a slug belongs to.
+	 * The label of a tag (by its key, e.g. "t12").
 	 *
-	 * @param string $slug A tag slug.
+	 * @param string $key Tag key.
 	 *
-	 * @return string|null The group key (e.g. 'weer'), or null if the slug isn't in any group.
+	 * @return string
 	 */
-	public static function category_for_slug( $slug ) {
-		foreach ( self::CATEGORIES as $category => $group ) {
-			if ( isset( $group['tags'][ $slug ] ) ) {
-				return $category;
-			}
-		}
+	private static function label( $key ) {
+		$tag = Subject_Tag_Tree::tag( $key );
 
-		return null;
-	}
-
-	/**
-	 * All tags across every rubriek, flattened to slug => label — used to
-	 * validate a submitted tag_slug without caring which rubriek it's in.
-	 *
-	 * @return array<string, string>
-	 */
-	private static function all_tags() {
-		$all = array();
-
-		foreach ( self::CATEGORIES as $group ) {
-			$all = array_merge( $all, $group['tags'] );
-		}
-
-		return $all;
+		return null !== $tag ? $tag['label'] : $key;
 	}
 
 	/**
@@ -245,18 +219,17 @@ final class Subject_Tags {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT tag_key, created_by, created_at FROM {$wpdb->prefix}agallery_photo_tags
-				 WHERE image_id = %s AND category <> 'personen' ORDER BY created_at",
+				 WHERE image_id = %s AND category = 'subject' ORDER BY created_at",
 				$file_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$known = self::all_tags();
 
 		return array_values(
 			array_filter(
 				is_array( $rows ) ? $rows : array(),
-				static function ( $row ) use ( $known ) {
-					return isset( $known[ $row->tag_key ] );
+				static function ( $row ) {
+					return null !== Subject_Tag_Tree::tag( (string) $row->tag_key );
 				}
 			)
 		);
@@ -285,7 +258,7 @@ final class Subject_Tags {
 			),
 			array( '%s', '%s', '%d', '%s', '%s' )
 		);
-		Tag_Log::record( $file_id, $category, $tag_slug, self::all_tags()[ $tag_slug ], 'add' );
+		Tag_Log::record( $file_id, $category, $tag_slug, self::label( $tag_slug ), 'add' );
 	}
 
 	/**
@@ -321,7 +294,7 @@ final class Subject_Tags {
 			$wpdb->query(
 				$wpdb->prepare(
 					"DELETE FROM {$wpdb->prefix}agallery_photo_tags
-					 WHERE image_id = %s AND tag_key = %s AND category <> 'personen'{$by_whom}",
+					 WHERE image_id = %s AND tag_key = %s AND category = 'subject'{$by_whom}",
 					$file_id,
 					$slug
 				)
@@ -329,9 +302,9 @@ final class Subject_Tags {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			Tag_Log::record(
 				$file_id,
-				(string) self::category_for_slug( $slug ),
+				'subject',
 				$slug,
-				self::all_tags()[ $slug ] ?? $slug,
+				self::label( $slug ),
 				'remove'
 			);
 		}
