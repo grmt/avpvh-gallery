@@ -3757,48 +3757,32 @@ export class Shortcode {
 						'',
 						this.pathQueryParameter.add(newPath)
 					);
+					// Backwards, load the folder up to its last photo, so
+					// that's the one the lightbox reopens on.
+					history.replaceState(
+						{},
+						'',
+						'prev' === direction
+							? this.pageQueryParameter.add(
+									Shortcode.pagesFor(targetDir).toString()
+								)
+							: this.pageQueryParameter.remove()
+					);
 					this.path = newPath;
 					this.folderNavigating = false;
 					this.get();
 					return;
 				}
 
-				let edgePage: number | null = null;
-				if ('next' === direction) {
-					edgePage = data.more === true ? searchPage + 1 : null;
-				} else {
-					edgePage = searchPage > 1 ? searchPage - 1 : null;
-				}
-				if (edgePage !== null) {
-					this.findEdgeFolderPath(
-						parentPath,
-						edgePage,
+				// Not at this level yet? A later page lists more subfolders
+				// (see listsAllFolders()); a folder before the first one
+				// never turns up there.
+				if ('next' === direction && !Shortcode.listsAllFolders(data)) {
+					this.findAdjacentFolder(
+						currentPath,
 						direction,
-						(newPath) => {
-							if (pswp !== undefined) {
-								this.pendingLightboxOpen =
-									'next' === direction ? 'first' : 'last';
-							}
-							history.pushState(
-								{},
-								'',
-								this.pathQueryParameter.add(newPath)
-							);
-							this.path = newPath;
-							this.folderNavigating = false;
-							this.get();
-						},
-						() => {
-							if (parentPath === '') {
-								this.folderNavigating = false;
-							} else {
-								this.findAdjacentFolder(
-									parentPath,
-									direction,
-									pswp
-								);
-							}
-						}
+						pswp,
+						searchPage + 1
 					);
 					return;
 				}
@@ -3818,60 +3802,25 @@ export class Shortcode {
 		});
 	}
 
-	private findEdgeFolderPath(
-		parentPath: string,
-		page: number,
-		direction: 'next' | 'prev',
-		onFound: (path: string, total: number) => void,
-		onNotFound: () => void
-	): void {
-		void $.get(
-			avpvhShortcodeLocalize.ajax_url,
-			{ action: 'gallery', hash: this.hash, path: parentPath, page },
-			(data: GalleryResponse) => {
-				if (isError(data)) {
-					onNotFound();
-					return;
-				}
-				const siblings = data.directories ?? [];
-				if (siblings.length > 0) {
-					this.storeKnownTotals(siblings);
-					const target =
-						'next' === direction
-							? siblings[0]
-							: siblings[siblings.length - 1];
-					const canonicalParent =
-						data.path !== undefined && data.path.length > 0
-							? data.path.map((part) => part.id).join('/')
-							: parentPath;
-					onFound(
-						(canonicalParent !== '' ? canonicalParent + '/' : '') +
-							target.id,
-						this.knownTotals.get(target.id) ?? -1
-					);
-					return;
-				}
-				if ('next' === direction && data.more === true) {
-					this.findEdgeFolderPath(
-						parentPath,
-						page + 1,
-						direction,
-						onFound,
-						onNotFound
-					);
-				} else if ('prev' === direction && page > 1) {
-					this.findEdgeFolderPath(
-						parentPath,
-						page - 1,
-						direction,
-						onFound,
-						onNotFound
-					);
-				} else {
-					onNotFound();
-				}
-			}
-		).fail(onNotFound);
+	// How many pages a folder's photos and videos take: loading that many
+	// shows its last one.
+	private static pagesFor(directory: Directory): number {
+		const pageSize = parseInt(avpvhShortcodeLocalize.page_size, 10) || 1;
+		const total =
+			directory.mediacount ??
+			(directory.imagecount ?? 0) + (directory.videocount ?? 0);
+		return Math.max(1, Math.ceil(total / pageSize));
+	}
+
+	// A "gallery" response's page N holds everything up to and including
+	// page N, subfolders before photos and videos. So it lists every
+	// subfolder once it has any photo or video, or there is nothing more.
+	private static listsAllFolders(data: PageSuccessResponse): boolean {
+		return (
+			data.more !== true ||
+			(data.images ?? []).length > 0 ||
+			(data.videos ?? []).length > 0
+		);
 	}
 
 	private static renderMoreButton(): string {
@@ -4300,23 +4249,12 @@ export class Shortcode {
 						(canonicalParent !== '' ? canonicalParent + '/' : '') +
 						nextDir.id;
 					onFound(newPath, this.knownTotals.get(nextDir.id) ?? -1);
-				} else if (data.more === true) {
-					this.findEdgeFolderPath(
-						parentPath,
-						searchPage + 1,
-						'next',
+				} else if (!Shortcode.listsAllFolders(data)) {
+					this.findNextSiblingPath(
+						currentPath,
 						onFound,
-						() => {
-							if (parentPath !== '') {
-								this.findNextSiblingPath(
-									parentPath,
-									onFound,
-									onNotFound
-								);
-							} else {
-								onNotFound();
-							}
-						}
+						onNotFound,
+						searchPage + 1
 					);
 				} else if (parentPath !== '') {
 					this.findNextSiblingPath(parentPath, onFound, onNotFound);

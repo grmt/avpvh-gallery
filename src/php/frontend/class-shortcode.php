@@ -209,6 +209,7 @@ final class Shortcode {
 			'load_more'            => esc_html__( 'Load more', 'avpvh-gallery' ),
 			'navigation_icon_url'  => plugins_url( '/avpvh-gallery/frontend/images/' . $navigation_icon ),
 			'page_autoload'        => $options->get( 'page_autoload' ),
+			'page_size'            => (string) $options->get( 'page_size' ),
 			'photo_place_url'      => rest_url( 'avpvh-gallery/v1/photo-place' ),
 			'preview_activity'     => $options->get( 'preview_activity_indicator' ),
 			'preview_arrows'       => $options->get( 'preview_arrows' ),

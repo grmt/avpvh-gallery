@@ -7,6 +7,7 @@ declare const avpvhShortcodeLocalize: {
 	grid_spacing: string;
 	page_autoload: string;
 	preview_speed: string;
+	page_size: string;
 	preview_arrows: string;
 	preview_closebutton: string;
 	preview_quitOnEnd: string;
