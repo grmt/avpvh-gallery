@@ -997,6 +997,11 @@ export class Shortcode {
 					let refreshTagsPanel = (): void => {
 						/* replaced below */
 					};
+					// Redraws the person search results; assigned once
+					// renderPersonResults exists (further below).
+					let redrawPersonResults = (): void => {
+						/* replaced below */
+					};
 					const canRemoveTags =
 						'true' === avpvhShortcodeLocalize.can_remove_tags;
 					const subjectTagsList = document.createElement('div');
@@ -1643,6 +1648,8 @@ export class Shortcode {
 										})
 									)
 							);
+							// The recent list's check marks follow this photo.
+							redrawPersonResults();
 							tags.forEach((tag) => {
 								const li = document.createElement('li');
 								if (tag.mine) {
@@ -2094,6 +2101,7 @@ export class Shortcode {
 						renderPersonScopes();
 						renderPersonResults();
 					});
+					redrawPersonResults = renderPersonResults;
 					// Withdraws your own tag of a person on this photo.
 					const untagPerson = (person: {
 						id: number;
@@ -2400,7 +2408,13 @@ export class Shortcode {
 								? ''
 								: 'none';
 						personSearch.value = '';
+						// Forget the previous photo's persons straight away, so
+						// nothing of it shows until this photo's tags arrive.
+						taggedPersonKeys = new Set();
+						personTagsList.innerHTML = '';
+						taggedLabel.textContent = 'Laden…';
 						if (tagsPanel.style.display !== 'none') {
+							renderPersonResults();
 							refreshTagsPanel();
 							void loadPersonCandidates().then(
 								renderPersonResults
