@@ -1932,16 +1932,23 @@ export class Shortcode {
 						// The persons this viewer tagged most recently come
 						// first: listed on their own before anything is typed,
 						// and ranked first among equally good matches after.
-						const recent = Shortcode.recentPersons(
+						// The recent list keeps persons already tagged here (shown
+						// with ✓; clicking withdraws your tag), so tagging a
+						// series of photos is a matter of ticking names.
+						const recentAll = Shortcode.recentPersons(
 							this.photoTagger.getMembersForDropdown()
-						).filter(untagged);
+						).filter(
+							(person) =>
+								!(tagContext?.bornAfter.has(person.id) ?? false)
+						);
+						const recent = recentAll.filter(untagged);
 						const pool = scopePool(personScope).filter(untagged);
 						const matches =
 							query === ''
 								? pool
 										.filter(
 											(person) =>
-												!recent.some(
+												!recentAll.some(
 													(other) =>
 														Shortcode.personKey(
 															other
@@ -1976,7 +1983,8 @@ export class Shortcode {
 						};
 						const addPick = (
 							person: { id: number; name: string },
-							label: string
+							label: string,
+							tagged = false
 						): void => {
 							const li = document.createElement('li');
 							const pick = document.createElement('button');
@@ -1984,13 +1992,26 @@ export class Shortcode {
 							pick.textContent = label;
 							pick.dataset['personId'] = String(person.id);
 							pick.dataset['personName'] = person.name;
+							if (tagged) {
+								pick.dataset['tagged'] = '1';
+								pick.classList.add('tagged');
+								pick.title =
+									'Getagd op deze foto — klik om je tag in te trekken';
+							}
 							li.appendChild(pick);
 							personResults.appendChild(li);
 						};
-						if (query === '' && recent.length > 0) {
+						if (query === '' && recentAll.length > 0) {
 							addHeading('Recent gebruikt');
-							recent.slice(0, 6).forEach((person) => {
-								addPick(person, person.name);
+							recentAll.slice(0, 6).forEach((person) => {
+								const tagged = taggedPersonKeys.has(
+									Shortcode.personKey(person)
+								);
+								addPick(
+									person,
+									(tagged ? '✓ ' : '') + person.name,
+									tagged
+								);
 							});
 							if (matches.length > 0) {
 								addHeading('Suggesties');
@@ -2069,6 +2090,34 @@ export class Shortcode {
 						renderPersonScopes();
 						renderPersonResults();
 					});
+					// Withdraws your own tag of a person on this photo.
+					const untagPerson = (person: {
+						id: number;
+						name: string;
+					}): void => {
+						if (exclusionFileId === '') {
+							return;
+						}
+						taggedPersonKeys.delete(Shortcode.personKey(person));
+						renderPersonResults();
+						void this.photoTagger
+							.deleteTag(
+								exclusionFileId,
+								person.id > 0
+									? String(person.id)
+									: `name:${person.name.trim().replace(/\s+/g, ' ').toLowerCase()}`,
+								false
+							)
+							.then((done) => {
+								showPersonStatus(
+									done
+										? `${person.name} niet meer getagd`
+										: `${person.name} loshalen is mislukt`,
+									!done
+								);
+								refreshTagsPanel();
+							});
+					};
 					personResults.addEventListener('click', (e) => {
 						e.stopPropagation();
 						const pick =
@@ -2077,11 +2126,17 @@ export class Shortcode {
 										'[data-person-id]'
 									)
 								: null;
-						if (pick !== null) {
-							tagPerson({
-								id: Number(pick.dataset['personId']),
-								name: pick.dataset['personName'] ?? '',
-							});
+						if (pick === null) {
+							return;
+						}
+						const person = {
+							id: Number(pick.dataset['personId']),
+							name: pick.dataset['personName'] ?? '',
+						};
+						if (pick.dataset['tagged'] === '1') {
+							untagPerson(person);
+						} else {
+							tagPerson(person);
 						}
 					});
 					personSearch.addEventListener('input', renderPersonResults);

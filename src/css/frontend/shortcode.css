@@ -1542,3 +1542,8 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 .avpvh-pswp-tags-nav-icon-prev {
 	transform: scaleX(-1) rotate(45deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
+
+/* A recently used person who is already tagged on this photo. */
+.avpvh-pswp-person-results .tagged {
+	color: #a5d6a7;
+}
