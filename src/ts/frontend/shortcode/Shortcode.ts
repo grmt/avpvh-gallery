@@ -1454,7 +1454,7 @@ export class Shortcode {
 					taggedLabel.className = 'avpvh-pswp-tagged-label';
 					personTagsSection.appendChild(taggedLabel);
 					personTagsSection.appendChild(personTagsList);
-					// "✓ Jan getagd" / an error, after picking a name.
+					// "Jan getagd" / an error, after picking a name.
 					const personStatus = document.createElement('div');
 					personStatus.className = 'avpvh-pswp-person-status';
 					let personStatusTimer: ReturnType<
@@ -2007,11 +2007,7 @@ export class Shortcode {
 								const tagged = taggedPersonKeys.has(
 									Shortcode.personKey(person)
 								);
-								addPick(
-									person,
-									(tagged ? '✓ ' : '') + person.name,
-									tagged
-								);
+								addPick(person, person.name, tagged);
 							});
 							if (matches.length > 0) {
 								addHeading('Suggesties');
@@ -2034,13 +2030,20 @@ export class Shortcode {
 							);
 						}
 					};
+					// Persons whose tag is being saved or withdrawn right now:
+					// further clicks on them are ignored until that's done.
+					const busyKeys = new Set<string>();
 					const tagPerson = (person: {
 						id: number;
 						name: string;
 					}): void => {
-						if (exclusionFileId === '') {
+						if (
+							exclusionFileId === '' ||
+							busyKeys.has(Shortcode.personKey(person))
+						) {
 							return;
 						}
+						busyKeys.add(Shortcode.personKey(person));
 						personSearch.value = '';
 						const key = Shortcode.personKey(person);
 						taggedPersonKeys.add(key);
@@ -2061,9 +2064,10 @@ export class Shortcode {
 								person.id > 0 ? '' : person.name
 							)
 							.then((saved) => {
+								busyKeys.delete(key);
 								if (saved) {
 									showPersonStatus(
-										`✓ ${person.name} getagd`,
+										`${person.name} getagd`,
 										false
 									);
 								} else {
@@ -2095,10 +2099,12 @@ export class Shortcode {
 						id: number;
 						name: string;
 					}): void => {
-						if (exclusionFileId === '') {
+						const key = Shortcode.personKey(person);
+						if (exclusionFileId === '' || busyKeys.has(key)) {
 							return;
 						}
-						taggedPersonKeys.delete(Shortcode.personKey(person));
+						busyKeys.add(key);
+						taggedPersonKeys.delete(key);
 						renderPersonResults();
 						void this.photoTagger
 							.deleteTag(
@@ -2109,6 +2115,7 @@ export class Shortcode {
 								false
 							)
 							.then((done) => {
+								busyKeys.delete(key);
 								showPersonStatus(
 									done
 										? `${person.name} niet meer getagd`

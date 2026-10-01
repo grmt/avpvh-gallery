@@ -1543,7 +1543,19 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	transform: scaleX(-1) rotate(45deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
-/* A recently used person who is already tagged on this photo. */
+/* A recently used person who is already tagged on this photo: a check mark
+   drawn in CSS (a ✓ character shows as a box in fonts that lack it). */
 .avpvh-pswp-person-results .tagged {
 	color: #a5d6a7;
+}
+
+.avpvh-pswp-person-results .tagged::before {
+	border: solid currentcolor;
+	border-width: 0 2px 2px 0;
+	content: "";
+	display: inline-block;
+	height: 9px;
+	margin: 0 8px 2px 2px;
+	transform: rotate(45deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	width: 4px;
 }

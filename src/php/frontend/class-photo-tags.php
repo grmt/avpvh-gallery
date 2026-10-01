@@ -169,21 +169,6 @@ final class Photo_Tags {
 		);
 		Tag_Log::record( $image_id, 'personen', $person['tag_key'], $person['member_name'], 'add' );
 
-		// Sync to Google Drive (non-blocking).
-		wp_remote_post(
-			admin_url( 'admin-ajax.php' ),
-			array(
-				'blocking'  => false,
-				'body'      => array(
-					'action'      => 'gallery_sync_tags_to_drive',
-					'image_id'    => $image_id,
-					'_ajax_nonce' => wp_create_nonce( 'avpvh_sync_nonce' ),
-				),
-				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- shared hook name also used (and suppressed the same way) in class-exif-data-rest.php and class-media-stream-rest.php; renaming would be a breaking change for sites already hooked into it.
-				'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
-			)
-		);
-
 		wp_send_json_success( array( 'tag_id' => $wpdb->insert_id ) );
 	}
 
