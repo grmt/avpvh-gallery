@@ -69,7 +69,7 @@ final class API_Client {
 	 *
 	 * @var array<callable> $pending_requests
 	 */
-	private static $pending_requests;
+	private static $pending_requests = array();
 
 	/**
 	 * Returns a Google client with set-up app info, but without authorization.
