@@ -94,6 +94,8 @@ export class Shortcode {
 	private draftConditions: Array<FilterCondition> = [];
 	// How many photos the current filter found (null while searching).
 	private filterTotal: number | null = null;
+	// "Alleen deze map": filter only the current folder and below it.
+	private filterHere = false;
 	private hasMore = false;
 	private path = '';
 	private lastPage = 1;
@@ -5062,6 +5064,16 @@ export class Shortcode {
 				avpvhShortcodeLocalize.ajax_url,
 				this.filter ?? this.draftConditions,
 				this.filterTotal,
+				{
+					available: this.path !== '',
+					here: this.filterHere,
+					onToggle: (here) => {
+						this.filterHere = here;
+						if (this.filter !== null) {
+							this.getFiltered(this.filter);
+						}
+					},
+				},
 				(conditions) => {
 					if (isActiveFilter(conditions)) {
 						this.draftConditions = [];
@@ -5076,7 +5088,7 @@ export class Shortcode {
 	}
 
 	// Shows the first page of photos matching a filter, across the whole
-	// gallery, in place of the folder view.
+	// gallery or only the current folder, in place of the folder view.
 	private getFiltered(conditions: Array<FilterCondition>): void {
 		const epoch = ++this.getEpoch;
 		this.filter = conditions;
@@ -5091,6 +5103,7 @@ export class Shortcode {
 				hash: this.hash,
 				page: 1,
 				conditions: conditionsParam(conditions),
+				folder: this.filterFolder(),
 			},
 			(data: PageResponse & { total?: number }) => {
 				if (epoch !== this.getEpoch) {
@@ -5129,8 +5142,17 @@ export class Shortcode {
 					hash: this.hash,
 					page,
 					conditions: conditionsParam(this.filter),
+					folder: this.filterFolder(),
 				}
 			: { action: 'page', hash: this.hash, path, page };
+	}
+
+	// The folder a filter is limited to ("Alleen deze map"), or '' for the
+	// whole gallery.
+	private filterFolder(): string {
+		return this.filterHere && this.path !== ''
+			? (this.path.split('/').pop() ?? '')
+			: '';
 	}
 
 	private openLightboxIfPending(): void {
@@ -5222,7 +5244,7 @@ export class Shortcode {
 			);
 		this.container.find('.avpvh-more-button').remove();
 
-		const cacheKey = `page-${this.hash}-${this.pathQueryParameter.get()}-${JSON.stringify(this.filter)}-${this.lastPage.toString()}`;
+		const cacheKey = `page-${this.hash}-${this.pathQueryParameter.get()}-${JSON.stringify(this.filter)}-${this.filterFolder()}-${this.lastPage.toString()}`;
 		if (Shortcode.cache.has(cacheKey)) {
 			const cachedData = Shortcode.cache.get(cacheKey) as PageResponse;
 			if (isError(cachedData)) {

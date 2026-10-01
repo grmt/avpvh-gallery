@@ -1402,6 +1402,13 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	padding: 3px 6px;
 }
 
+.avpvh-filter-here {
+	align-items: center;
+	display: flex;
+	font-size: 13px;
+	gap: 4px;
+}
+
 .avpvh-filter-found {
 	font-size: 13px;
 	font-weight: 700;

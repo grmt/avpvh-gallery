@@ -100,6 +100,7 @@ final class Photo_Filter {
 	 * key), tag (subject tag slug) or place; op is "and" (the photo must
 	 * match), "or" (it must match at least one of the "or" conditions) or
 	 * "not" (it must not match). At least one and/or condition is needed.
+	 * Optional folder: only photos in that folder or below it.
 	 *
 	 * @return void
 	 */
@@ -122,7 +123,12 @@ final class Photo_Filter {
 			);
 		}
 
-		list( $ids, $total ) = self::matching_ids( $conditions, $page );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
+		$folder_id = sanitize_text_field( wp_unslash( (string) ( $_GET['folder'] ?? '' ) ) );
+
+		list( $ids, $total ) = '' === $folder_id
+			? self::matching_ids( $conditions, $page )
+			: self::matching_ids_within( $conditions, $page, $folder_id );
 
 		wp_send_json(
 			array(
@@ -205,7 +211,7 @@ final class Photo_Filter {
 	 * order (photos without a known capture date last), plus the total.
 	 *
 	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See conditions_from_request().
-	 * @param int                                                       $page       1-based page number.
+	 * @param int                                                       $page       1-based page number; 0 for all of them.
 	 *
 	 * @return array{0: array<string>, 1: int}
 	 */
@@ -250,12 +256,36 @@ final class Photo_Filter {
 				"SELECT m.image_id {$from}
 				 ORDER BY d.original_datetime IS NULL, d.original_datetime, m.image_id
 				 LIMIT %d OFFSET %d",
-				array_merge( $args, array( self::PAGE_SIZE, ( $page - 1 ) * self::PAGE_SIZE ) )
+				array_merge(
+					$args,
+					// Page 0: all of them.
+					0 === $page ? array( 1000000, 0 ) : array( self::PAGE_SIZE, ( $page - 1 ) * self::PAGE_SIZE )
+				)
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		return array( array_map( 'strval', $ids ), $total );
+	}
+
+	/**
+	 * One page of the matching photos that are in a folder or below it, and
+	 * how many there are in all.
+	 *
+	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See conditions_from_request().
+	 * @param int                                                       $page       1-based page number.
+	 * @param string                                                    $folder_id  Drive folder ID.
+	 *
+	 * @return array{0: array<string>, 1: int}
+	 */
+	private static function matching_ids_within( array $conditions, $page, $folder_id ) {
+		list( $all ) = self::matching_ids( $conditions, 0 );
+		$inside      = Photo_Filter_Scope::within( $all, $folder_id );
+
+		return array(
+			array_slice( $inside, ( $page - 1 ) * self::PAGE_SIZE, self::PAGE_SIZE ),
+			count( $inside ),
+		);
 	}
 
 	/**

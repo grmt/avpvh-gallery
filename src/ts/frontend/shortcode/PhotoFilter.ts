@@ -91,13 +91,23 @@ function select(
 	return element;
 }
 
+// "Alleen deze map": whether it can be offered (not in the gallery's top
+// folder), whether it's on, and what to do when it's switched.
+export interface FilterScope {
+	available: boolean;
+	here: boolean;
+	onToggle: (here: boolean) => void;
+}
+
 // The filter bar shown above the gallery: the current conditions as
-// removable chips, a row to add one (how · what kind · which), and while
-// filtering the number of photos found and a button to clear the filter.
+// removable chips, a row to add one (how · what kind · which) with the
+// "only this folder" switch, and while filtering the number of photos
+// found and a button to clear the filter.
 export function buildFilterBar(
 	ajaxUrl: string,
 	conditions: Array<FilterCondition>,
 	total: number | null,
+	scope: FilterScope,
 	onChange: (conditions: Array<FilterCondition>) => void
 ): HTMLElement {
 	const bar = document.createElement('div');
@@ -121,6 +131,19 @@ export function buildFilterBar(
 	addButton.textContent = '+ Toevoegen';
 	addButton.hidden = true;
 	adder.append(opSelect, kindSelect, valueSelect, addButton);
+	if (scope.available) {
+		const hereLabel = document.createElement('label');
+		hereLabel.className = 'avpvh-filter-here';
+		const hereBox = document.createElement('input');
+		hereBox.type = 'checkbox';
+		hereBox.checked = scope.here;
+		hereBox.addEventListener('change', () => {
+			scope.onToggle(hereBox.checked);
+		});
+		hereLabel.append(hereBox, document.createTextNode(' Alleen deze map'));
+		hereLabel.title = 'Alleen foto’s in deze map en de mappen eronder';
+		adder.appendChild(hereLabel);
+	}
 	bar.appendChild(adder);
 
 	kindSelect.addEventListener('change', () => {
