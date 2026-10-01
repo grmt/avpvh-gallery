@@ -1432,6 +1432,22 @@ export class Shortcode {
 									options.appendChild(optionLabel);
 								}
 							);
+							// Tags directly in a section (Plek › Opgraving) go
+							// straight into it, above its groups.
+							// (A plain block, so applySubjectState() still
+							// finds its checkboxes.)
+							if (group.label === '') {
+								const loose = document.createElement('div');
+								loose.className =
+									'avpvh-pswp-subject-tags-section';
+								loose.appendChild(options);
+								container.insertBefore(
+									loose,
+									container.querySelector(':scope > summary')
+										?.nextSibling ?? null
+								);
+								return;
+							}
 							section.appendChild(options);
 							container.appendChild(section);
 						}

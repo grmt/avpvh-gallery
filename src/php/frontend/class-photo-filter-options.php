@@ -107,6 +107,9 @@ final class Photo_Filter_Options {
 		$tags   = array();
 
 		foreach ( Subject_Tag_Tree::groups() as $group ) {
+			// Tags directly in a section are labelled with the section.
+			$heading = '' !== $group['label'] ? $group['label'] : (string) end( $group['path'] );
+
 			foreach ( $group['tags'] as $key => $label ) {
 				if ( ! isset( $counts[ $key ] ) ) {
 					continue;
@@ -114,7 +117,7 @@ final class Photo_Filter_Options {
 
 				$tags[] = array(
 					'count' => (int) $counts[ $key ],
-					'label' => $group['label'] . ' › ' . $label,
+					'label' => $heading . ' › ' . $label,
 					'value' => (string) $key,
 				);
 			}

@@ -25,7 +25,7 @@ final class Subject_Tag_Editor {
 	private const CHILD_TYPES = array(
 		''        => array( 'section' ),
 		'group'   => array( 'tag' ),
-		'section' => array( 'section', 'group' ),
+		'section' => array( 'section', 'group', 'tag' ),
 		'tag'     => array(),
 	);
 

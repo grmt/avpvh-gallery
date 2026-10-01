@@ -34,7 +34,7 @@ const TYPE_NAMES: Record<NodeType, string> = {
 const CHILD_TYPES: Record<NodeType | '', Array<NodeType>> = {
 	'': ['section'],
 	group: ['tag'],
-	section: ['section', 'group'],
+	section: ['section', 'group', 'tag'],
 	tag: [],
 };
 

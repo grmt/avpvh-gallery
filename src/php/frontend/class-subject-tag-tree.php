@@ -21,6 +21,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * moved without touching tagged photos. The "t" keeps the browser from
  * re-sorting tags by number.
  *
+ * Sections may also hold tags directly (Plek › Opgraving next to the group
+ * Plek › Kamp).
+ *
  * Read-only here; changed through Subject_Tag_Editor (the admin "Tags"
  * page), which also seeded it from the old in-code vocabulary.
  */
@@ -76,6 +79,10 @@ final class Subject_Tag_Tree {
 	 * The vocabulary for the tagging panel and the filter: per group (in
 	 * display order), its label, the labels of the sections above it, whether
 	 * it allows one tag per photo, and its tags (key => label).
+	 *
+	 * Tags placed directly in a section (Waar › Plek › Opgraving) come as a
+	 * group without a label ("s<section id>"), listed before the section's
+	 * own groups and subsections.
 	 *
 	 * @return array<string, array{label: string, path: array<string>, single: bool, tags: array<string, string>}>
 	 */
@@ -190,7 +197,7 @@ final class Subject_Tag_Tree {
 	 * @return array<string, array{label: string, path: array<string>, single: bool, tags: array<string, string>}>
 	 */
 	private static function collect_groups( $parent_id, array $path ) {
-		$groups = array();
+		$groups = self::loose_tags( $parent_id, $path );
 
 		foreach ( self::children( $parent_id ) as $node ) {
 			if ( 'section' === $node['type'] ) {
@@ -207,19 +214,55 @@ final class Subject_Tag_Tree {
 				'label'  => $node['label'],
 				'path'   => $path,
 				'single' => $node['single'],
-				'tags'   => array_column(
-					array_map(
-						static function ( $tag ) {
-							return array( 't' . $tag['id'], $tag['label'] );
-						},
-						self::children( $node['id'] )
-					),
-					1,
-					0
-				),
+				'tags'   => self::tags_below( $node['id'] ),
 			);
 		}
 
 		return $groups;
+	}
+
+	/**
+	 * The tags placed directly in a section, as a group without a label (for
+	 * collect_groups()); none at the top level.
+	 *
+	 * @param int|null      $section_id Section id.
+	 * @param array<string> $path       Section labels down to and including it.
+	 *
+	 * @return array<string, array{label: string, path: array<string>, single: bool, tags: array<string, string>}>
+	 */
+	private static function loose_tags( $section_id, array $path ) {
+		$tags = null === $section_id ? array() : self::tags_below( $section_id );
+
+		if ( array() === $tags ) {
+			return array();
+		}
+
+		return array(
+			's' . $section_id => array(
+				'label'  => '',
+				'path'   => $path,
+				'single' => false,
+				'tags'   => $tags,
+			),
+		);
+	}
+
+	/**
+	 * The tags directly below a node (key => label), in display order.
+	 *
+	 * @param int $parent_id Parent node id.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function tags_below( $parent_id ) {
+		$tags = array();
+
+		foreach ( self::children( $parent_id ) as $node ) {
+			if ( 'tag' === $node['type'] ) {
+				$tags[ 't' . $node['id'] ] = $node['label'];
+			}
+		}
+
+		return $tags;
 	}
 }
