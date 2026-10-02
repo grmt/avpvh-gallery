@@ -46,6 +46,19 @@ final class Gallery {
 	public function __construct() {
 		add_action( 'wp_ajax_gallery', array( self::class, 'handle_ajax' ) );
 		add_action( 'wp_ajax_nopriv_gallery', array( self::class, 'handle_ajax' ) );
+		// For the web server: "is this visitor logged in?" — 204 or 401. nginx
+		// asks this before handing out a cached gallery response.
+		add_action( 'wp_ajax_avpvh_logged_in', array( self::class, 'logged_in' ) );
+		add_action( 'wp_ajax_nopriv_avpvh_logged_in', array( self::class, 'logged_in' ) );
+	}
+
+	/**
+	 * Answers whether the visitor is logged in, with nothing but a status.
+	 *
+	 * @return void
+	 */
+	public static function logged_in() {
+		wp_send_json( null, is_user_logged_in() ? 204 : 401 );
 	}
 
 	/**
@@ -56,7 +69,7 @@ final class Gallery {
 	 * @return void
 	 */
 	public static function handle_ajax() {
-		Helpers::ajax_wrapper( array( self::class, 'ajax_handler_body' ) );
+		Helpers::members_only_ajax( array( self::class, 'ajax_handler_body' ) );
 	}
 
 	/**
@@ -91,8 +104,11 @@ final class Gallery {
 			array( Page::get( $parent_id, $pagination_helper, $options ), $path_name_promise, $path_verification )
 		);
 		$page['path']            = $path_names;
+		$page                    = Page::with_borrowed_covers( $page, $options );
 
-		wp_send_json( $page );
+		// The same for every member (folder contents, covers, counts,
+		// corrections): the web server may share it for 15 minutes.
+		Helpers::send_shared_json( $page );
 	}
 
 	/**

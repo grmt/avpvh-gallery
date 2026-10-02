@@ -12,6 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Avpvh\Frontend\Exclusion_Permission;
+use Avpvh\Helpers;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -283,7 +284,7 @@ final class Corrections_REST {
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
                 // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-				'SELECT reasons, note, updated_at FROM ' . $table . ' WHERE image_id = %s',
+				'SELECT reasons, note, updated_at, duplicate_of FROM ' . $table . ' WHERE image_id = %s',
 				$file_id
 			),
 			ARRAY_A
@@ -300,12 +301,17 @@ final class Corrections_REST {
 			);
 		}
 
+		$duplicate_of = (string) ( $row['duplicate_of'] ?? '' );
+
 		return new WP_REST_Response(
 			array(
-				'excluded'   => true,
-				'note'       => (string) $row['note'],
-				'reasons'    => array_values( array_filter( explode( ',', (string) $row['reasons'] ) ) ),
-				'updated_at' => (string) $row['updated_at'],
+				// The photo this one is a copy of, if it was hidden as a duplicate.
+				'duplicate_of'      => $duplicate_of,
+				'duplicate_of_name' => '' !== $duplicate_of ? Helpers::drive_file_name( $duplicate_of ) : '',
+				'excluded'          => true,
+				'note'              => (string) $row['note'],
+				'reasons'           => array_values( array_filter( explode( ',', (string) $row['reasons'] ) ) ),
+				'updated_at'        => (string) $row['updated_at'],
 			),
 			200
 		);

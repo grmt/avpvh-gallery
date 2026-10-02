@@ -227,6 +227,18 @@ final class Camera_Model_Index_REST {
 	}
 
 	/**
+	 * Replaces the persisted camera-model index — used by Folder_Authors_REST to
+	 * add folder names to an index built before names were recorded.
+	 *
+	 * @param array<string, mixed> $index The complete index.
+	 *
+	 * @return void
+	 */
+	public static function save_index( array $index ) {
+		update_option( self::CAMERA_MODEL_INDEX_OPTION, $index, false );
+	}
+
+	/**
 	 * Collects the sorted, unique camera models used anywhere in a folder or its indexed descendants.
 	 *
 	 * @param string               $folder_id Starting folder ID.

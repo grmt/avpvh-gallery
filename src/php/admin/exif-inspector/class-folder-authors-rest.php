@@ -11,6 +11,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\API_Client;
+use Avpvh\API_Facade;
+use Throwable;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -75,6 +78,8 @@ final class Folder_Authors_REST {
 		if ( ! isset( $index['root_id'] ) || '' === $index['root_id'] ) {
 			return new WP_REST_Response( array( 'folders' => array() ), 200 );
 		}
+
+		$index = self::with_folder_names( $index );
 
 		$children      = isset( $index['children'] ) ? $index['children'] : array();
 		$names         = isset( $index['names'] ) ? $index['names'] : array();
@@ -379,5 +384,99 @@ final class Folder_Authors_REST {
 		);
 
 		return array() !== $ids ? $ids : array( self::AVPVH_SENTINEL );
+	}
+
+	/**
+	 * Makes sure the index knows every folder's name. Indexes built before
+	 * folder names were recorded only have Drive IDs, which is all this page
+	 * could show; the missing names are looked up once, in batches, and
+	 * saved into the index. A folder whose name can't be looked up (e.g.
+	 * deleted since) is saved as '' and keeps showing its ID.
+	 *
+	 * @param array<string, mixed> $index The camera-model index.
+	 *
+	 * @return array<string, mixed> The index, with names.
+	 */
+	private static function with_folder_names( array $index ) {
+		$names   = isset( $index['names'] ) && is_array( $index['names'] ) ? $index['names'] : array();
+		$root_id = (string) $index['root_id'];
+		$missing = self::folders_without_names( $index, $names );
+
+		if ( array() === $missing ) {
+			return $index;
+		}
+
+		foreach ( array_chunk( $missing, 50 ) as $chunk ) {
+			$names = self::fetch_folder_names( $chunk ) + $names;
+		}
+
+		$index['names'] = $names;
+
+		if ( ! isset( $index['root_name'] ) || '' === $index['root_name'] ) {
+			$index['root_name'] = $names[ $root_id ] ?? '';
+		}
+
+		Camera_Model_Index_REST::save_index( $index );
+
+		return $index;
+	}
+
+	/**
+	 * The root and indexed folders the index has no name for yet.
+	 *
+	 * @param array<string, mixed>  $index The camera-model index.
+	 * @param array<string, string> $names Folder ID → name, as recorded so far.
+	 *
+	 * @return array<string>
+	 */
+	private static function folders_without_names( array $index, array $names ) {
+		$children = isset( $index['children'] ) && is_array( $index['children'] ) ? $index['children'] : array();
+		$all      = array_merge( array( (string) $index['root_id'] ), array_map( 'strval', array_keys( $children ) ) );
+
+		return array_values(
+			array_unique(
+				array_filter(
+					$all,
+					static function ( $folder_id ) use ( $names ) {
+						return ! isset( $names[ $folder_id ] );
+					}
+				)
+			)
+		);
+	}
+
+	/**
+	 * Looks up folder names in one batched Drive request.
+	 *
+	 * @param array<int|string> $folder_ids Folder IDs.
+	 *
+	 * @return array<string, string> Folder ID → name ('' when it couldn't be looked up).
+	 */
+	private static function fetch_folder_names( array $folder_ids ) {
+		$promises = array();
+
+		foreach ( $folder_ids as $folder_id ) {
+			$promises[ (string) $folder_id ] = API_Facade::get_file_name( (string) $folder_id )->then(
+				null,
+				static function () {
+					return '';
+				}
+			);
+		}
+
+		try {
+			$results = API_Client::execute( $promises );
+		} catch ( Throwable $e ) {
+			// @phan-suppress-previous-line PhanUnusedVariableCaughtException -- best-effort; the IDs stay shown.
+			return array_fill_keys( array_map( 'strval', $folder_ids ), '' );
+		}
+
+		$names = array();
+
+		foreach ( $results as $folder_id => $name ) {
+			$names[ (string) $folder_id ] = is_string( $name ) ? $name : '';
+		}
+
+		return $names;
 	}
 }

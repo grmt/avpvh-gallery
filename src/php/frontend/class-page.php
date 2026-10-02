@@ -23,6 +23,7 @@ use Avpvh\Exceptions\Unsupported_Value_Exception;
 use Avpvh\Frontend\Gallery_Context;
 use Avpvh\Frontend\Options_Proxy;
 use Avpvh\Frontend\Page\Directories;
+use Avpvh\Frontend\Page\Folder_Covers;
 use Avpvh\Frontend\Page\Images;
 use Avpvh\Frontend\Page\Videos;
 use Avpvh\Frontend\Paging_Pagination_Helper;
@@ -55,7 +56,7 @@ final class Page {
 	 * @return void
 	 */
 	public static function handle_ajax() {
-		Helpers::ajax_wrapper( array( self::class, 'ajax_handler_body' ) );
+		Helpers::members_only_ajax( array( self::class, 'ajax_handler_body' ) );
 	}
 
 	/**
@@ -84,8 +85,10 @@ final class Page {
 
 		$page_promise = self::get( $parent_id, $pagination_helper, $options );
 		list( $page ) = API_Client::execute( array( $page_promise, $path_verification ) );
+		$page         = self::with_borrowed_covers( $page, $options );
 
-		wp_send_json( $page );
+		// The same for every member: the web server may share it for 15 minutes.
+		Helpers::send_shared_json( $page );
 	}
 
 	/**
@@ -131,5 +134,22 @@ final class Page {
 				return $page;
 			}
 		);
+	}
+
+	/**
+	 * Gives the page's folders without photos of their own a cover from a
+	 * subfolder (Folder_Covers::fill_missing()), after the page is fetched.
+	 *
+	 * @param array<string, mixed> $page    The page.
+	 * @param Options_Proxy        $options The configuration of the gallery.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function with_borrowed_covers( array $page, $options ) {
+		if ( isset( $page['directories'] ) && is_array( $page['directories'] ) ) {
+			$page['directories'] = Folder_Covers::fill_missing( $page['directories'], $options );
+		}
+
+		return $page;
 	}
 }

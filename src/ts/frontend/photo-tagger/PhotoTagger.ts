@@ -2,8 +2,10 @@
  * Photo tagging module using Annotorious for region annotations.
  */
 
+// One person tagged on a photo. A tag is a vote: several users can tag
+// the same person, so it comes with how many did and whether you did.
 export interface TagData {
-	id: number;
+	tag_key: string;
 	member_id: number;
 	member_name: string;
 	region_data: {
@@ -12,6 +14,11 @@ export interface TagData {
 		width: number;
 		height: number;
 	} | null;
+	// Who tagged the person ("Anna, Piet") and when first.
+	tagged_by: string;
+	tagged_at: string;
+	votes: number;
+	mine: boolean;
 }
 
 interface Member {
@@ -38,6 +45,8 @@ export interface ReactionData {
 	slug: string;
 	count: number;
 	mine: boolean;
+	// Display names of who reacted, oldest first.
+	names: Array<string>;
 }
 
 interface CommentListResponse {
@@ -54,6 +63,16 @@ interface ReactionListResponse {
 	};
 }
 
+export interface TagContext {
+	year: number | null;
+	// The place from the folder name ("2026 Goeblange" → "Goeblange").
+	place: string;
+	participants: Array<{ id: number; name: string }>;
+	membersThen: Set<number>;
+	archaeologists: Set<number>;
+	bornAfter: Set<number>;
+}
+
 export class PhotoTagger {
 	private membersCache: Array<Member> = [];
 	private currentImageId = '';
@@ -64,6 +83,10 @@ export class PhotoTagger {
 	// annotationMap, so callers (e.g. a tags panel listing) can use it
 	// without disturbing the MutationObserver-driven overlay state.
 	public static async listTags(imageId: string): Promise<Array<TagData>> {
+		// No photo (yet): nothing to ask the server.
+		if (imageId === '') {
+			return [];
+		}
 		try {
 			const response = await fetch(
 				`/wp-admin/admin-ajax.php?action=gallery_tag_list&image_id=${encodeURIComponent(imageId)}`
@@ -126,6 +149,9 @@ export class PhotoTagger {
 	public static async listComments(
 		imageId: string
 	): Promise<Array<CommentData>> {
+		if (imageId === '') {
+			return [];
+		}
 		try {
 			const response = await fetch(
 				`/wp-admin/admin-ajax.php?action=gallery_comment_list&image_id=${encodeURIComponent(imageId)}`
@@ -142,6 +168,9 @@ export class PhotoTagger {
 	public static async listReactions(
 		imageId: string
 	): Promise<Array<ReactionData>> {
+		if (imageId === '') {
+			return [];
+		}
 		try {
 			const response = await fetch(
 				`/wp-admin/admin-ajax.php?action=gallery_reaction_list&image_id=${encodeURIComponent(imageId)}`
@@ -152,6 +181,53 @@ export class PhotoTagger {
 				: [];
 		} catch {
 			return [];
+		}
+	}
+
+	// Who could plausibly be in photos from a folder (see the PHP
+	// Person_Filters/Photo_Folder_Context): the year the folder belongs to,
+	// the matching activity's participants, the persons who were members
+	// that year, the archaeologists, and the persons born after that year.
+	public static async getTagContext(folderId: string): Promise<TagContext> {
+		const empty: TagContext = {
+			year: null,
+			place: '',
+			participants: [],
+			membersThen: new Set(),
+			archaeologists: new Set(),
+			bornAfter: new Set(),
+		};
+		// No folder (yet): no context to look up.
+		if (folderId === '') {
+			return empty;
+		}
+		try {
+			const response = await fetch(
+				`/wp-admin/admin-ajax.php?action=gallery_tag_candidates&folder_id=${encodeURIComponent(folderId)}`
+			);
+			if (!response.ok) {
+				return empty;
+			}
+			const data = (await response.json()) as {
+				data?: {
+					members?: Array<{ id: number; name: string }>;
+					year?: number | null;
+					place?: string;
+					members_then?: Array<number>;
+					archaeologists?: Array<number>;
+					born_after?: Array<number>;
+				};
+			};
+			return {
+				year: data.data?.year ?? null,
+				place: data.data?.place ?? '',
+				participants: data.data?.members ?? [],
+				membersThen: new Set(data.data?.members_then ?? []),
+				archaeologists: new Set(data.data?.archaeologists ?? []),
+				bornAfter: new Set(data.data?.born_after ?? []),
+			};
+		} catch {
+			return empty;
 		}
 	}
 
@@ -209,8 +285,10 @@ export class PhotoTagger {
 	public async addTag(
 		imageId: string,
 		memberId: number,
-		region?: { x: number; y: number; width: number; height: number }
-	): Promise<void> {
+		region?: { x: number; y: number; width: number; height: number },
+		// For someone not in the persons list (memberId 0): their name.
+		personName = ''
+	): Promise<boolean> {
 		try {
 			const response = await fetch('/wp-admin/admin-ajax.php', {
 				method: 'POST',
@@ -221,21 +299,32 @@ export class PhotoTagger {
 					action: 'gallery_tag_add',
 					image_id: imageId,
 					member_id: String(memberId),
+					member_name: personName,
 					region_data:
 						undefined === region ? '' : JSON.stringify(region),
 					_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
 				}).toString(),
 			});
 
-			if (response.ok) {
-				await this.loadAndRenderTags();
+			const data = (await response.json().catch(() => null)) as {
+				success?: boolean;
+			} | null;
+			if (!response.ok || data?.success !== true) {
+				return false;
 			}
+			await this.loadAndRenderTags();
+			return true;
 		} catch {
-			// Network error — the tag simply doesn't appear; nothing more to do here.
+			return false;
 		}
 	}
 
-	public async deleteTag(tagId: number): Promise<void> {
+	// Withdraws your own tag of a person, or — admins only — everyone's.
+	public async deleteTag(
+		imageId: string,
+		tagKey: string,
+		everyone: boolean
+	): Promise<boolean> {
 		try {
 			const response = await fetch('/wp-admin/admin-ajax.php', {
 				method: 'POST',
@@ -244,16 +333,19 @@ export class PhotoTagger {
 				},
 				body: new URLSearchParams({
 					action: 'gallery_tag_delete',
-					tag_id: String(tagId),
+					image_id: imageId,
+					tag_key: tagKey,
+					scope: everyone ? 'all' : 'mine',
 					_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
 				}).toString(),
 			});
-
-			if (response.ok) {
-				await this.loadAndRenderTags();
+			if (!response.ok) {
+				return false;
 			}
+			await this.loadAndRenderTags();
+			return true;
 		} catch {
-			// Network error — the tag simply stays; nothing more to do here.
+			return false;
 		}
 	}
 
@@ -318,6 +410,9 @@ export class PhotoTagger {
 	// Falls back to the full list when there's no matching taggable
 	// activity (or the request fails).
 	public async getCandidates(folderId: string): Promise<Array<Member>> {
+		if (folderId === '') {
+			return this.membersCache;
+		}
 		try {
 			const response = await fetch(
 				`/wp-admin/admin-ajax.php?action=gallery_tag_candidates&folder_id=${encodeURIComponent(folderId)}`
@@ -402,13 +497,20 @@ export class PhotoTagger {
 
 		const newImageId = imageLink.getAttribute('data-avpvh-id');
 
-		if (null !== newImageId && newImageId !== this.currentImageId) {
+		if (
+			null !== newImageId &&
+			'' !== newImageId &&
+			newImageId !== this.currentImageId
+		) {
 			this.currentImageId = newImageId;
 			await this.loadAndRenderTags();
 		}
 	}
 
 	private async loadAndRenderTags(): Promise<void> {
+		if (this.currentImageId === '') {
+			return;
+		}
 		try {
 			const response = await fetch(
 				`/wp-admin/admin-ajax.php?action=gallery_tag_list&image_id=${this.currentImageId}`
@@ -422,7 +524,7 @@ export class PhotoTagger {
 
 				// Store tag data for quick lookup
 				tags.forEach((tag) => {
-					this.annotationMap.set(`tag-${String(tag.id)}`, tag);
+					this.annotationMap.set(`tag-${tag.tag_key}`, tag);
 				});
 
 				// Display tags on the image

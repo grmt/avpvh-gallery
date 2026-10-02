@@ -7,6 +7,7 @@ declare const avpvhShortcodeLocalize: {
 	grid_spacing: string;
 	page_autoload: string;
 	preview_speed: string;
+	page_size: string;
 	preview_arrows: string;
 	preview_closebutton: string;
 	preview_quitOnEnd: string;
@@ -25,9 +26,20 @@ declare const avpvhShortcodeLocalize: {
 	exif_inspector_url: string;
 	exif_orientation_url: string;
 	can_exclude_photos: string;
+	can_remove_tags: string;
 	exclusion_url: string;
 	exif_date_url: string;
-	subject_tags: Record<string, Record<string, string>>;
+	subject_tags: Record<
+		string,
+		{
+			key: string;
+			label: string;
+			path: Array<string>;
+			single: boolean;
+			tags: Record<string, string>;
+		}
+	>;
 	subject_tags_url: string;
+	photo_place_url: string;
 	reactions: Record<string, Record<string, string>>;
 };

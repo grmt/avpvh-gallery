@@ -178,11 +178,15 @@ final class Shortcode {
 	 * @return array<string, mixed> The localized script configuration.
 	 */
 	private static function build_localize_data( $options, $branded_assets, $navigation_icon ) {
+		// Admins and "boek" members may exclude photos and remove tags.
+		$may_curate = Exclusion_Permission::check() ? 'true' : 'false';
+
 		return array(
 			'ajax_url'             => admin_url( 'admin-ajax.php' ),
 			'branded_assets'       => $branded_assets ? 'true' : 'false',
 			'breadcrumbs_top'      => esc_html__( 'Gallery', 'avpvh-gallery' ),
-			'can_exclude_photos'   => Exclusion_Permission::check() ? 'true' : 'false',
+			'can_exclude_photos'   => $may_curate,
+			'can_remove_tags'      => $may_curate,
 			'empty_gallery'        => esc_html__( 'The gallery is empty.', 'avpvh-gallery' ),
 			'error_header'         => esc_html__(
 				'The AVPVH Gallery plugin has encountered an error. Error message:',
@@ -205,6 +209,8 @@ final class Shortcode {
 			'load_more'            => esc_html__( 'Load more', 'avpvh-gallery' ),
 			'navigation_icon_url'  => plugins_url( '/avpvh-gallery/frontend/images/' . $navigation_icon ),
 			'page_autoload'        => $options->get( 'page_autoload' ),
+			'page_size'            => (string) $options->get( 'page_size' ),
+			'photo_place_url'      => rest_url( 'avpvh-gallery/v1/photo-place' ),
 			'preview_activity'     => $options->get( 'preview_activity_indicator' ),
 			'preview_arrows'       => $options->get( 'preview_arrows' ),
 			'preview_captions'     => $options->get( 'preview_captions' ),
@@ -214,7 +220,7 @@ final class Shortcode {
 			'reactions'            => Photo_Tags::REACTIONS,
 			'rest_nonce'           => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : '',
 			'server_error'         => esc_html__( 'The server returned an unexpected response.', 'avpvh-gallery' ),
-			'subject_tags'         => Subject_Tags::CATEGORIES,
+			'subject_tags'         => Subject_Tag_Tree::groups(),
 			'subject_tags_url'     => rest_url( 'avpvh-gallery/v1/subject-tags' ),
 			'tag_nonce'            => wp_create_nonce( 'avpvh_tag_nonce' ),
 		);

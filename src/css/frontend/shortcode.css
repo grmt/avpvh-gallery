@@ -134,6 +134,13 @@ html.pswp-is-open body {
 	overflow: hidden;
 }
 
+.avpvh-dir-cover {
+	background-position: center;
+	background-size: cover; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	inset: 0;
+	position: absolute;
+}
+
 .avpvh-grid-square {
 	background-position: center;
 	background-size: cover; /* stylelint-disable-line plugin/no-unsupported-browser-features */
@@ -967,21 +974,42 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	font-size: 12px;
 }
 
-.avpvh-pswp-tags-button {
+/* stylelint-disable-next-line selector-class-pattern -- PhotoSwipe class */
+.pswp__button--avpvh-like {
+	position: relative;
+}
+
+/* stylelint-disable-next-line selector-class-pattern -- PhotoSwipe class */
+.pswp__button--avpvh-like.avpvh-liked .pswp__icn {
+	fill: #4fc3f7;
+}
+
+.avpvh-like-count {
+	bottom: 10px;
+	color: #fff;
+	font-size: 11px;
+	font-weight: 700;
+	position: absolute;
+	right: 4px;
+	text-shadow: 0 1px 2px rgb(0, 0, 0, 80%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-pswp-tags-header {
+	align-items: center;
+	display: flex;
+	font-weight: 700;
+	justify-content: space-between;
+	margin-bottom: 6px;
+}
+
+.avpvh-pswp-tags-close {
 	background: none;
 	border: none;
 	color: #fff;
 	cursor: pointer;
-	display: inline-block;
-	margin-left: 6px;
-	margin-top: 4px;
-	opacity: 0.6;
-	padding: 0;
-	vertical-align: middle;
-}
-
-.avpvh-pswp-tags-button:hover {
-	opacity: 1;
+	font-size: 22px;
+	line-height: 1;
+	padding: 0 4px;
 }
 
 .avpvh-pswp-tags-panel {
@@ -989,18 +1017,87 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	border-radius: 6px;
 	color: #fff;
 	font-size: 13px;
-	left: 50%;
-	max-height: 60vh;
+	max-height: calc(100vh - 80px);
 	max-width: 360px;
 	overflow-y: auto;
 	padding: 12px 16px;
 	pointer-events: all; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	position: absolute;
+	right: 12px;
 	text-align: left;
-	top: 90px;
-	transform: translateX(-50%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
-	width: 90%;
+	top: 64px;
+	width: calc(100% - 24px);
 	z-index: 20;
+}
+
+.avpvh-pswp-place {
+	margin-left: 14px;
+	padding: 2px 0 4px;
+}
+
+.avpvh-pswp-place-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 2px 0 4px;
+}
+
+.avpvh-pswp-place-actions button {
+	background: none;
+	border: none;
+	color: #4fc3f7;
+	cursor: pointer;
+	font-size: 12px;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.avpvh-pswp-folder-fact {
+	color: rgb(255, 255, 255, 70%);
+	font-size: 12px;
+	padding: 2px 0;
+}
+
+.avpvh-pswp-folder-fact:empty {
+	display: none;
+}
+
+.avpvh-pswp-subject-tags-parent {
+	border-bottom: 1px solid rgb(255, 255, 255, 12%);
+	padding: 4px 0;
+}
+
+.avpvh-pswp-subject-tags-parent > summary {
+	cursor: pointer;
+	font-weight: 700;
+}
+
+.avpvh-pswp-subject-tags-section {
+	border-bottom: 1px solid rgb(255, 255, 255, 12%);
+	padding: 4px 0;
+}
+
+.avpvh-pswp-subject-tags-section summary {
+	cursor: pointer;
+	font-weight: 700;
+}
+
+.avpvh-pswp-subject-tags-parent > .avpvh-pswp-subject-tags-parent,
+.avpvh-pswp-subject-tags-parent > .avpvh-pswp-folder-fact,
+.avpvh-pswp-subject-tags-parent > .avpvh-pswp-subject-tags-section {
+	border-bottom: none;
+	margin-left: 14px;
+}
+
+.avpvh-pswp-subject-tags-chosen {
+	color: #4fc3f7;
+	font-weight: 400;
+}
+
+.avpvh-pswp-subject-status {
+	color: #ff8a80;
+	font-size: 12px;
+	margin-top: 4px;
 }
 
 .avpvh-pswp-subject-tags-heading {
@@ -1031,10 +1128,15 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	white-space: nowrap;
 }
 
+/* A group that can be tagged itself (Kamp), before its own tags. */
+.avpvh-pswp-subject-tags-group label.avpvh-tag-head {
+	font-weight: 700;
+}
+
+/* Shown first inside the "Wie" section. */
 .avpvh-pswp-person-tags {
-	border-top: 1px solid rgb(255, 255, 255, 20%);
-	margin-top: 12px;
-	padding-top: 12px;
+	margin-left: 14px;
+	padding: 4px 0;
 }
 
 .avpvh-pswp-person-tags-list {
@@ -1061,13 +1163,78 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	padding: 0 4px;
 }
 
-.avpvh-pswp-add-person-tag {
-	background: #2271b1;
-	border: none;
-	border-radius: 4px;
+.avpvh-pswp-person-scopes {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin: 4px 0 6px;
+}
+
+.avpvh-pswp-person-scopes button {
+	background: none;
+	border: 1px solid rgb(255, 255, 255, 30%);
+	border-radius: 12px;
 	color: #fff;
 	cursor: pointer;
-	padding: 6px 12px;
+	font-size: 12px;
+	padding: 2px 10px;
+}
+
+.avpvh-pswp-person-scopes button.active {
+	background: #2271b1;
+	border-color: #2271b1;
+}
+
+.avpvh-pswp-person-search {
+	background: rgb(255, 255, 255, 10%);
+	border: 1px solid rgb(255, 255, 255, 30%);
+	border-radius: 4px;
+	box-sizing: border-box;
+	color: #fff;
+	font-size: 13px;
+	padding: 6px 8px;
+	width: 100%;
+}
+
+.avpvh-pswp-person-results {
+	list-style: none;
+	margin: 4px 0 0;
+	padding: 0;
+}
+
+.avpvh-pswp-person-results-heading {
+	color: rgb(255, 255, 255, 60%);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	margin-top: 4px;
+	text-transform: uppercase;
+}
+
+.avpvh-pswp-person-results button {
+	background: none;
+	border: none;
+	border-radius: 3px;
+	color: #fff;
+	cursor: pointer;
+	font-size: 13px;
+	padding: 4px 6px;
+	text-align: left;
+	width: 100%;
+}
+
+.avpvh-pswp-person-results button:hover,
+.avpvh-pswp-person-results button:focus {
+	background: rgb(255, 255, 255, 15%);
+}
+
+.avpvh-pswp-liked-by {
+	font-size: 12px;
+	margin-bottom: 6px;
+}
+
+.avpvh-pswp-liked-by:empty {
+	display: none;
 }
 
 .avpvh-pswp-reactions {
@@ -1219,4 +1386,188 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 
 .avpvh-pswp-drive-error-retry:hover {
 	background: rgb(255, 255, 255, 22%);
+}
+
+.avpvh-filter-bar {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 10px;
+	margin: 0 0 10px;
+}
+
+.avpvh-filter-select {
+	font-size: 13px;
+	max-width: 220px;
+	padding: 3px 6px;
+}
+
+.avpvh-filter-here {
+	align-items: center;
+	display: flex;
+	font-size: 13px;
+	gap: 4px;
+}
+
+.avpvh-filter-found {
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.avpvh-filter-clear {
+	background: none;
+	border: none;
+	color: #2271b1;
+	cursor: pointer;
+	font-size: 13px;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.avpvh-filter-add {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.avpvh-filter-add-button {
+	cursor: pointer;
+	font-size: 13px;
+}
+
+.avpvh-filter-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.avpvh-filter-chip {
+	background: #e7f1f9;
+	border-radius: 12px;
+	font-size: 12px;
+	padding: 2px 4px 2px 10px;
+}
+
+.avpvh-filter-chip-not {
+	background: #fbe9e9;
+}
+
+.avpvh-filter-chip-or {
+	background: #eef6e7;
+}
+
+.avpvh-filter-chip-remove {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 13px;
+	padding: 0 4px;
+}
+
+.avpvh-pswp-tagged-label {
+	color: rgb(255, 255, 255, 70%);
+	font-size: 12px;
+	margin: 2px 0;
+}
+
+.avpvh-pswp-person-status {
+	color: #a5d6a7;
+	font-size: 12px;
+	min-height: 1em;
+}
+
+.avpvh-pswp-person-status.failed {
+	color: #ff8a80;
+}
+
+.avpvh-pswp-person-tags-list li.pending {
+	opacity: 0.6;
+}
+
+.avpvh-tag-votes {
+	color: #4fc3f7;
+	font-size: 11px;
+}
+
+.avpvh-tag-clear,
+.avpvh-pswp-person-tag-action {
+	background: none;
+	border: 1px solid rgb(255, 255, 255, 30%);
+	border-radius: 3px;
+	color: #fff;
+	cursor: pointer;
+	font-size: 11px;
+	line-height: 1.2;
+	margin-left: 4px;
+	padding: 0 4px;
+}
+
+.avpvh-pswp-person-tags-list li.mine > span:first-child {
+	font-weight: 700;
+}
+
+/* Contents of the tagging panel's top-level sections, indented. */
+.avpvh-pswp-top > .avpvh-pswp-subject-tags,
+.avpvh-pswp-top > .avpvh-pswp-reactions-group,
+.avpvh-pswp-top > .avpvh-pswp-comments {
+	margin-left: 14px;
+}
+
+/* Previous/next trowels in the tagging panel's header. */
+.avpvh-pswp-tags-nav {
+	display: flex;
+	gap: 2px;
+	margin-left: auto;
+	margin-right: 6px;
+}
+
+.avpvh-pswp-tags-nav-button {
+	align-items: center;
+	background: none;
+	border: none;
+	color: #fff;
+	cursor: pointer;
+	display: flex;
+	font-size: 20px;
+	height: 26px;
+	justify-content: center;
+	padding: 0;
+	width: 26px;
+}
+
+.avpvh-pswp-tags-nav-button:hover {
+	background: rgb(255, 255, 255, 15%);
+	border-radius: 4px;
+}
+
+/* The trowel points upper-right: turned right (next), mirrored (previous). */
+.avpvh-pswp-tags-nav-icon {
+	filter: brightness(0) invert(1); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	height: 18px;
+	width: 18px;
+}
+
+.avpvh-pswp-tags-nav-icon-next {
+	transform: rotate(45deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+.avpvh-pswp-tags-nav-icon-prev {
+	transform: scaleX(-1) rotate(45deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+/* A recently used person who is already tagged on this photo: a check mark
+   drawn in CSS (a ✓ character shows as a box in fonts that lack it). */
+.avpvh-pswp-person-results .tagged {
+	color: #a5d6a7;
+}
+
+.avpvh-pswp-person-results .tagged::before {
+	border: solid currentcolor;
+	border-width: 0 2px 2px 0;
+	content: "";
+	display: inline-block;
+	height: 9px;
+	margin: 0 8px 2px 2px;
+	transform: rotate(45deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	width: 4px;
 }

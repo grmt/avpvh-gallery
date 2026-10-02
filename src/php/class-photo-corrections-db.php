@@ -20,7 +20,7 @@ final class Photo_Corrections_DB {
 	 * Schema version stored in wp_options.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility -- visibility modifiers on class constants require PHP 7.1; plugin supports PHP 5.6+.
-	const SCHEMA_VERSION = 11;
+	const SCHEMA_VERSION = 12;
 
 	/**
 	 * Runs schema migration if needed; hooked to admin_init.
@@ -92,6 +92,7 @@ final class Photo_Corrections_DB {
   media_type VARCHAR(16) NOT NULL DEFAULT 'image',
   reasons VARCHAR(255) NOT NULL DEFAULT '',
   note TEXT NOT NULL,
+  duplicate_of VARCHAR(255) NULL,
   excluded_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (image_id),

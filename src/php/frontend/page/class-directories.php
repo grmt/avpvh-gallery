@@ -63,7 +63,7 @@ final class Directories {
 				$ids   = array_column( $files, 'id' );
 
 				return Utils::all(
-					array( $files, self::thumbnail_images( $ids, $options ), self::item_counts( $ids, $options ) )
+					array( $files, Folder_Covers::for_folders( $ids, $options ), self::item_counts( $ids, $options ) )
 				);
 			}
 		)->then(
@@ -81,7 +81,7 @@ final class Directories {
 						);
 					$counts[ $i ]['imagecount'] = max( 0, $counts[ $i ]['imagecount'] - $excluded['image'] );
 					$counts[ $i ]['videocount'] = max( 0, $counts[ $i ]['videocount'] - $excluded['video'] );
-					$files[ $i ]['thumbnail']   = $images[ $i ];
+					$files[ $i ]                = self::with_cover( $files[ $i ], $images[ $i ] );
 					$files[ $i ]['subdirs']     = $counts[ $i ]['subdirs'];
 					// The lightbox needs this total when it advances into the folder,
 					// independently of whether directory counts are shown in the grid.
@@ -141,99 +141,6 @@ final class Directories {
 		}
 
 		return $counts;
-	}
-
-	/**
-	 * Creates API requests for directory thumbnails
-	 *
-	 * Takes a batch and adds to it a request for the first image in each directory.
-	 *
-	 * @param array<string> $dirs A list of directory IDs.
-	 * @param Options_Proxy $options The configuration of the gallery.
-	 *
-	 * @return PromiseInterface A promise resolving to a list of directory images.
-	 *
-	 * @throws Internal_Exception The method was called without an initialized batch.
-	 * @throws Plugin_Not_Authorized_Exception Not authorized.
-	 * @throws Unsupported_Value_Exception A field that is not supported was passed in `$fields`.
-	 */
-	private static function thumbnail_images( $dirs, $options ) {
-		return Utils::all(
-			array_map(
-				static function ( $directory ) use ( $options ) {
-					return API_Facade::list_images(
-						$directory,
-						new API_Fields(
-							array(
-								'id',
-								'imageMediaMetadata' => array( 'width', 'height' ),
-								'thumbnailLink',
-							)
-						),
-						( new Paging_Pagination_Helper() )->withValues( 0, 100 ),
-						$options->get( 'image_ordering' )
-					)->then(
-						static function ( $images ) use ( $options ) {
-							$images = self::without_excluded_images( $images );
-
-							if ( 0 === count( $images ) ) {
-								return false;
-							}
-
-							$image_metadata = $images[0]['imageMediaMetadata'];
-							$dimension      = $image_metadata['width'] > $image_metadata['height'] ? 'h' : 'w';
-
-							return substr( $images[0]['thumbnailLink'], 0, -4 ) .
-								$dimension .
-								floor( 1.25 * $options->get( 'grid_height' ) );
-						}
-					);
-				},
-				$dirs
-			)
-		);
-	}
-
-	/**
-	 * Removes excluded image records from a thumbnail candidate list.
-	 *
-	 * @param array<array<string, mixed>> $images Google Drive image records.
-	 *
-	 * @return array<array<string, mixed>> Visible image records.
-	 */
-	private static function without_excluded_images( array $images ) {
-		if ( array() === $images ) {
-			return $images;
-		}
-
-		global $wpdb;
-		$ids          = array_column( $images, 'id' );
-		$table        = $wpdb->prefix . 'agallery_photo_exclusions';
-		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%s' ) );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom plugin table, no cache group defined.
-		$excluded_col = $wpdb->get_col(
-			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholder count is dynamic, built above via array_fill().
-				"SELECT image_id FROM {$table} WHERE image_id IN ({$placeholders})",
-				$ids
-			)
-		);
-		$excluded = is_array( $excluded_col ) ? $excluded_col : array();
-
-		if ( array() === $excluded ) {
-			return $images;
-		}
-
-		$lookup = array_fill_keys( $excluded, true );
-
-		return array_values(
-			array_filter(
-				$images,
-				static function ( $image ) use ( $lookup ) {
-					return ! isset( $lookup[ $image['id'] ] );
-				}
-			)
-		);
 	}
 
 	/**
@@ -373,5 +280,21 @@ final class Directories {
 				$dirs
 			)
 		);
+	}
+
+	/**
+	 * Adds a folder's cover (see Folder_Covers): its thumbnail URL, and the
+	 * orientation correction to show it with.
+	 *
+	 * @param array<string, mixed>                                                                    $file  The folder record.
+	 * @param array{url: string, orientation: array{rotation: int, h_flip: bool, v_flip: bool}}|false $cover The cover, if any.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function with_cover( array $file, $cover ) {
+		$file['thumbnail'] = false !== $cover ? $cover['url'] : false;
+		$file['cover']     = false !== $cover ? $cover['orientation'] : null;
+
+		return $file;
 	}
 }

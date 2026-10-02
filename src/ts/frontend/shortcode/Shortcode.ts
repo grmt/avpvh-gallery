@@ -9,13 +9,30 @@ import {
 	renderCorrectionOrientationChain,
 	renderExifOrientationChain,
 } from '../../orientationVisualization';
+import {
+	fetchPhotoPlace,
+	type PhotoPlaceState,
+	savePhotoPlace,
+} from '../../photo-places';
 import { printError } from '../../printError';
-import { fetchSubjectTags, toggleSubjectTag } from '../../subject-tags';
+import {
+	fetchSubjectTags,
+	type SubjectTagState,
+	toggleSubjectTag,
+} from '../../subject-tags';
+import { searchPeople } from '../photo-tagger/nameSearch';
 import {
 	type CommentData,
 	PhotoTagger,
 	type ReactionData,
+	type TagContext,
 } from '../photo-tagger/PhotoTagger';
+import {
+	buildFilterBar,
+	conditionsParam,
+	type FilterCondition,
+	isActiveFilter,
+} from './PhotoFilter';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
 
@@ -66,6 +83,19 @@ export class Shortcode {
 
 	private readonly lightbox: PhotoSwipeLightbox;
 	private readonly photoTagger: PhotoTagger;
+	// Toggles "like" on the current lightbox slide — set while the lightbox
+	// UI is initialized, used by the right-click handler.
+	private toggleLightboxLike: (() => void) | null = null;
+	// While filtering (see PhotoFilter), the grid shows matching photos from
+	// the whole gallery instead of a folder; null in the normal folder view.
+	private filter: Array<FilterCondition> | null = null;
+	// Conditions being put together that don't filter yet (only "Niet"
+	// ones), shown in the bar over the normal folder view.
+	private draftConditions: Array<FilterCondition> = [];
+	// How many photos the current filter found (null while searching).
+	private filterTotal: number | null = null;
+	// "Alleen deze map": filter only the current folder and below it.
+	private filterHere = false;
 	private hasMore = false;
 	private path = '';
 	private lastPage = 1;
@@ -106,6 +136,12 @@ export class Shortcode {
 	private readonly BOUNDARY_PRELOAD_THRESHOLD = 10;
 
 	private readonly SLIDESHOW_DELAY_MS = 4000;
+	// Steps closer together than this are "fast stepping": only thumbnails
+	// (see setupFastStepping()).
+	private static readonly FAST_STEP_MS = 400;
+	// How long the viewer must stay on a photo before its full size loads
+	// after fast stepping.
+	private static readonly SETTLE_MS = 300;
 	private readonly IDLE_HIDE_MS = 3000;
 
 	private readonly navigationIconUrl: string;
@@ -535,6 +571,20 @@ export class Shortcode {
 			if (!pswp) {
 				return;
 			}
+			// The tag/like buttons live in PhotoSwipe's own top bar, but act on
+			// state owned by the path element's onInit below (the current
+			// slide's file ID, the tagging panel) — which fills these in.
+			let tagsBarButton: HTMLElement | null = null;
+			let likeBarButton: HTMLElement | null = null;
+			let onTagsBarClick = (): void => {
+				/* set by the avpvh-path onInit */
+			};
+			let onLikeBarClick = (): void => {
+				/* set by the avpvh-path onInit */
+			};
+			let onLikeBarInit = (): void => {
+				/* set by the avpvh-path onInit */
+			};
 			pswp.ui?.registerElement({
 				name: 'avpvh-path',
 				order: 5,
@@ -833,75 +883,659 @@ export class Shortcode {
 					// who's in the photo. Shares exclusionFileId/exclusionFolderId
 					// (kept in sync by update() below) rather than tracking its own —
 					// both concern "the currently displayed slide".
-					const tagsButton = document.createElement('button');
-					tagsButton.type = 'button';
-					tagsButton.className = 'avpvh-pswp-tags-button';
-					tagsButton.title = 'Tags';
-					tagsButton.style.display = 'none';
-					tagsButton.innerHTML =
-						'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5c-1.1 0-2 .89-2 2v10c0 1.1.9 2 2 2h11c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>';
 					const tagsPanel = document.createElement('div');
 					tagsPanel.className = 'avpvh-pswp-tags-panel';
 					tagsPanel.style.display = 'none';
+					// Header with a close button (Escape closes the panel too,
+					// rather than the whole lightbox).
+					const tagsHeader = document.createElement('div');
+					tagsHeader.className = 'avpvh-pswp-tags-header';
+					const tagsTitle = document.createElement('span');
+					tagsTitle.textContent = 'Taggen';
+					const tagsClose = document.createElement('button');
+					tagsClose.type = 'button';
+					tagsClose.className = 'avpvh-pswp-tags-close';
+					tagsClose.title = 'Sluiten (Esc)';
+					tagsClose.textContent = '×';
+					// Previous/next photo without closing the panel (it covers the
+					// lightbox's own trowels), as small trowels next to the ×.
+					const tagsNav = document.createElement('span');
+					tagsNav.className = 'avpvh-pswp-tags-nav';
+					const navButton = (
+						direction: 'next' | 'prev',
+						title: string
+					): HTMLButtonElement => {
+						const navigate = document.createElement('button');
+						navigate.type = 'button';
+						navigate.className = 'avpvh-pswp-tags-nav-button';
+						navigate.title = title;
+						const iconUrl =
+							avpvhShortcodeLocalize.navigation_icon_url;
+						if (iconUrl === '') {
+							navigate.textContent =
+								direction === 'next' ? '›' : '‹';
+						} else {
+							const icon = document.createElement('img');
+							icon.src = iconUrl;
+							icon.alt = '';
+							icon.className = `avpvh-pswp-tags-nav-icon avpvh-pswp-tags-nav-icon-${direction}`;
+							navigate.appendChild(icon);
+						}
+						navigate.addEventListener('click', (e) => {
+							e.stopPropagation();
+							if (direction === 'next') {
+								instance.next();
+							} else {
+								instance.prev();
+							}
+						});
+						return navigate;
+					};
+					tagsNav.append(
+						navButton('prev', 'Vorige foto'),
+						navButton('next', 'Volgende foto')
+					);
+					tagsHeader.append(tagsTitle, tagsNav, tagsClose);
+					tagsPanel.appendChild(tagsHeader);
+					const closeTagsPanel = (): void => {
+						tagsPanel.style.display = 'none';
+					};
+					tagsClose.addEventListener('click', (e) => {
+						e.stopPropagation();
+						closeTagsPanel();
+					});
+					const onEscape = (e: KeyboardEvent): void => {
+						if (
+							e.key === 'Escape' &&
+							tagsPanel.style.display !== 'none'
+						) {
+							e.preventDefault();
+							e.stopImmediatePropagation();
+							closeTagsPanel();
+						}
+					};
+					document.addEventListener('keydown', onEscape, true);
+					instance.on('close', () => {
+						document.removeEventListener('keydown', onEscape, true);
+					});
 
+					// Which sections of the panel are open, remembered per
+					// browser: everything starts collapsed until opened.
+					const openSections = ((): Set<string> => {
+						try {
+							return new Set(
+								JSON.parse(
+									localStorage.getItem(
+										'avpvh_tag_sections_open'
+									) ?? '[]'
+								) as Array<string>
+							);
+						} catch {
+							return new Set<string>();
+						}
+					})();
+					const rememberOpen = (
+						details: HTMLDetailsElement,
+						key: string
+					): void => {
+						details.open = openSections.has(key);
+						details.addEventListener('toggle', () => {
+							if (details.open) {
+								openSections.add(key);
+							} else {
+								openSections.delete(key);
+							}
+							try {
+								localStorage.setItem(
+									'avpvh_tag_sections_open',
+									JSON.stringify(Array.from(openSections))
+								);
+							} catch {
+								// Not remembered; fine for this visit.
+							}
+						});
+					};
+
+					// Subject tags, one collapsible section per group (Soort foto,
+					// Tijdstip, Weer, …). Anyone logged in may add a tag; only
+					// admins and "boek" members may remove one — which in a
+					// one-per-photo group includes switching to another tag.
+					// Assigned below, once the whole panel exists; the handlers
+					// in between only call it after that.
+					let refreshTagsPanel = (): void => {
+						/* replaced below */
+					};
+					// Redraws the person search results; assigned once
+					// renderPersonResults exists (further below).
+					let redrawPersonResults = (): void => {
+						/* replaced below */
+					};
+					const canRemoveTags =
+						'true' === avpvhShortcodeLocalize.can_remove_tags;
 					const subjectTagsList = document.createElement('div');
 					subjectTagsList.className = 'avpvh-pswp-subject-tags';
-					Object.entries(avpvhShortcodeLocalize.subject_tags).forEach(
-						([category, tags]) => {
-							const heading = document.createElement('div');
-							heading.className =
-								'avpvh-pswp-subject-tags-heading';
-							heading.textContent = category;
-							subjectTagsList.appendChild(heading);
+					const subjectStatus = document.createElement('div');
+					subjectStatus.className = 'avpvh-pswp-subject-status';
+					let subjectState: SubjectTagState = {
+						tags: [],
+						details: {},
+					};
+					const applySubjectState = (): void => {
+						subjectTagsList
+							.querySelectorAll<HTMLElement>(
+								'.avpvh-pswp-subject-tags-section'
+							)
+							.forEach((section) => {
+								const boxes = Array.from(
+									section.querySelectorAll<HTMLInputElement>(
+										'input[type="checkbox"]'
+									)
+								);
+								const chosen: Array<string> = [];
+								boxes.forEach((box) => {
+									// Ticked = your vote; the count is everyone's.
+									box.checked = subjectState.tags.includes(
+										box.value
+									);
+									const detail =
+										subjectState.details[box.value];
+									const count = detail?.count ?? 0;
+									const label = box.parentElement;
+									if (label !== null) {
+										label.title =
+											detail === undefined
+												? ''
+												: `Getagd door ${detail.by || 'onbekend'} (sinds ${detail.at.slice(0, 10)})`;
+										const votes =
+											label.querySelector<HTMLElement>(
+												'.avpvh-tag-votes'
+											);
+										if (votes !== null) {
+											votes.textContent =
+												count > 1 ||
+												(count === 1 && !box.checked)
+													? ` (${String(count)})`
+													: '';
+										}
+										const clear =
+											label.querySelector<HTMLElement>(
+												'.avpvh-tag-clear'
+											);
+										if (clear !== null) {
+											clear.hidden =
+												count <= (box.checked ? 1 : 0);
+										}
+									}
+									if (
+										count > 0 &&
+										box.dataset['head'] === undefined
+									) {
+										chosen.push(
+											(box.dataset['label'] ?? '') +
+												(count > 1
+													? ` ×${String(count)}`
+													: '')
+										);
+									}
+								});
+								const summaryValue =
+									section.querySelector<HTMLElement>(
+										'.avpvh-pswp-subject-tags-chosen'
+									);
+								if (summaryValue !== null) {
+									summaryValue.textContent =
+										chosen.length > 0
+											? ' · ' + chosen.join(', ')
+											: '';
+								}
+							});
+					};
+					const showSubjectError = (message: string): void => {
+						subjectStatus.textContent = message;
+						setTimeout(() => {
+							subjectStatus.textContent = '';
+						}, 4000);
+					};
+					// Groups are nested by their path — Wie, Wat › Graven, Waar,
+					// Wanneer, Hoe (see Subject_Tag_Groups) — inside the panel's
+					// "Tags" section. Every section starts collapsed unless the
+					// viewer left it open (rememberOpen).
+					const pathSections = new Map<string, HTMLElement>();
+					const containerFor = (path: Array<string>): HTMLElement => {
+						let container: HTMLElement = subjectTagsList;
+						path.forEach((label, depth) => {
+							const key = path.slice(0, depth + 1).join(' › ');
+							let section = pathSections.get(key);
+							if (section === undefined) {
+								const details =
+									document.createElement('details');
+								details.className =
+									'avpvh-pswp-subject-tags-parent';
+								rememberOpen(details, key);
+								const summary =
+									document.createElement('summary');
+								summary.textContent = label;
+								details.appendChild(summary);
+								container.appendChild(details);
+								pathSections.set(key, details);
+								section = details;
+							}
+							container = section;
+						});
+						return container;
+					};
+					// Read-only facts from the photo's folder ("2026 Goeblange"),
+					// filled in once PhotoTagger.getTagContext() has answered.
+					const folderYear = document.createElement('div');
+					folderYear.className = 'avpvh-pswp-folder-fact';
 
-							const group = document.createElement('div');
-							group.className = 'avpvh-pswp-subject-tags-group';
-							Object.entries(tags).forEach(([slug, label]) => {
+					// Waar: the photo's place — its folder's ("2026 Goeblange" →
+					// Goeblange) unless it has its own (an excursion during the
+					// dig). Anyone logged in may set one where there is none;
+					// changing or removing it takes the same rights as removing
+					// a tag. See Photo_Places on the PHP side.
+					const placeBlock = document.createElement('div');
+					placeBlock.className = 'avpvh-pswp-place';
+					const placeLine = document.createElement('div');
+					placeLine.className = 'avpvh-pswp-folder-fact';
+					const placeActions = document.createElement('div');
+					placeActions.className = 'avpvh-pswp-place-actions';
+					const placeEditor = document.createElement('div');
+					placeEditor.style.display = 'none';
+					const placeSearch = document.createElement('input');
+					placeSearch.type = 'search';
+					placeSearch.className = 'avpvh-pswp-person-search';
+					placeSearch.placeholder = 'Stad, museum, plek…';
+					placeSearch.autocomplete = 'off';
+					const placeResults = document.createElement('ul');
+					placeResults.className = 'avpvh-pswp-person-results';
+					placeEditor.appendChild(placeSearch);
+					placeEditor.appendChild(placeResults);
+					placeBlock.appendChild(placeLine);
+					placeBlock.appendChild(placeActions);
+					placeBlock.appendChild(placeEditor);
+					let folderPlaceName = '';
+					let placeState: PhotoPlaceState = {
+						place: '',
+						by: '',
+						at: '',
+						suggestions: [],
+					};
+					const renderPlace = (): void => {
+						const own = placeState.place;
+						let placeText = 'Locatie: onbekend';
+						if (own !== '') {
+							placeText = `Locatie: ${own}`;
+						} else if (folderPlaceName !== '') {
+							placeText = `Locatie: ${folderPlaceName} (uit map)`;
+						}
+						placeLine.textContent = placeText;
+						placeLine.title =
+							own !== ''
+								? `Aangepast door ${placeState.by || 'onbekend'} op ${placeState.at.slice(0, 10)}`
+								: '';
+						placeActions.innerHTML = '';
+						const addAction = (
+							label: string,
+							action: string
+						): void => {
+							const button = document.createElement('button');
+							button.type = 'button';
+							button.textContent = label;
+							button.dataset['action'] = action;
+							placeActions.appendChild(button);
+						};
+						if (own === '' || canRemoveTags) {
+							addAction(
+								own === '' ? 'Andere locatie…' : 'Wijzigen…',
+								'edit'
+							);
+						}
+						if (own !== '' && canRemoveTags) {
+							addAction(
+								folderPlaceName !== ''
+									? `Terug naar ${folderPlaceName}`
+									: 'Locatie verwijderen',
+								'reset'
+							);
+						}
+					};
+					const renderPlaceResults = (): void => {
+						placeResults.innerHTML = '';
+						const query = placeSearch.value.trim();
+						const pool = [
+							folderPlaceName,
+							...placeState.suggestions,
+						]
+							.filter(
+								(place, index, all) =>
+									place !== '' && all.indexOf(place) === index
+							)
+							.map((name) => ({ id: 0, name }));
+						const matches = searchPeople(query, pool).slice(0, 8);
+						const addPick = (
+							place: string,
+							label: string
+						): void => {
+							const li = document.createElement('li');
+							const pick = document.createElement('button');
+							pick.type = 'button';
+							pick.textContent = label;
+							pick.dataset['place'] = place;
+							li.appendChild(pick);
+							placeResults.appendChild(li);
+						};
+						matches.forEach((place) => {
+							addPick(place.name, place.name);
+						});
+						const exact = matches.some(
+							(place) =>
+								place.name.toLowerCase() === query.toLowerCase()
+						);
+						if (query.length >= 2 && !exact) {
+							addPick(query, `+ "${query}" als locatie`);
+						}
+					};
+					const refreshPlace = (): void => {
+						if (exclusionFileId === '') {
+							return;
+						}
+						const fileId = exclusionFileId;
+						void fetchPhotoPlace(
+							avpvhShortcodeLocalize.photo_place_url,
+							fileId
+						)
+							.then((state) => {
+								if (exclusionFileId === fileId) {
+									placeState = state;
+									renderPlace();
+								}
+							})
+							.catch(() => {
+								// Keep showing what we had.
+							});
+					};
+					const savePlace = (place: string): void => {
+						if (exclusionFileId === '') {
+							return;
+						}
+						const fileId = exclusionFileId;
+						placeEditor.style.display = 'none';
+						placeSearch.value = '';
+						// Choosing the folder's own place just means "no own place".
+						const own = place === folderPlaceName ? '' : place;
+						placeState = { ...placeState, place: own };
+						renderPlace();
+						void savePhotoPlace(
+							avpvhShortcodeLocalize.photo_place_url,
+							avpvhShortcodeLocalize.rest_nonce,
+							fileId,
+							own
+						)
+							.catch((error: unknown) => {
+								showSubjectError(
+									error instanceof Error
+										? error.message
+										: 'Opslaan mislukt'
+								);
+							})
+							.finally(refreshPlace);
+					};
+					placeActions.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const button =
+							e.target instanceof Element
+								? e.target.closest<HTMLElement>('[data-action]')
+								: null;
+						if (button?.dataset['action'] === 'reset') {
+							savePlace('');
+						} else if (button?.dataset['action'] === 'edit') {
+							placeEditor.style.display = '';
+							renderPlaceResults();
+							placeSearch.focus();
+						}
+					});
+					placeResults.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const pick =
+							e.target instanceof Element
+								? e.target.closest<HTMLElement>('[data-place]')
+								: null;
+						if (pick !== null) {
+							savePlace(pick.dataset['place'] ?? '');
+						}
+					});
+					placeSearch.addEventListener('input', renderPlaceResults);
+					placeSearch.addEventListener('keydown', (e) => {
+						if (e.key === 'Enter') {
+							e.preventDefault();
+							placeResults
+								.querySelector<HTMLButtonElement>('button')
+								?.click();
+						}
+					});
+
+					const showFolderFacts = (
+						context: TagContext | null
+					): void => {
+						folderPlaceName = context?.place ?? '';
+						const year = context?.year ?? null;
+						folderYear.textContent =
+							year === null
+								? ''
+								: `Jaar: ${String(year)} (uit map)`;
+						renderPlace();
+					};
+					Object.entries(avpvhShortcodeLocalize.subject_tags).forEach(
+						([category, group]) => {
+							const container = containerFor(group.path);
+							const section = document.createElement('details');
+							rememberOpen(section, `group:${category}`);
+							section.className =
+								'avpvh-pswp-subject-tags-section';
+							section.dataset['category'] = category;
+							section.dataset['single'] = group.single
+								? '1'
+								: '0';
+							const summary = document.createElement('summary');
+							summary.textContent = group.label;
+							const chosen = document.createElement('span');
+							chosen.className = 'avpvh-pswp-subject-tags-chosen';
+							summary.appendChild(chosen);
+							section.appendChild(summary);
+
+							const options = document.createElement('div');
+							options.className = 'avpvh-pswp-subject-tags-group';
+							// A taggable group (Kamp) can be ticked itself, first;
+							// ticking anything in it ticks the group too, and
+							// unticking the group unticks your tags in it (as
+							// Subject_Tags does on the server).
+							const groupTags = Object.keys(group.tags);
+							const choices = Object.entries(group.tags);
+							if (group.key !== '') {
+								choices.unshift([group.key, group.label]);
+							}
+							choices.forEach(([slug, label]) => {
 								const optionLabel =
 									document.createElement('label');
 								const checkbox =
 									document.createElement('input');
 								checkbox.type = 'checkbox';
 								checkbox.value = slug;
+								checkbox.dataset['label'] = label;
+								if (slug === group.key) {
+									checkbox.dataset['head'] = '1';
+									optionLabel.classList.add('avpvh-tag-head');
+								}
 								checkbox.addEventListener('change', (e) => {
 									e.stopPropagation();
 									if (exclusionFileId === '') {
 										return;
 									}
 									const fileId = exclusionFileId;
-									const wasChecked = checkbox.checked;
+									const active = checkbox.checked;
+									const isHead = slug === group.key;
+									const siblings =
+										group.single && !isHead
+											? groupTags
+											: [];
+									const added =
+										group.key === '' || isHead
+											? [slug]
+											: [slug, group.key];
+									const removed = isHead
+										? [slug, ...groupTags]
+										: [slug];
+									subjectState = {
+										...subjectState,
+										tags: active
+											? subjectState.tags
+													.filter(
+														(tag) =>
+															!siblings.includes(
+																tag
+															) &&
+															!added.includes(tag)
+													)
+													.concat(added)
+											: subjectState.tags.filter(
+													(tag) =>
+														!removed.includes(tag)
+												),
+									};
+									applySubjectState();
 									void toggleSubjectTag(
 										avpvhShortcodeLocalize.subject_tags_url,
 										avpvhShortcodeLocalize.rest_nonce,
 										fileId,
 										slug,
-										wasChecked
-									).catch(() => {
-										if (exclusionFileId === fileId) {
-											checkbox.checked = !wasChecked;
-										}
-									});
+										active
+									)
+										.catch((error: unknown) => {
+											showSubjectError(
+												error instanceof Error
+													? error.message
+													: 'Opslaan mislukt'
+											);
+										})
+										.finally(refreshTagsPanel);
 								});
 								optionLabel.appendChild(checkbox);
 								optionLabel.appendChild(
 									document.createTextNode(' ' + label)
 								);
-								group.appendChild(optionLabel);
+								const votes = document.createElement('span');
+								votes.className = 'avpvh-tag-votes';
+								optionLabel.appendChild(votes);
+								// Admins can remove a tag for everyone.
+								if (canRemoveTags) {
+									const clear =
+										document.createElement('button');
+									clear.type = 'button';
+									clear.className = 'avpvh-tag-clear';
+									clear.title =
+										'Tag voor iedereen verwijderen';
+									clear.textContent = '✕';
+									clear.hidden = true;
+									clear.addEventListener('click', (e) => {
+										e.preventDefault();
+										e.stopPropagation();
+										if (exclusionFileId === '') {
+											return;
+										}
+										void toggleSubjectTag(
+											avpvhShortcodeLocalize.subject_tags_url,
+											avpvhShortcodeLocalize.rest_nonce,
+											exclusionFileId,
+											slug,
+											false,
+											true
+										)
+											.catch((error: unknown) => {
+												showSubjectError(
+													error instanceof Error
+														? error.message
+														: 'Verwijderen mislukt'
+												);
+											})
+											.finally(refreshTagsPanel);
+									});
+									optionLabel.appendChild(clear);
+								}
+								options.appendChild(optionLabel);
 							});
-							subjectTagsList.appendChild(group);
+							// Tags directly in a section (Plek › Opgraving) go
+							// straight into it, above its groups.
+							// (A plain block, so applySubjectState() still
+							// finds its checkboxes.)
+							if (group.label === '') {
+								const loose = document.createElement('div');
+								loose.className =
+									'avpvh-pswp-subject-tags-section';
+								loose.appendChild(options);
+								container.insertBefore(
+									loose,
+									container.querySelector(':scope > summary')
+										?.nextSibling ?? null
+								);
+								return;
+							}
+							section.appendChild(options);
+							container.appendChild(section);
 						}
 					);
+					subjectTagsList.appendChild(subjectStatus);
 
 					const personTagsList = document.createElement('ul');
 					personTagsList.className = 'avpvh-pswp-person-tags-list';
-					const addPersonTagBtn = document.createElement('button');
-					addPersonTagBtn.type = 'button';
-					addPersonTagBtn.className = 'avpvh-pswp-add-person-tag';
-					addPersonTagBtn.textContent = '+ Persoon taggen';
+					const personSearch = document.createElement('input');
+					personSearch.type = 'search';
+					personSearch.className = 'avpvh-pswp-person-search';
+					personSearch.placeholder = 'Persoon zoeken om te taggen…';
+					personSearch.autocomplete = 'off';
+					const personResults = document.createElement('ul');
+					personResults.className = 'avpvh-pswp-person-results';
+					const personTagsHeading = document.createElement('div');
+					personTagsHeading.className =
+						'avpvh-pswp-subject-tags-heading';
+					personTagsHeading.textContent = 'Personen';
 					const personTagsSection = document.createElement('div');
 					personTagsSection.className = 'avpvh-pswp-person-tags';
+					personTagsSection.appendChild(personTagsHeading);
+					// Who's already tagged on this photo, above the search.
+					const taggedLabel = document.createElement('div');
+					taggedLabel.className = 'avpvh-pswp-tagged-label';
+					personTagsSection.appendChild(taggedLabel);
 					personTagsSection.appendChild(personTagsList);
-					personTagsSection.appendChild(addPersonTagBtn);
+					// "Jan getagd" / an error, after picking a name.
+					const personStatus = document.createElement('div');
+					personStatus.className = 'avpvh-pswp-person-status';
+					let personStatusTimer: ReturnType<
+						typeof setTimeout
+					> | null = null;
+					const showPersonStatus = (
+						message: string,
+						failed: boolean
+					): void => {
+						personStatus.textContent = message;
+						personStatus.classList.toggle('failed', failed);
+						if (personStatusTimer !== null) {
+							clearTimeout(personStatusTimer);
+						}
+						personStatusTimer = setTimeout(() => {
+							personStatus.textContent = '';
+						}, 4000);
+					};
+					const personScopes = document.createElement('div');
+					personScopes.className = 'avpvh-pswp-person-scopes';
+					personTagsSection.appendChild(personScopes);
+					personTagsSection.appendChild(personSearch);
+					personTagsSection.appendChild(personStatus);
+					personTagsSection.appendChild(personResults);
+					// People already tagged on the current photo (see
+					// Shortcode.personKey()), so the search doesn't offer
+					// them again.
+					let taggedPersonKeys = new Set<string>();
 
 					// Reactions: two independent, separately-countable groups
 					// (liking the subject vs. flagging technical quality —
@@ -909,17 +1543,31 @@ export class Shortcode {
 					// the subject-tags rubrieken above.
 					const reactionsSection = document.createElement('div');
 					reactionsSection.className = 'avpvh-pswp-reactions';
+					// Who liked the photo (the top-bar 👍 button's own list).
+					const likedBy = document.createElement('div');
+					likedBy.className = 'avpvh-pswp-liked-by';
+					reactionsSection.appendChild(likedBy);
 					Object.keys(avpvhShortcodeLocalize.reactions).forEach(
 						(group) => {
-							const heading = document.createElement('div');
-							heading.className = 'avpvh-pswp-reactions-heading';
-							heading.textContent = group;
-							reactionsSection.appendChild(heading);
+							if (Shortcode.isLikeGroup(group)) {
+								return;
+							}
+							// Each group (Kwaliteit, Zorgen) is its own top-level,
+							// collapsible section of the panel, next to "Tags".
+							const section = document.createElement('details');
+							section.className =
+								'avpvh-pswp-subject-tags-parent avpvh-pswp-top';
+							rememberOpen(section, `top:${group}`);
+							const summary = document.createElement('summary');
+							summary.textContent =
+								group.charAt(0).toUpperCase() + group.slice(1);
+							section.appendChild(summary);
 
 							const row = document.createElement('div');
 							row.className = 'avpvh-pswp-reactions-group';
 							row.dataset['group'] = group;
-							reactionsSection.appendChild(row);
+							section.appendChild(row);
+							reactionsSection.appendChild(section);
 						}
 					);
 
@@ -939,31 +1587,61 @@ export class Shortcode {
 					commentsSection.appendChild(commentInput);
 					commentsSection.appendChild(commentSubmit);
 
-					tagsPanel.appendChild(subjectTagsList);
-					tagsPanel.appendChild(personTagsSection);
+					// Persons go first under "Wie"; the folder's place and year
+					// first under "Waar" and "Wanneer".
+					const placeFirst = (
+						key: string,
+						element: HTMLElement
+					): void => {
+						const section = pathSections.get(key);
+						if (section === undefined) {
+							tagsPanel.appendChild(element);
+							return;
+						}
+						section.insertBefore(
+							element,
+							section.querySelector(':scope > summary')
+								?.nextSibling ?? null
+						);
+					};
+					// Top level of the panel: Tags · Kwaliteit · Zorgen · Opmerkingen.
+					const tagsTop = document.createElement('details');
+					tagsTop.className =
+						'avpvh-pswp-subject-tags-parent avpvh-pswp-top';
+					rememberOpen(tagsTop, 'top:tags');
+					const tagsTopSummary = document.createElement('summary');
+					tagsTopSummary.textContent = 'Tags';
+					tagsTop.append(tagsTopSummary, subjectTagsList);
+					tagsPanel.appendChild(tagsTop);
+					placeFirst('Wie', personTagsSection);
+					placeFirst('Waar', placeBlock);
+					placeFirst('Wanneer', folderYear);
 					tagsPanel.appendChild(reactionsSection);
-					tagsPanel.appendChild(commentsSection);
+					const commentsTop = document.createElement('details');
+					commentsTop.className =
+						'avpvh-pswp-subject-tags-parent avpvh-pswp-top';
+					rememberOpen(commentsTop, 'top:comments');
+					const commentsSummary = document.createElement('summary');
+					commentsSummary.textContent = 'Opmerkingen';
+					commentsTop.append(commentsSummary, commentsSection);
+					tagsPanel.appendChild(commentsTop);
 
-					const refreshTagsPanel = (): void => {
+					refreshTagsPanel = (): void => {
 						if (exclusionFileId === '') {
 							return;
 						}
+						refreshPlace();
 						const fileId = exclusionFileId;
 						void fetchSubjectTags(
 							avpvhShortcodeLocalize.subject_tags_url,
 							fileId
 						)
-							.then((active) => {
+							.then((state) => {
 								if (exclusionFileId !== fileId) {
 									return;
 								}
-								subjectTagsList
-									.querySelectorAll<HTMLInputElement>(
-										'input[type="checkbox"]'
-									)
-									.forEach((cb) => {
-										cb.checked = active.includes(cb.value);
-									});
+								subjectState = state;
+								applySubjectState();
 							})
 							.catch(() => {
 								// Leave checkboxes as-is — nothing more useful to do here.
@@ -974,24 +1652,137 @@ export class Shortcode {
 								return;
 							}
 							personTagsList.innerHTML = '';
+							taggedLabel.textContent =
+								tags.length > 0
+									? 'Op deze foto:'
+									: 'Nog niemand getagd op deze foto';
+							// The collapsed "Wie" header shows who's tagged too.
+							const wieSummary = pathSections
+								.get('Wie')
+								?.querySelector<HTMLElement>(
+									':scope > summary'
+								);
+							if (
+								wieSummary !== undefined &&
+								wieSummary !== null
+							) {
+								let chosen =
+									wieSummary.querySelector<HTMLElement>(
+										'.avpvh-pswp-subject-tags-chosen'
+									);
+								if (chosen === null) {
+									chosen = document.createElement('span');
+									chosen.className =
+										'avpvh-pswp-subject-tags-chosen';
+									wieSummary.appendChild(chosen);
+								}
+								chosen.textContent =
+									tags.length > 0
+										? ' · ' +
+											tags
+												.map((tag) => tag.member_name)
+												.join(', ')
+										: '';
+							}
+							// The search leaves out only persons you tagged
+							// yourself; others' tags can be confirmed from it.
+							taggedPersonKeys = new Set(
+								tags
+									.filter((tag) => tag.mine)
+									.map((tag) =>
+										Shortcode.personKey({
+											id: tag.member_id,
+											name: tag.member_name,
+										})
+									)
+							);
+							// The recent list's check marks follow this photo.
+							redrawPersonResults();
 							tags.forEach((tag) => {
 								const li = document.createElement('li');
+								if (tag.mine) {
+									li.classList.add('mine');
+								}
 								const nameSpan = document.createElement('span');
-								nameSpan.textContent = tag.member_name;
-								const delBtn = document.createElement('button');
-								delBtn.type = 'button';
-								delBtn.className =
-									'avpvh-pswp-person-tag-delete';
-								delBtn.title = 'Tag verwijderen';
-								delBtn.textContent = '×';
-								delBtn.addEventListener('click', (e) => {
-									e.stopPropagation();
-									void this.photoTagger
-										.deleteTag(tag.id)
-										.then(refreshTagsPanel);
-								});
+								nameSpan.textContent =
+									tag.votes > 1
+										? `${tag.member_name} ×${String(tag.votes)}`
+										: tag.member_name;
+								li.title = `Getagd door ${tag.tagged_by || 'onbekend'} (sinds ${tag.tagged_at.slice(0, 10)})`;
 								li.appendChild(nameSpan);
-								li.appendChild(delBtn);
+								const actions = document.createElement('span');
+								actions.className =
+									'avpvh-pswp-person-tag-actions';
+								const addAction = (
+									text: string,
+									title: string,
+									run: () => Promise<boolean>
+								): void => {
+									const button =
+										document.createElement('button');
+									button.type = 'button';
+									button.className =
+										'avpvh-pswp-person-tag-action';
+									button.textContent = text;
+									button.title = title;
+									button.addEventListener('click', (e) => {
+										e.stopPropagation();
+										void run().then((done) => {
+											if (!done) {
+												showPersonStatus(
+													'Dat is niet gelukt',
+													true
+												);
+											}
+											refreshTagsPanel();
+										});
+									});
+									actions.appendChild(button);
+								};
+								// A tag is a vote: confirm someone else's, or
+								// withdraw your own; admins can remove it for all.
+								if (tag.mine) {
+									addAction(
+										'×',
+										'Mijn tag intrekken',
+										async () =>
+											this.photoTagger.deleteTag(
+												fileId,
+												tag.tag_key,
+												false
+											)
+									);
+								} else {
+									addAction(
+										'+1',
+										'Ik zie deze persoon ook',
+										async () =>
+											this.photoTagger.addTag(
+												fileId,
+												tag.member_id,
+												undefined,
+												tag.member_id > 0
+													? ''
+													: tag.member_name
+											)
+									);
+								}
+								if (
+									canRemoveTags &&
+									tag.votes > (tag.mine ? 1 : 0)
+								) {
+									addAction(
+										'🗑',
+										'Tag voor iedereen verwijderen',
+										async () =>
+											this.photoTagger.deleteTag(
+												fileId,
+												tag.tag_key,
+												true
+											)
+									);
+								}
+								li.appendChild(actions);
 								personTagsList.appendChild(li);
 							});
 						});
@@ -1004,6 +1795,9 @@ export class Shortcode {
 								Object.entries(
 									avpvhShortcodeLocalize.reactions
 								).forEach(([group, slugs]) => {
+									if (Shortcode.isLikeGroup(group)) {
+										return;
+									}
 									const row =
 										reactionsSection.querySelector<HTMLElement>(
 											`.avpvh-pswp-reactions-group[data-group="${group}"]`
@@ -1073,69 +1867,424 @@ export class Shortcode {
 						);
 					};
 
-					tagsButton.addEventListener('click', (e) => {
+					// Person tagging: type (part of) a name, click it. Suggests
+					// the matching activity's participants first (see
+					// PhotoTagger.getCandidates()) but searches the whole
+					// membership, so anyone can be tagged. No position on the
+					// photo is needed — the tag is just "this person is in it".
+					// Which persons the list offers (see PhotoTagger.getTagContext()):
+					// the dig's participants, the members in the photo's year,
+					// the archaeologists, or everyone. Persons born after the
+					// photo's year are never offered.
+					type PersonScope =
+						'all' | 'archaeologists' | 'members' | 'participants';
+					let contextFolderId: string | null = null;
+					let tagContext: TagContext | null = null;
+					let personScope: PersonScope = 'all';
+					let scopeChosenByViewer = false;
+					const scopePool = (
+						scope: PersonScope
+					): Array<{ id: number; name: string }> => {
+						if (tagContext === null) {
+							return this.photoTagger.getMembersForDropdown();
+						}
+						const context = tagContext;
+						const everyone = Shortcode.mergeMembers(
+							context.participants,
+							this.photoTagger.getMembersForDropdown()
+						);
+						const pool =
+							scope === 'participants'
+								? context.participants
+								: everyone.filter(
+										(person) =>
+											scope === 'all' ||
+											(scope === 'members' &&
+												context.membersThen.has(
+													person.id
+												)) ||
+											(scope === 'archaeologists' &&
+												context.archaeologists.has(
+													person.id
+												))
+									);
+						return pool.filter(
+							(person) => !context.bornAfter.has(person.id)
+						);
+					};
+					const renderPersonScopes = (): void => {
+						personScopes.innerHTML = '';
+						const scopes: Array<[PersonScope, string]> = [
+							['participants', 'Deelnemers'],
+							[
+								'members',
+								tagContext?.year !== null &&
+								tagContext?.year !== undefined
+									? `Leden ${String(tagContext.year)}`
+									: 'Leden',
+							],
+							['archaeologists', 'Archeologen'],
+							['all', 'Iedereen'],
+						];
+						scopes.forEach(([scope, label]) => {
+							const count = scopePool(scope).length;
+							if (scope !== 'all' && count === 0) {
+								return;
+							}
+							const button = document.createElement('button');
+							button.type = 'button';
+							button.textContent =
+								scope === 'all'
+									? label
+									: `${label} (${String(count)})`;
+							button.dataset['scope'] = scope;
+							button.classList.toggle(
+								'active',
+								scope === personScope
+							);
+							personScopes.appendChild(button);
+						});
+					};
+					const loadPersonCandidates = async (): Promise<void> => {
+						if (contextFolderId === exclusionFolderId) {
+							return;
+						}
+						const folderId = exclusionFolderId;
+						const context =
+							await PhotoTagger.getTagContext(folderId);
+						contextFolderId = folderId;
+						tagContext = context;
+						showFolderFacts(context);
+						// Default to the narrowest list that has anyone in it,
+						// unless the viewer picked one that still does.
+						if (
+							!scopeChosenByViewer ||
+							scopePool(personScope).length === 0
+						) {
+							personScope =
+								(
+									[
+										'participants',
+										'members',
+									] as Array<PersonScope>
+								).find(
+									(scope) => scopePool(scope).length > 0
+								) ?? 'all';
+						}
+						renderPersonScopes();
+					};
+					const renderPersonResults = (): void => {
+						personResults.innerHTML = '';
+						const query = personSearch.value.trim();
+						const untagged = (person: {
+							id: number;
+							name: string;
+						}): boolean =>
+							!taggedPersonKeys.has(
+								Shortcode.personKey(person)
+							) &&
+							!(tagContext?.bornAfter.has(person.id) ?? false);
+						// The persons this viewer tagged most recently come
+						// first: listed on their own before anything is typed,
+						// and ranked first among equally good matches after.
+						// The recent list keeps persons already tagged here (shown
+						// with ✓; clicking withdraws your tag), so tagging a
+						// series of photos is a matter of ticking names.
+						const recentAll = Shortcode.recentPersons(
+							this.photoTagger.getMembersForDropdown()
+						).filter(
+							(person) =>
+								!(tagContext?.bornAfter.has(person.id) ?? false)
+						);
+						const recent = recentAll.filter(untagged);
+						const pool = scopePool(personScope).filter(untagged);
+						const matches =
+							query === ''
+								? pool
+										.filter(
+											(person) =>
+												!recentAll.some(
+													(other) =>
+														Shortcode.personKey(
+															other
+														) ===
+														Shortcode.personKey(
+															person
+														)
+												)
+										)
+										.slice(0, 8)
+								: // Typing searches everyone (bar those born after the
+									// photo's year); recent persons and the chosen
+									// list (participants, members that year…) rank
+									// first among equally good matches.
+									searchPeople(
+										query,
+										Shortcode.mergeMembers(
+											recent,
+											Shortcode.mergeMembers(
+												pool,
+												scopePool('all').filter(
+													untagged
+												)
+											)
+										)
+									).slice(0, 8);
+						const addHeading = (text: string): void => {
+							const li = document.createElement('li');
+							li.className = 'avpvh-pswp-person-results-heading';
+							li.textContent = text;
+							personResults.appendChild(li);
+						};
+						const addPick = (
+							person: { id: number; name: string },
+							label: string,
+							tagged = false
+						): void => {
+							const li = document.createElement('li');
+							const pick = document.createElement('button');
+							pick.type = 'button';
+							pick.textContent = label;
+							pick.dataset['personId'] = String(person.id);
+							pick.dataset['personName'] = person.name;
+							if (tagged) {
+								pick.dataset['tagged'] = '1';
+								pick.classList.add('tagged');
+								pick.title =
+									'Getagd op deze foto — klik om je tag in te trekken';
+							}
+							li.appendChild(pick);
+							personResults.appendChild(li);
+						};
+						if (query === '' && recentAll.length > 0) {
+							addHeading('Recent gebruikt');
+							recentAll.slice(0, 6).forEach((person) => {
+								const tagged = taggedPersonKeys.has(
+									Shortcode.personKey(person)
+								);
+								addPick(person, person.name, tagged);
+							});
+							if (matches.length > 0) {
+								addHeading('Suggesties');
+							}
+						}
+						matches.forEach((person) => {
+							addPick(person, person.name);
+						});
+						// Not everyone in a photo is in the persons list: offer
+						// the typed name itself unless it's already an exact hit.
+						const exact = matches.some(
+							(person) =>
+								person.name.toLowerCase() ===
+								query.toLowerCase()
+						);
+						if (query.length >= 3 && !exact) {
+							addPick(
+								{ id: 0, name: query },
+								`+ "${query}" taggen (niet in personenlijst)`
+							);
+						}
+					};
+					// Persons whose tag is being saved or withdrawn right now:
+					// further clicks on them are ignored until that's done.
+					const busyKeys = new Set<string>();
+					const tagPerson = (person: {
+						id: number;
+						name: string;
+					}): void => {
+						if (
+							exclusionFileId === '' ||
+							busyKeys.has(Shortcode.personKey(person))
+						) {
+							return;
+						}
+						busyKeys.add(Shortcode.personKey(person));
+						personSearch.value = '';
+						const key = Shortcode.personKey(person);
+						taggedPersonKeys.add(key);
+						Shortcode.rememberPerson(person);
+						renderPersonResults();
+						// Show the name straight away; the list is redrawn
+						// from the server once saved.
+						const pending = document.createElement('li');
+						pending.className = 'pending';
+						pending.textContent = `${person.name} (opslaan…)`;
+						personTagsList.appendChild(pending);
+						taggedLabel.textContent = 'Op deze foto:';
+						void this.photoTagger
+							.addTag(
+								exclusionFileId,
+								person.id,
+								undefined,
+								person.id > 0 ? '' : person.name
+							)
+							.then((saved) => {
+								busyKeys.delete(key);
+								if (saved) {
+									showPersonStatus(
+										`${person.name} getagd`,
+										false
+									);
+								} else {
+									taggedPersonKeys.delete(key);
+									showPersonStatus(
+										`${person.name} taggen is mislukt`,
+										true
+									);
+								}
+								refreshTagsPanel();
+							});
+					};
+					personScopes.addEventListener('click', (e) => {
 						e.stopPropagation();
+						const button =
+							e.target instanceof Element
+								? e.target.closest<HTMLElement>('[data-scope]')
+								: null;
+						if (button === null) {
+							return;
+						}
+						personScope = button.dataset['scope'] as PersonScope;
+						scopeChosenByViewer = true;
+						renderPersonScopes();
+						renderPersonResults();
+					});
+					redrawPersonResults = renderPersonResults;
+					// Withdraws your own tag of a person on this photo.
+					const untagPerson = (person: {
+						id: number;
+						name: string;
+					}): void => {
+						const key = Shortcode.personKey(person);
+						if (exclusionFileId === '' || busyKeys.has(key)) {
+							return;
+						}
+						busyKeys.add(key);
+						taggedPersonKeys.delete(key);
+						renderPersonResults();
+						void this.photoTagger
+							.deleteTag(
+								exclusionFileId,
+								person.id > 0
+									? String(person.id)
+									: `name:${person.name.trim().replace(/\s+/g, ' ').toLowerCase()}`,
+								false
+							)
+							.then((done) => {
+								busyKeys.delete(key);
+								showPersonStatus(
+									done
+										? `${person.name} niet meer getagd`
+										: `${person.name} loshalen is mislukt`,
+									!done
+								);
+								refreshTagsPanel();
+							});
+					};
+					personResults.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const pick =
+							e.target instanceof Element
+								? e.target.closest<HTMLElement>(
+										'[data-person-id]'
+									)
+								: null;
+						if (pick === null) {
+							return;
+						}
+						const person = {
+							id: Number(pick.dataset['personId']),
+							name: pick.dataset['personName'] ?? '',
+						};
+						if (pick.dataset['tagged'] === '1') {
+							untagPerson(person);
+						} else {
+							tagPerson(person);
+						}
+					});
+					personSearch.addEventListener('input', renderPersonResults);
+					personSearch.addEventListener('keydown', (e) => {
+						if (e.key !== 'Enter') {
+							return;
+						}
+						e.preventDefault();
+						const first =
+							personResults.querySelector<HTMLButtonElement>(
+								'button'
+							);
+						first?.click();
+					});
+					// Keep typing in the panel (names, comments) from reaching
+					// PhotoSwipe's document-level keyboard shortcuts (arrows
+					// change slide, Escape closes).
+					tagsPanel.addEventListener('keydown', (e) => {
+						e.stopPropagation();
+					});
+
+					onTagsBarClick = (): void => {
 						const opening = tagsPanel.style.display === 'none';
 						tagsPanel.style.display = opening ? '' : 'none';
 						if (opening) {
 							refreshTagsPanel();
+							void loadPersonCandidates().then(
+								renderPersonResults
+							);
 						}
-					});
+					};
 
-					// Enters "click a point on the photo to tag someone" mode: the
-					// next click on the image (instead of its usual UI-toggle
-					// behavior) captures a position, offers a member picker
-					// (narrowed to the matching activity's participants when
-					// known — see PhotoTagger.getCandidates()), and saves a small
-					// fixed-size region around that point.
-					addPersonTagBtn.addEventListener('click', (e) => {
-						e.stopPropagation();
-						if (exclusionFileId === '') {
+					// Liking: the top-bar 👍 button, or a right-click anywhere on
+					// the photo. Both toggle the "like" reaction for the current
+					// user and show the total count.
+					const refreshLike = (): void => {
+						const button = likeBarButton;
+						if (button === null || exclusionFileId === '') {
 							return;
 						}
 						const fileId = exclusionFileId;
-						const folderId = exclusionFolderId;
-						const pswpImg =
-							document.querySelector<HTMLElement>('.pswp__img');
-						const parent = pswpImg?.parentElement;
-						if (!parent) {
+						void PhotoTagger.listReactions(fileId).then(
+							(reactions) => {
+								if (exclusionFileId !== fileId) {
+									return;
+								}
+								const like = reactions.find(
+									(r) => r.slug === Shortcode.LIKE_SLUG
+								);
+								button.innerHTML = Shortcode.likeButtonHtml(
+									like?.count ?? 0
+								);
+								button.classList.toggle(
+									'avpvh-liked',
+									like?.mine === true
+								);
+								const likers = Shortcode.likersText(
+									like?.names ?? [],
+									like?.count ?? 0
+								);
+								button.title =
+									likers === ''
+										? 'Leuke foto (of rechtsklik op de foto)'
+										: `Leuk gevonden door: ${likers}`;
+								likedBy.textContent =
+									likers === ''
+										? ''
+										: `👍 Leuk gevonden door: ${likers}`;
+							}
+						);
+					};
+					onLikeBarClick = (): void => {
+						if (exclusionFileId === '') {
 							return;
 						}
-						addPersonTagBtn.textContent = 'Klik op de foto…';
-						const onImgClick = (clickEvent: MouseEvent): void => {
-							clickEvent.stopPropagation();
-							clickEvent.preventDefault();
-							parent.removeEventListener(
-								'click',
-								onImgClick,
-								true
-							);
-							addPersonTagBtn.textContent = '+ Persoon taggen';
-							const rect = parent.getBoundingClientRect();
-							const x = clickEvent.clientX - rect.left;
-							const y = clickEvent.clientY - rect.top;
-							void this.photoTagger
-								.getCandidates(folderId)
-								.then((candidates) => {
-									this.photoTagger.showMemberSelector(
-										clickEvent.clientX,
-										clickEvent.clientY,
-										(memberId) => {
-											void this.photoTagger
-												.addTag(fileId, memberId, {
-													x: x - 30,
-													y: y - 30,
-													width: 60,
-													height: 60,
-												})
-												.then(refreshTagsPanel);
-										},
-										candidates
-									);
-								});
-						};
-						parent.addEventListener('click', onImgClick, true);
-					});
+						likeBarButton?.classList.toggle('avpvh-liked');
+						void PhotoTagger.addReaction(
+							exclusionFileId,
+							Shortcode.LIKE_SLUG
+						).then(refreshLike);
+					};
+					if ('' !== avpvhShortcodeLocalize.rest_nonce) {
+						this.toggleLightboxLike = onLikeBarClick;
+					}
+					onLikeBarInit = refreshLike;
 
 					commentSubmit.addEventListener('click', (e) => {
 						e.stopPropagation();
@@ -1150,8 +2299,7 @@ export class Shortcode {
 						);
 					});
 
-					el.appendChild(tagsButton);
-					el.appendChild(tagsPanel);
+					instance.element?.appendChild(tagsPanel);
 					// Looks up (and displays, if found) the current slide's cached EXIF
 					// date. Split out of update() so it can also be called from the
 					// visibilitychange listener below — switching back to this browser
@@ -1307,8 +2455,26 @@ export class Shortcode {
 							'true' === avpvhShortcodeLocalize.can_exclude_photos
 								? ''
 								: 'none';
-						tagsPanel.style.display = 'none';
-						tagsButton.style.display = fileId !== '' ? '' : 'none';
+						personSearch.value = '';
+						// Forget the previous photo's persons straight away, so
+						// nothing of it shows until this photo's tags arrive.
+						taggedPersonKeys = new Set();
+						personTagsList.innerHTML = '';
+						taggedLabel.textContent = 'Laden…';
+						if (tagsPanel.style.display !== 'none') {
+							renderPersonResults();
+							refreshTagsPanel();
+							void loadPersonCandidates().then(
+								renderPersonResults
+							);
+						}
+						for (const button of [tagsBarButton, likeBarButton]) {
+							if (button !== null) {
+								button.style.display =
+									fileId !== '' ? '' : 'none';
+							}
+						}
+						refreshLike();
 						refreshOriginalDate();
 						if (!hasCorrection && fileId !== '') {
 							const orientationSlideEl = slideEl;
@@ -1399,6 +2565,37 @@ export class Shortcode {
 					update();
 				},
 			});
+			// Tagging and liking need a logged-in user (the AJAX handlers are
+			// wp_ajax_-only), so don't offer the buttons to anyone else.
+			if ('' !== avpvhShortcodeLocalize.rest_nonce) {
+				pswp.ui?.registerElement({
+					name: 'avpvh-tag',
+					title: 'Taggen',
+					order: 15,
+					isButton: true,
+					html: '<svg class="pswp__icn" viewBox="-4 -4 32 32" width="32" height="32" aria-hidden="true"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5c-1.1 0-2 .89-2 2v10c0 1.1.9 2 2 2h11c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>',
+					onInit: (el) => {
+						tagsBarButton = el;
+					},
+					onClick: () => {
+						onTagsBarClick();
+					},
+				});
+				pswp.ui?.registerElement({
+					name: 'avpvh-like',
+					title: 'Leuke foto (of rechtsklik op de foto)',
+					order: 16,
+					isButton: true,
+					html: Shortcode.likeButtonHtml(0),
+					onInit: (el) => {
+						likeBarButton = el;
+						onLikeBarInit();
+					},
+					onClick: () => {
+						onLikeBarClick();
+					},
+				});
+			}
 		});
 
 		lightbox.on('change', () => {
@@ -1541,7 +2738,9 @@ export class Shortcode {
 				document.addEventListener(
 					'webkitfullscreenchange',
 					forceUpdateSize,
-					{ once: true }
+					{
+						once: true,
+					}
 				);
 
 				pswp?.on('openingAnimationEnd', () => {
@@ -1558,14 +2757,33 @@ export class Shortcode {
 						/* ignore */
 					});
 			}
-			if (
-				pswpEl instanceof HTMLElement &&
-				avpvhShortcodeLocalize.is_admin === 'true'
-			) {
+			if (pswpEl instanceof HTMLElement) {
 				pswpEl.addEventListener('contextmenu', (e) => {
 					const fileId =
 						pswp?.currSlide?.data.element?.dataset['avpvhId'];
 					if (fileId === undefined || fileId === '') {
+						return;
+					}
+					const target = e.target;
+					if (
+						target instanceof Element &&
+						target.closest(
+							'.avpvh-pswp-tags-panel, input, textarea'
+						) !== null
+					) {
+						return;
+					}
+					// Right-click likes the photo (logged-in users only — see
+					// the avpvh-like button). Admins get their EXIF Inspector
+					// menu with Shift+right-click instead.
+					if (
+						!e.shiftKey ||
+						avpvhShortcodeLocalize.is_admin !== 'true'
+					) {
+						if (this.toggleLightboxLike !== null) {
+							e.preventDefault();
+							this.toggleLightboxLike();
+						}
 						return;
 					}
 					e.preventDefault();
@@ -1590,6 +2808,7 @@ export class Shortcode {
 		});
 
 		lightbox.on('close', () => {
+			this.toggleLightboxLike = null;
 			void this.releaseScreenWakeLock();
 			this.onLightboxQuit();
 			if (this.slideshowTimer !== null) {
@@ -1625,8 +2844,83 @@ export class Shortcode {
 			}
 			this.setupLightboxBehavior(pswp);
 		});
+		Shortcode.setupFastStepping(lightbox);
 
 		return lightbox;
+	}
+
+	// Every photo shown loads its full size from Google, which refuses
+	// images for a while when asked for too many at once. So while the
+	// viewer steps quickly through the photos, they only get the grid
+	// thumbnail (already in the browser) stretched over the slide; once
+	// they stay on a photo for a moment, it and its neighbours load in full.
+	private static setupFastStepping(lightbox: PhotoSwipeLightbox): void {
+		let lastChangeAt = 0;
+		let refreshing = false;
+		let settleTimer: ReturnType<typeof setTimeout> | null = null;
+		const deferred = new Set<number>();
+
+		// Photos load just before the step's 'change', so this is the time
+		// since the previous step.
+		lightbox.on('contentLoad', (e) => {
+			if (
+				!refreshing &&
+				'image' === e.content.type &&
+				Date.now() - lastChangeAt < Shortcode.FAST_STEP_MS
+			) {
+				e.preventDefault();
+				deferred.add(e.content.index);
+			}
+		});
+		const loadDeferred = (): void => {
+			const pswp = lightbox.pswp;
+			if (pswp === undefined) {
+				return;
+			}
+			refreshing = true;
+			[pswp.currIndex, pswp.currIndex + 1, pswp.currIndex - 1]
+				.filter((index) => deferred.delete(index))
+				.forEach((index) => {
+					pswp.refreshSlideContent(index);
+				});
+			refreshing = false;
+		};
+		lightbox.on('change', () => {
+			if (refreshing) {
+				return;
+			}
+			lastChangeAt = Date.now();
+			if (settleTimer !== null) {
+				clearTimeout(settleTimer);
+			}
+			settleTimer = setTimeout(() => {
+				settleTimer = null;
+				loadDeferred();
+			}, Shortcode.SETTLE_MS);
+		});
+		lightbox.on('close', () => {
+			if (settleTimer !== null) {
+				clearTimeout(settleTimer);
+				settleTimer = null;
+			}
+			lastChangeAt = 0;
+			deferred.clear();
+		});
+		// Show the thumbnail while a photo loads (PhotoSwipe only does so for
+		// the first one) — but only when the grid shows it unturned, as
+		// the slide will (no orientation correction or rotated thumbnail).
+		lightbox.addFilter('placeholderSrc', (src, content) => {
+			const el = content.data.element;
+			const turned =
+				!(el instanceof HTMLElement) ||
+				'1' === el.dataset['avpvhHasCorrection'] ||
+				'0' !== (el.dataset['avpvhThumbRotation'] ?? '0') ||
+				undefined !== el.dataset['avpvhThumbHflip'] ||
+				undefined !== el.dataset['avpvhThumbVflip'];
+			return !turned && content.data.msrc !== undefined
+				? content.data.msrc
+				: src;
+		});
 	}
 
 	private async acquireScreenWakeLock(): Promise<void> {
@@ -1792,15 +3086,17 @@ export class Shortcode {
 		//    the trowels, then arms a short idle countdown. Because every
 		//    interaction re-arms it, rapid clicking can never collide with an
 		//    auto-advance (the old "skipped photo" bug).
-		//  • When the countdown elapses (user has stopped interacting) the
-		//    trowels hide and the slideshow resumes — EXCEPT in windowed mode
-		//    while the cursor is still resting on the photo, so hovering a photo
-		//    keeps the show stopped.
-		//  • In fullscreen the photo fills the screen, so there is no "off the
-		//    photo" area; the only way to restart the show is to stop moving the
-		//    mouse, hence we ignore the hover rule there.
-		let lastOverPhoto = false;
-		const isFullscreen = (): boolean => document.fullscreenElement !== null;
+		//  • When the countdown elapses the trowels and top bar hide. Where the
+		//    cursor came to rest decides whether the slideshow resumes, in
+		//    fullscreen and windowed mode alike:
+		//    – on the photo: it resumes;
+		//    – anywhere else in the lightbox — the black area around a photo
+		//      that doesn't fill the screen, the top bar, the path bar, the
+		//      tagging panel: it stays stopped until the mouse moves again
+		//      and comes to rest on the photo.
+		//  • Leaving the lightbox entirely (windowed) resumes immediately, as
+		//    does opening it before the mouse has moved at all.
+		let pointerSpot: 'off' | 'photo' | 'unknown' = 'unknown';
 		const pauseShow = (): void => {
 			this.slideshowPaused = true;
 			if (this.slideshowTimer !== null) {
@@ -1813,16 +3109,18 @@ export class Shortcode {
 			this.startSlideshow(pswp);
 		};
 		const goIdle = (): void => {
-			// In windowed mode, keep trowels visible while cursor rests on the photo
-			// (slideshow stays paused; arrows only hide when the cursor leaves the photo)
-			if (!isFullscreen() && lastOverPhoto) {
-				return;
-			}
 			el.classList.add('pswp--ui-idle');
-			resumeShow();
+			if (pointerSpot !== 'off') {
+				resumeShow();
+			}
 		};
-		const onActivity = (overPhoto: boolean): void => {
-			lastOverPhoto = overPhoto;
+		const overPhotoTarget = (t: EventTarget | null): boolean =>
+			t instanceof Element && null !== t.closest('.pswp__img, video');
+		const onActivity = (target: EventTarget | null): void => {
+			// Keyboard activity (no target) leaves the cursor where it was.
+			if (target !== null) {
+				pointerSpot = overPhotoTarget(target) ? 'photo' : 'off';
+			}
 			el.classList.remove('pswp--ui-idle');
 			pauseShow();
 			if (this.idleTimer !== null) {
@@ -1830,38 +3128,34 @@ export class Shortcode {
 			}
 			this.idleTimer = setTimeout(goIdle, this.IDLE_HIDE_MS);
 		};
-		const overPhotoTarget = (t: EventTarget | null): boolean =>
-			t instanceof Element && null !== t.closest('.pswp__img');
 		// Down events use the capture phase: PhotoSwipe's gesture handler calls
 		// stopPropagation() on them for its drag logic, so a bubble-phase listener
 		// would never see arrow/image clicks.
 		el.addEventListener('mousemove', (e: MouseEvent) => {
-			onActivity(overPhotoTarget(e.target));
+			onActivity(e.target);
 		});
 		el.addEventListener(
 			'mousedown',
 			(e: MouseEvent) => {
-				onActivity(overPhotoTarget(e.target));
+				onActivity(e.target);
 			},
 			true
 		);
 		el.addEventListener(
 			'pointerdown',
 			(e: Event) => {
-				onActivity(overPhotoTarget(e.target));
+				onActivity(e.target);
 			},
 			true
 		);
 		el.addEventListener('touchstart', (e: Event) => {
-			onActivity(overPhotoTarget(e.target));
+			onActivity(e.target);
 		});
 		// Leaving the lightbox entirely (windowed only) resumes immediately.
 		el.addEventListener('mouseleave', () => {
-			lastOverPhoto = false;
+			pointerSpot = 'unknown';
 			el.classList.add('pswp--ui-idle');
-			if (!isFullscreen()) {
-				resumeShow();
-			}
+			resumeShow();
 		});
 		// Start: trowels visible, slideshow running, idle countdown armed.
 		resumeShow();
@@ -1899,7 +3193,7 @@ export class Shortcode {
 				return;
 			}
 			if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-				onActivity(false);
+				onActivity(null);
 			}
 			if (e.key === 'ArrowLeft' && pswp.currIndex === 0) {
 				e.stopImmediatePropagation();
@@ -1913,7 +3207,7 @@ export class Shortcode {
 	}
 
 	private prevBoundary(pswp: PhotoSwipe): void {
-		if (!this.folderNavigating) {
+		if (this.filter === null && !this.folderNavigating) {
 			this.folderNavigating = true;
 			this.navigateToAdjacentFolder('prev', pswp);
 		}
@@ -1939,6 +3233,32 @@ export class Shortcode {
 		}, this.SLIDESHOW_DELAY_MS);
 	}
 
+	// Whether the viewer is working on the current photo — the tagging or
+	// exclusion panel is open, or a text field in the lightbox has focus.
+	// The slideshow must not move on then, or a tag/comment would land on
+	// whichever photo happens to be showing. Closing the panel (a click,
+	// so user activity) re-arms the idle countdown that resumes the show.
+	private isLightboxEditing(): boolean {
+		const pswpEl = this.lightbox.pswp?.element;
+		if (pswpEl === undefined) {
+			return false;
+		}
+		const active = pswpEl.ownerDocument.activeElement;
+		if (
+			(active instanceof HTMLInputElement ||
+				active instanceof HTMLTextAreaElement ||
+				active instanceof HTMLSelectElement) &&
+			pswpEl.contains(active)
+		) {
+			return true;
+		}
+		return Array.from(
+			pswpEl.querySelectorAll<HTMLElement>(
+				'.avpvh-pswp-tags-panel, .avpvh-pswp-exclusion-panel'
+			)
+		).some((panel) => panel.style.display !== 'none');
+	}
+
 	private startSlideshow(pswp: PhotoSwipe): void {
 		if (this.slideshowTimer !== null) {
 			clearTimeout(this.slideshowTimer);
@@ -1948,7 +3268,11 @@ export class Shortcode {
 			// Videos are not on the fixed timer — they advance when they finish.
 			return;
 		}
-		if (this.slideshowPaused || this.rateLimited) {
+		if (
+			this.slideshowPaused ||
+			this.rateLimited ||
+			this.isLightboxEditing()
+		) {
 			this.slideshowTimer = null;
 			return;
 		}
@@ -1967,7 +3291,11 @@ export class Shortcode {
 		}
 		this.slideshowTimer = setTimeout(() => {
 			this.slideshowTimer = null;
-			if (this.lightbox.pswp !== pswp || this.loading) {
+			if (
+				this.lightbox.pswp !== pswp ||
+				this.loading ||
+				this.isLightboxEditing()
+			) {
 				return;
 			}
 			if (pswp.currIndex === pswp.getNumItems() - 1) {
@@ -2237,7 +3565,7 @@ export class Shortcode {
 	}
 
 	private advanceFromVideo(pswp: PhotoSwipe): void {
-		if (this.lightbox.pswp !== pswp) {
+		if (this.lightbox.pswp !== pswp || this.isLightboxEditing()) {
 			return;
 		}
 		if (pswp.currIndex === pswp.getNumItems() - 1) {
@@ -2317,7 +3645,11 @@ export class Shortcode {
 			if (this.lightbox.pswp !== undefined) {
 				return;
 			}
-			if ('' === this.path || this.folderNavigating) {
+			if (
+				'' === this.path ||
+				this.folderNavigating ||
+				this.filter !== null
+			) {
 				return;
 			}
 			if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
@@ -2405,7 +3737,11 @@ export class Shortcode {
 				if (Math.abs(dx) < 50) {
 					return;
 				}
-				if ('' === this.path || this.folderNavigating) {
+				if (
+					'' === this.path ||
+					this.folderNavigating ||
+					this.filter !== null
+				) {
 					return;
 				}
 
@@ -2502,48 +3838,32 @@ export class Shortcode {
 						'',
 						this.pathQueryParameter.add(newPath)
 					);
+					// Backwards, load the folder up to its last photo, so
+					// that's the one the lightbox reopens on.
+					history.replaceState(
+						{},
+						'',
+						'prev' === direction
+							? this.pageQueryParameter.add(
+									Shortcode.pagesFor(targetDir).toString()
+								)
+							: this.pageQueryParameter.remove()
+					);
 					this.path = newPath;
 					this.folderNavigating = false;
 					this.get();
 					return;
 				}
 
-				let edgePage: number | null = null;
-				if ('next' === direction) {
-					edgePage = data.more === true ? searchPage + 1 : null;
-				} else {
-					edgePage = searchPage > 1 ? searchPage - 1 : null;
-				}
-				if (edgePage !== null) {
-					this.findEdgeFolderPath(
-						parentPath,
-						edgePage,
+				// Not at this level yet? A later page lists more subfolders
+				// (see listsAllFolders()); a folder before the first one
+				// never turns up there.
+				if ('next' === direction && !Shortcode.listsAllFolders(data)) {
+					this.findAdjacentFolder(
+						currentPath,
 						direction,
-						(newPath) => {
-							if (pswp !== undefined) {
-								this.pendingLightboxOpen =
-									'next' === direction ? 'first' : 'last';
-							}
-							history.pushState(
-								{},
-								'',
-								this.pathQueryParameter.add(newPath)
-							);
-							this.path = newPath;
-							this.folderNavigating = false;
-							this.get();
-						},
-						() => {
-							if (parentPath === '') {
-								this.folderNavigating = false;
-							} else {
-								this.findAdjacentFolder(
-									parentPath,
-									direction,
-									pswp
-								);
-							}
-						}
+						pswp,
+						searchPage + 1
 					);
 					return;
 				}
@@ -2563,60 +3883,25 @@ export class Shortcode {
 		});
 	}
 
-	private findEdgeFolderPath(
-		parentPath: string,
-		page: number,
-		direction: 'next' | 'prev',
-		onFound: (path: string, total: number) => void,
-		onNotFound: () => void
-	): void {
-		void $.get(
-			avpvhShortcodeLocalize.ajax_url,
-			{ action: 'gallery', hash: this.hash, path: parentPath, page },
-			(data: GalleryResponse) => {
-				if (isError(data)) {
-					onNotFound();
-					return;
-				}
-				const siblings = data.directories ?? [];
-				if (siblings.length > 0) {
-					this.storeKnownTotals(siblings);
-					const target =
-						'next' === direction
-							? siblings[0]
-							: siblings[siblings.length - 1];
-					const canonicalParent =
-						data.path !== undefined && data.path.length > 0
-							? data.path.map((part) => part.id).join('/')
-							: parentPath;
-					onFound(
-						(canonicalParent !== '' ? canonicalParent + '/' : '') +
-							target.id,
-						this.knownTotals.get(target.id) ?? -1
-					);
-					return;
-				}
-				if ('next' === direction && data.more === true) {
-					this.findEdgeFolderPath(
-						parentPath,
-						page + 1,
-						direction,
-						onFound,
-						onNotFound
-					);
-				} else if ('prev' === direction && page > 1) {
-					this.findEdgeFolderPath(
-						parentPath,
-						page - 1,
-						direction,
-						onFound,
-						onNotFound
-					);
-				} else {
-					onNotFound();
-				}
-			}
-		).fail(onNotFound);
+	// How many pages a folder's photos and videos take: loading that many
+	// shows its last one.
+	private static pagesFor(directory: Directory): number {
+		const pageSize = parseInt(avpvhShortcodeLocalize.page_size, 10) || 1;
+		const total =
+			directory.mediacount ??
+			(directory.imagecount ?? 0) + (directory.videocount ?? 0);
+		return Math.max(1, Math.ceil(total / pageSize));
+	}
+
+	// A "gallery" response's page N holds everything up to and including
+	// page N, subfolders before photos and videos. So it lists every
+	// subfolder once it has any photo or video, or there is nothing more.
+	private static listsAllFolders(data: PageSuccessResponse): boolean {
+		return (
+			data.more !== true ||
+			(data.images ?? []).length > 0 ||
+			(data.videos ?? []).length > 0
+		);
 	}
 
 	private static renderMoreButton(): string {
@@ -2675,7 +3960,8 @@ export class Shortcode {
 			loadingMore: false,
 			next: null,
 			prev: null,
-			nextSearched: false,
+			// Filter results are one list, not a folder with neighbours.
+			nextSearched: this.filter !== null,
 			loadingNext: false,
 		};
 		this.slideNodes.push(node);
@@ -3044,23 +4330,12 @@ export class Shortcode {
 						(canonicalParent !== '' ? canonicalParent + '/' : '') +
 						nextDir.id;
 					onFound(newPath, this.knownTotals.get(nextDir.id) ?? -1);
-				} else if (data.more === true) {
-					this.findEdgeFolderPath(
-						parentPath,
-						searchPage + 1,
-						'next',
+				} else if (!Shortcode.listsAllFolders(data)) {
+					this.findNextSiblingPath(
+						currentPath,
 						onFound,
-						() => {
-							if (parentPath !== '') {
-								this.findNextSiblingPath(
-									parentPath,
-									onFound,
-									onNotFound
-								);
-							} else {
-								onNotFound();
-							}
-						}
+						onNotFound,
+						searchPage + 1
 					);
 				} else if (parentPath !== '') {
 					this.findNextSiblingPath(parentPath, onFound, onNotFound);
@@ -3134,12 +4409,7 @@ export class Shortcode {
 
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
-			{
-				action: 'page',
-				hash: this.hash,
-				path: node.path,
-				page: node.lastPage,
-			},
+			this.pageRequest(node.path, node.lastPage),
 			(data: PageResponse) => {
 				node.loadingMore = false;
 				if (isError(data)) {
@@ -3666,6 +4936,8 @@ export class Shortcode {
 
 	private get(): void {
 		const epoch = ++this.getEpoch;
+		this.filter = null;
+		this.filterTotal = null;
 		this.path = this.pathQueryParameter.get();
 		this.lastPage = parseInt(this.pageQueryParameter.get()) || 1;
 		this.container
@@ -3793,10 +5065,113 @@ export class Shortcode {
 				'</div>';
 		}
 		this.container.html(html);
+		this.mountFilterBar();
 		this.hasMore = data.more ?? false;
 		this.storeKnownTotals(data.directories);
 		this.postLoad();
 		this.openLightboxIfPending();
+	}
+
+	// The filter bar above the grid, for logged-in users (the filter
+	// endpoints are wp_ajax_-only).
+	private mountFilterBar(): void {
+		if ('' === avpvhShortcodeLocalize.rest_nonce) {
+			return;
+		}
+		this.container.prepend(
+			buildFilterBar(
+				avpvhShortcodeLocalize.ajax_url,
+				this.filter ?? this.draftConditions,
+				this.filterTotal,
+				{
+					available: this.path !== '',
+					here: this.filterHere,
+					onToggle: (here) => {
+						this.filterHere = here;
+						if (this.filter !== null) {
+							this.getFiltered(this.filter);
+						}
+					},
+				},
+				(conditions) => {
+					if (isActiveFilter(conditions)) {
+						this.draftConditions = [];
+						this.getFiltered(conditions);
+					} else {
+						this.draftConditions = conditions;
+						this.get();
+					}
+				}
+			)
+		);
+	}
+
+	// Shows the first page of photos matching a filter, across the whole
+	// gallery or only the current folder, in place of the folder view.
+	private getFiltered(conditions: Array<FilterCondition>): void {
+		const epoch = ++this.getEpoch;
+		this.filter = conditions;
+		this.filterTotal = null;
+		this.lastPage = 1;
+		this.container.html('<div class="avpvh-loading"><div></div></div>');
+		this.mountFilterBar();
+		void $.get(
+			avpvhShortcodeLocalize.ajax_url,
+			{
+				action: 'gallery_filter',
+				hash: this.hash,
+				page: 1,
+				conditions: conditionsParam(conditions),
+				folder: this.filterFolder(),
+			},
+			(data: PageResponse & { total?: number }) => {
+				if (epoch !== this.getEpoch) {
+					return;
+				}
+				if (isError(data)) {
+					this.container.html(
+						printError(data, avpvhShortcodeLocalize)
+					);
+					return;
+				}
+				this.filterTotal = data.total ?? 0;
+				this.getSuccess({
+					images: data.images ?? [],
+					more: data.more ?? false,
+				});
+			}
+		).fail(() => {
+			if (epoch !== this.getEpoch) {
+				return;
+			}
+			this.container.html(
+				printError(
+					{ error: avpvhShortcodeLocalize.server_error },
+					avpvhShortcodeLocalize
+				)
+			);
+		});
+	}
+
+	// The request for one more page: of the folder, or of the filter results.
+	private pageRequest(path: string, page: number): Record<string, unknown> {
+		return this.filter !== null
+			? {
+					action: 'gallery_filter',
+					hash: this.hash,
+					page,
+					conditions: conditionsParam(this.filter),
+					folder: this.filterFolder(),
+				}
+			: { action: 'page', hash: this.hash, path, page };
+	}
+
+	// The folder a filter is limited to ("Alleen deze map"), or '' for the
+	// whole gallery.
+	private filterFolder(): string {
+		return this.filterHere && this.path !== ''
+			? (this.path.split('/').pop() ?? '')
+			: '';
 	}
 
 	private openLightboxIfPending(): void {
@@ -3888,7 +5263,7 @@ export class Shortcode {
 			);
 		this.container.find('.avpvh-more-button').remove();
 
-		const cacheKey = `page-${this.hash}-${this.pathQueryParameter.get()}-${this.lastPage.toString()}`;
+		const cacheKey = `page-${this.hash}-${this.pathQueryParameter.get()}-${JSON.stringify(this.filter)}-${this.filterFolder()}-${this.lastPage.toString()}`;
 		if (Shortcode.cache.has(cacheKey)) {
 			const cachedData = Shortcode.cache.get(cacheKey) as PageResponse;
 			if (isError(cachedData)) {
@@ -3906,12 +5281,7 @@ export class Shortcode {
 
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
-			{
-				action: 'page',
-				hash: this.hash,
-				path: this.pathQueryParameter.get(),
-				page: this.lastPage,
-			},
+			this.pageRequest(this.pathQueryParameter.get(), this.lastPage),
 			(data: PageResponse) => {
 				if (isError(data)) {
 					this.container
@@ -4243,10 +5613,21 @@ export class Shortcode {
 			this.pathQueryParameter.add(newPath) +
 			'"';
 		if (hasThumb) {
+			// The cover is its own layer under the name bar, so it can be
+			// turned upright (like the photo inside the folder) without
+			// turning the text.
+			const flips =
+				(directory.cover?.h_flip === true ? 'scaleX(-1) ' : '') +
+				(directory.cover?.v_flip === true ? 'scaleY(-1) ' : '');
+			const rotation = directory.cover?.rotation ?? 0;
 			html +=
-				' style="background-image: url(\'' +
+				'><span class="avpvh-dir-cover" style="background-image: url(\'' +
 				directory.thumbnail +
-				'\')">';
+				"');" +
+				(flips !== '' || rotation !== 0
+					? ` transform: ${flips}rotate(${String(rotation)}deg);`
+					: '') +
+				'"></span>';
 		} else {
 			html += '>';
 
@@ -4394,6 +5775,101 @@ export class Shortcode {
 			);
 		}
 		return parts.join(' · ');
+	}
+
+	private static readonly LIKE_SLUG = 'like';
+
+	// "Jan, Piet en 3 anderen": the names the viewer may see (their own
+	// household, see Like_Visibility on the PHP side) plus how many more.
+	private static likersText(names: Array<string>, count: number): string {
+		const others = count - names.length;
+		if (names.length === 0) {
+			return others > 0
+				? `${String(others)} ${others === 1 ? 'persoon' : 'personen'}`
+				: '';
+		}
+		return others > 0
+			? `${names.join(', ')} en ${String(others)} ${others === 1 ? 'ander' : 'anderen'}`
+			: names.join(', ');
+	}
+
+	// The reaction group holding "like", which has its own top-bar button
+	// and so is left out of the tagging panel's reaction list.
+	private static isLikeGroup(group: string): boolean {
+		return Object.keys(
+			avpvhShortcodeLocalize.reactions[group] ?? {}
+		).includes(Shortcode.LIKE_SLUG);
+	}
+
+	private static likeButtonHtml(count: number): string {
+		return (
+			'<svg class="pswp__icn" viewBox="-4 -4 32 32" width="32" height="32" aria-hidden="true"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>' +
+			(count > 0
+				? '<span class="avpvh-like-count">' + String(count) + '</span>'
+				: '')
+		);
+	}
+
+	// Identifies a tagged person: persons-list entries by ID, people who
+	// aren't in the list by (case-insensitive) name.
+	private static personKey(person: { id: number; name: string }): string {
+		return person.id > 0
+			? `id:${String(person.id)}`
+			: `name:${person.name.toLowerCase()}`;
+	}
+
+	private static readonly RECENT_PERSONS_KEY = 'avpvh_recent_persons';
+
+	// The persons this viewer tagged most recently in this browser, newest
+	// first — shown with their current name from the persons list, so a
+	// corrected spelling shows up here too.
+	private static recentPersons(
+		current: Array<{ id: number; name: string }>
+	): Array<{ id: number; name: string }> {
+		let stored: Array<{ id: number; name: string }> = [];
+		try {
+			stored = JSON.parse(
+				localStorage.getItem(Shortcode.RECENT_PERSONS_KEY) ?? '[]'
+			) as Array<{ id: number; name: string }>;
+		} catch {
+			return [];
+		}
+		return stored.map(
+			(person) =>
+				current.find(
+					(member) => person.id > 0 && member.id === person.id
+				) ?? person
+		);
+	}
+
+	private static rememberPerson(person: { id: number; name: string }): void {
+		const key = Shortcode.personKey(person);
+		const recent = [
+			{ id: person.id, name: person.name },
+			...Shortcode.recentPersons([]).filter(
+				(other) => Shortcode.personKey(other) !== key
+			),
+		].slice(0, 10);
+		try {
+			localStorage.setItem(
+				Shortcode.RECENT_PERSONS_KEY,
+				JSON.stringify(recent)
+			);
+		} catch {
+			// Not remembered; fine for this visit.
+		}
+	}
+
+	// Activity participants first, then everyone else (by ID, without
+	// duplicates — people outside the persons list, ID 0, by name).
+	private static mergeMembers(
+		first: Array<{ id: number; name: string }>,
+		rest: Array<{ id: number; name: string }>
+	): Array<{ id: number; name: string }> {
+		const seen = new Set(first.map((m) => Shortcode.personKey(m)));
+		return first.concat(
+			rest.filter((m) => !seen.has(Shortcode.personKey(m)))
+		);
 	}
 
 	private static contextMenuEl: HTMLElement | null = null;

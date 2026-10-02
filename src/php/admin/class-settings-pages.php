@@ -21,12 +21,15 @@ use Avpvh\Admin\Settings_Pages\Advanced_Settings;
 use Avpvh\Admin\Settings_Pages\Basic_Settings;
 use Avpvh\Admin\Settings_Pages\Exif_Inspector;
 use Avpvh\Admin\Settings_Pages\Flagged_Photos;
+use Avpvh\Admin\Settings_Pages\Tag_Tree_Page;
 use Avpvh\GET_Helpers;
 
 require_once __DIR__ . '/settings-pages/class-advanced-settings.php';
 require_once __DIR__ . '/settings-pages/class-basic-settings.php';
 require_once __DIR__ . '/settings-pages/class-exif-inspector.php';
 require_once __DIR__ . '/settings-pages/class-flagged-photos.php';
+require_once __DIR__ . '/settings-pages/class-tag-tree-page.php';
+require_once __DIR__ . '/class-tag-tree-rest.php';
 require_once __DIR__ . '/exif-inspector/class-exif-inspector-permission.php';
 require_once __DIR__ . '/exif-inspector/class-camera-model-index-rest.php';
 require_once __DIR__ . '/exif-inspector/class-media-stream-rest.php';
@@ -73,6 +76,8 @@ final class Settings_Pages {
 		new Advanced_Settings();
 		new Exif_Inspector();
 		new Flagged_Photos();
+		new Tag_Tree_Page();
+		new Tag_Tree_REST();
 		add_action( 'admin_init', array( self::class, 'action_handler' ) );
 	}
 

@@ -11,7 +11,7 @@
 Plugin Name:       AVPVH Gallery
 Plugin URI:        https://github.com/grmt/avpvh-gallery
 Description:       A WordPress gallery using Google Drive as file storage
-Version:           2.13.14.86
+Version:           2.13.14.134
 Requires at least: 6.5
 Requires PHP:      8.1
 Author:            Garmt Boekholt (info@avphilipsvanhorne.nl), based on work by Junák - český skaut
@@ -58,6 +58,7 @@ require_once __DIR__ . '/class-options.php';
 require_once __DIR__ . '/class-api-client.php';
 require_once __DIR__ . '/class-api-facade.php';
 require_once __DIR__ . '/class-photo-tags-db.php';
+require_once __DIR__ . '/class-tag-log.php';
 require_once __DIR__ . '/class-photo-corrections-db.php';
 require_once __DIR__ . '/class-folder-authors-db.php';
 
@@ -82,6 +83,7 @@ require_once __DIR__ . '/helpers/class-helpers.php';
 require_once __DIR__ . '/helpers/class-script-and-style-helpers.php';
 
 require_once __DIR__ . '/frontend/page/class-directories.php';
+require_once __DIR__ . '/frontend/page/class-folder-covers.php';
 require_once __DIR__ . '/frontend/page/class-images.php';
 require_once __DIR__ . '/frontend/page/class-videos.php';
 
@@ -99,11 +101,23 @@ require_once __DIR__ . '/frontend/class-single-page-pagination-helper.php';
 require_once __DIR__ . '/frontend/class-video-proxy.php';
 require_once __DIR__ . '/frontend/class-image-proxy.php';
 require_once __DIR__ . '/frontend/class-pdf-proxy.php';
+require_once __DIR__ . '/frontend/class-person-name.php';
 require_once __DIR__ . '/frontend/class-activity-participants.php';
+require_once __DIR__ . '/frontend/class-person-filters.php';
+require_once __DIR__ . '/frontend/class-photo-folder-context.php';
 require_once __DIR__ . '/frontend/class-photo-tags.php';
 require_once __DIR__ . '/frontend/class-members-api.php';
 require_once __DIR__ . '/frontend/class-exif-date-rest.php';
+require_once __DIR__ . '/frontend/class-subject-tag-groups.php';
+require_once __DIR__ . '/frontend/class-subject-tag-tree.php';
+require_once __DIR__ . '/frontend/class-subject-tag-editor.php';
+require_once __DIR__ . '/frontend/class-subject-tag-seed.php';
 require_once __DIR__ . '/frontend/class-subject-tags.php';
+require_once __DIR__ . '/frontend/class-photo-places.php';
+require_once __DIR__ . '/frontend/class-like-visibility.php';
+require_once __DIR__ . '/frontend/class-photo-filter-options.php';
+require_once __DIR__ . '/frontend/class-photo-filter-scope.php';
+require_once __DIR__ . '/frontend/class-photo-filter.php';
 
 require_once __DIR__ . '/admin/class-oauth-helpers.php';
 require_once __DIR__ . '/admin/class-settings-pages.php';

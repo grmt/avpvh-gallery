@@ -60,14 +60,15 @@ final class Members_API {
 	 * @return WP_REST_Response
 	 */
 	public function get_members_for_tagging() {
-		if ( ! class_exists( '\\AVPVH\\AVPVH_DB' ) ) {
+		// avpvh-members' AVPVH_DB lives in the global namespace.
+		if ( ! class_exists( '\\AVPVH_DB' ) ) {
 			return new WP_REST_Response( array( 'data' => array() ), 200 );
 		}
 
 		try {
 			// Use the AVPVH_DB from avpvh-members plugin.
 			$members = call_user_func(
-				array( '\\AVPVH\\AVPVH_DB', 'get_members' ),
+				array( '\\AVPVH_DB', 'get_members' ),
 				array(
 					'order'    => 'ASC',
 					'orderby'  => 'last_name',
@@ -79,7 +80,7 @@ final class Members_API {
 				static function ( $member ) {
 					return array(
 						'id'     => intval( $member->id ),
-						'name'   => $member->first_name . ' ' . $member->last_name,
+						'name'   => Person_Name::format( $member ),
 						'status' => $member->status,
 					);
 				},
@@ -87,7 +88,7 @@ final class Members_API {
 			);
 
 			return new WP_REST_Response(
-				array( 'data' => $result ),
+				array( 'data' => array_merge( $result, self::free_text_names() ) ),
 				200
 			);
 		} catch ( Exception $e ) {
@@ -96,5 +97,35 @@ final class Members_API {
 				500
 			);
 		}
+	}
+
+	/**
+	 * Names people have tagged before that aren't members (id 0, status
+	 * "guest"), so the same non-member can be found and tagged again
+	 * without retyping — and without spelling them differently each time.
+	 *
+	 * @return array<array{id: int, name: string, status: string}>
+	 */
+	private static function free_text_names() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'agallery_photo_tags';
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- custom plugin table, fixed name, no user input.
+		$names = $wpdb->get_col(
+			"SELECT DISTINCT member_name FROM {$table}
+			 WHERE category = 'personen' AND member_id IS NULL AND member_name <> ''
+			 ORDER BY member_name"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array_map(
+			static function ( $name ) {
+				return array(
+					'id'     => 0,
+					'name'   => (string) $name,
+					'status' => 'guest',
+				);
+			},
+			$names
+		);
 	}
 }

@@ -20,6 +20,8 @@ use Avpvh\Frontend\Image_Proxy;
 use Avpvh\Frontend\Members_API;
 use Avpvh\Frontend\Page;
 use Avpvh\Frontend\PDF_Proxy;
+use Avpvh\Frontend\Photo_Filter;
+use Avpvh\Frontend\Photo_Places;
 use Avpvh\Frontend\Photo_Tags;
 use Avpvh\Frontend\Shortcode;
 use Avpvh\Frontend\Subject_Tags;
@@ -57,6 +59,8 @@ final class Main {
 		new Members_API();
 		new Exif_Date_REST();
 		new Subject_Tags();
+		new Photo_Places();
+		new Photo_Filter();
 		new Settings_Pages();
 		new TinyMCE_Plugin();
 	}

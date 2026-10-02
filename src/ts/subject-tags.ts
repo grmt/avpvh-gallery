@@ -3,10 +3,17 @@
 // tags (rubriek "graven" — see Subject_Tags::TAGS on the PHP side). Both call
 // the same REST route (GET/POST avpvh-gallery/v1/subject-tags).
 
+export interface SubjectTagState {
+	// Slugs of the tags you tagged the photo with (your votes).
+	tags: Array<string>;
+	// Per slug: how many tagged it (a tag is a vote), who, and when first.
+	details: Partial<Record<string, { by: string; at: string; count: number }>>;
+}
+
 export async function fetchSubjectTags(
 	restUrl: string,
 	fileId: string
-): Promise<Array<string>> {
+): Promise<SubjectTagState> {
 	const response = await fetch(
 		`${restUrl}?file_id=${encodeURIComponent(fileId)}`,
 		{ credentials: 'include' }
@@ -14,8 +21,8 @@ export async function fetchSubjectTags(
 	if (!response.ok) {
 		throw new Error(`HTTP ${String(response.status)}`);
 	}
-	const data = (await response.json()) as { tags?: Array<string> };
-	return data.tags ?? [];
+	const data = (await response.json()) as Partial<SubjectTagState>;
+	return { tags: data.tags ?? [], details: data.details ?? {} };
 }
 
 export async function toggleSubjectTag(
@@ -23,7 +30,9 @@ export async function toggleSubjectTag(
 	nonce: string,
 	fileId: string,
 	tagSlug: string,
-	active: boolean
+	active: boolean,
+	// Remove everyone's votes, not just your own (admins only).
+	everyone = false
 ): Promise<void> {
 	const response = await fetch(restUrl, {
 		method: 'POST',
@@ -36,6 +45,7 @@ export async function toggleSubjectTag(
 			file_id: fileId,
 			tag_slug: tagSlug,
 			active,
+			everyone,
 		}),
 	});
 	if (!response.ok) {

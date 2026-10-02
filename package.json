@@ -1,6 +1,6 @@
 {
   "name": "avpvh-gallery",
-  "version": "2.13.14.86",
+  "version": "2.13.14.134",
   "description": "A WordPress gallery using Google Drive as file storage",
   "keywords": [
     "wordpress",
@@ -29,6 +29,7 @@
     "build:js:block": "FORCE_COLOR=1 vite build --config config/vite/block.config.ts",
     "build:js:camera-model-index": "FORCE_COLOR=1 vite build --config config/vite/camera-model-index.config.ts",
     "build:js:folder-authors": "FORCE_COLOR=1 vite build --config config/vite/folder-authors.config.ts",
+    "build:js:tag-tree": "FORCE_COLOR=1 vite build --config config/vite/tag-tree.config.ts",
     "build:js:root_selection": "FORCE_COLOR=1 vite build --config config/vite/root_selection.config.ts",
     "build:js:shortcode": "FORCE_COLOR=1 vite build --config config/vite/shortcode.config.ts",
     "build:js:tinymce": "FORCE_COLOR=1 vite build --config config/vite/tinymce.config.ts",
