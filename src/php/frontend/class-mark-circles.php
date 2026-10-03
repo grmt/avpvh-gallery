@@ -16,7 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * the household avpvh-members knows (Like_Visibility), each user keeping
  * their own marks and the household seeing them together — and every LDAP
  * group they're in, whose members share one selection. LLDAP's own system
- * groups (directory permissions, not groups of people) are left out.
+ * groups (directory permissions, not groups of people) and the groups of
+ * other sites sharing the directory are left out.
  */
 final class Mark_Circles {
 
@@ -27,6 +28,13 @@ final class Mark_Circles {
 	private const SYSTEM_GROUPS = array( 'lldap_admin', 'lldap_password_manager', 'lldap_strict_readonly' );
 
 	/**
+	 * Name prefixes of groups that belong to other sites using the same
+	 * directory (vp4042-…: vp4042.vve.rechtspreker.nl).
+	 */
+	// phpcs:ignore SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- PHPCSUtils false positive on an array value.
+	private const OTHER_SITE_PREFIXES = array( 'vp4042' );
+
+	/**
 	 * The current user's circles: key => label.
 	 *
 	 * @return array<string, string>
@@ -35,7 +43,7 @@ final class Mark_Circles {
 		$circles = array( 'family' => 'Familie' );
 
 		foreach ( Exclusion_Permission::current_group_names() as $group ) {
-			if ( '' === $group || in_array( $group, self::SYSTEM_GROUPS, true ) ) {
+			if ( ! self::is_ours( $group ) ) {
 				continue;
 			}
 
@@ -91,5 +99,26 @@ final class Mark_Circles {
 		}
 
 		return 'owner IN (' . implode( ', ', array_map( 'intval', $owners ) ) . ')';
+	}
+
+	/**
+	 * Whether an LDAP group is a group of people on this site.
+	 *
+	 * @param string $group Group name.
+	 *
+	 * @return bool
+	 */
+	private static function is_ours( $group ) {
+		if ( '' === $group || in_array( $group, self::SYSTEM_GROUPS, true ) ) {
+			return false;
+		}
+
+		foreach ( self::OTHER_SITE_PREFIXES as $prefix ) {
+			if ( str_starts_with( $group, $prefix ) ) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 }
