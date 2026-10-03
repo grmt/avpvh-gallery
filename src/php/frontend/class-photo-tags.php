@@ -39,6 +39,7 @@ final class Photo_Tags {
 		'kwaliteit' => array(
 			'blurry' => '🔍 Niet scherp',
 			'dark'   => '🌑 Donker',
+			'dirty'  => '🧽 Vies',
 			'goodq'  => '✅ Goede kwaliteit',
 			'shaky'  => '📸 Bewogen',
 		),
