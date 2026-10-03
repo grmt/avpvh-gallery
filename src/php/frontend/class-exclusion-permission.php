@@ -11,12 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
-use AVPVH_LLDAP;
-use WP_Error;
+use AVPVH_Directory;
 
 /**
  * Shared permission check for excluding a photo/video from the gallery:
- * either a WordPress admin, or a logged-in member of the "boek" LLDAP group
+ * either a WordPress admin, or a logged-in member of the "boek" directory group
  * (the group that gates the separate avpvh-members "Zoeken in documenten"
  * feature — see that plugin's class-nav-auth.php for the canonical check
  * this mirrors). Used both as a REST permission_callback and directly from
@@ -76,7 +75,7 @@ final class Exclusion_Permission {
 		if (
 			! is_user_logged_in() ||
 			! function_exists( 'avpvh_get_member_by_wp_user' ) ||
-			! class_exists( AVPVH_LLDAP::class )
+			! class_exists( AVPVH_Directory::class )
 		) {
 			return null;
 		}
@@ -87,42 +86,15 @@ final class Exclusion_Permission {
 	}
 
 	/**
-	 * The member's LLDAP group display names, lower-cased, cached briefly so
-	 * this doesn't add an LLDAP round-trip to every request.
+	 * The member's directory group names, lower-cased. avpvh-members caches
+	 * these (15 minutes) and reads them from LLDAP or OpenLDAP, whichever
+	 * backend it is configured for.
 	 *
-	 * @param object $member A member record with a `user_id` property (their LLDAP UID).
+	 * @param object $member A member record with a `user_id` property (their directory uid).
 	 *
 	 * @return array<string>
 	 */
 	private static function cached_group_names( $member ) {
-		$cache_key = 'avpvh_gallery_lldap_groups_' . $member->user_id;
-		$cached    = get_transient( $cache_key );
-
-		if ( is_array( $cached ) ) {
-			return $cached;
-		}
-
-		$result = AVPVH_LLDAP::get_user_groups( $member->user_id );
-		$names  = $result instanceof WP_Error ? array() : self::group_display_names( $result );
-		$ttl    = $result instanceof WP_Error ? MINUTE_IN_SECONDS : 15 * MINUTE_IN_SECONDS;
-		set_transient( $cache_key, $names, $ttl );
-
-		return $names;
-	}
-
-	/**
-	 * Extracts and lower-cases each group's display name.
-	 *
-	 * @param array<array<string, mixed>> $groups Raw groups, as returned by AVPVH_LLDAP::get_user_groups().
-	 *
-	 * @return array<string>
-	 */
-	private static function group_display_names( array $groups ) {
-		return array_map(
-			static function ( $group ) {
-				return strtolower( isset( $group['displayName'] ) ? (string) $group['displayName'] : '' );
-			},
-			$groups
-		);
+		return array_map( 'strtolower', AVPVH_Directory::cached_user_groups( (string) $member->user_id ) );
 	}
 }
