@@ -54,6 +54,19 @@ final class Exclusion_Permission {
 	}
 
 	/**
+	 * The current user's LDAP group names (lower-cased), or none when
+	 * avpvh-members isn't active or the user isn't a member. Shared with
+	 * Mark_Circles, which offers each group as a circle to mark photos in.
+	 *
+	 * @return array<string>
+	 */
+	public static function current_group_names() {
+		$member = self::current_member();
+
+		return null === $member ? array() : self::cached_group_names( $member );
+	}
+
+	/**
 	 * Resolves the logged-in user to an avpvh-members member record, if that
 	 * (optional) plugin is active and the user is one.
 	 *

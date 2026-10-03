@@ -27,6 +27,7 @@ final class Photo_Filter_Options {
 	public static function all() {
 		return array(
 			'liked_by' => self::likers(),
+			'marked'   => self::marks(),
 			'persons'  => self::tagged_persons(),
 			'places'   => self::places(),
 			'tags'     => self::used_tags(),
@@ -67,6 +68,61 @@ final class Photo_Filter_Options {
 			},
 			$rows
 		);
+	}
+
+	/**
+	 * Per circle of the viewer, each mark level in use ("Boek ★★ of meer")
+	 * with how many photos have at least that level.
+	 *
+	 * @return array<array{value: string, label: string, count: int}>
+	 */
+	private static function marks() {
+		$options = array();
+
+		foreach ( Mark_Circles::available() as $circle => $label ) {
+			$counts = self::mark_level_counts( $circle );
+
+			for ( $level = 1; isset( $counts[ $level ] ); ++$level ) {
+				$stars     = str_repeat( '★', $level );
+				$options[] = array(
+					'count' => $counts[ $level ],
+					'label' => $label . ' ' . $stars . ( isset( $counts[ $level + 1 ] ) ? ' of meer' : '' ),
+					'value' => $circle . '|' . $level,
+				);
+			}
+		}
+
+		return $options;
+	}
+
+	/**
+	 * How many photos have at least each level in a circle.
+	 *
+	 * @param string $circle Circle key.
+	 *
+	 * @return array<int, int> Level => number of photos at that level or higher.
+	 */
+	private static function mark_level_counts( $circle ) {
+		global $wpdb;
+		$owner_clause = Mark_Circles::owner_clause( $circle );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin table, fixed name; owner IDs are integers; the circle is prepared.
+		$levels = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT MAX(level) FROM {$wpdb->prefix}agallery_photo_marks
+				 WHERE circle = %s AND {$owner_clause} GROUP BY image_id",
+				$circle
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$counts = array();
+
+		foreach ( array_map( 'intval', $levels ) as $highest ) {
+			for ( $level = 1; $level <= $highest; ++$level ) {
+				$counts[ $level ] = ( $counts[ $level ] ?? 0 ) + 1;
+			}
+		}
+
+		return $counts;
 	}
 
 	/**

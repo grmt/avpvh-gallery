@@ -4,7 +4,7 @@
 // at least one of these) or "Niet" (it must not match). Logged-in users
 // only; likes only of people whose likes the viewer may see.
 
-export type FilterKind = 'liked_by' | 'person' | 'place' | 'tag';
+export type FilterKind = 'liked_by' | 'marked' | 'person' | 'place' | 'tag';
 export type FilterOperator = 'and' | 'not' | 'or';
 
 export interface FilterCondition {
@@ -28,6 +28,7 @@ const KINDS: Array<[FilterKind, string]> = [
 	['person', 'Persoon'],
 	['liked_by', 'Geliket door'],
 	['place', 'Locatie'],
+	['marked', 'Gemarkeerd'],
 ];
 
 const OPERATORS: Array<[FilterOperator, string, string]> = [
@@ -47,6 +48,7 @@ async function fetchFilterOptions(ajaxUrl: string): Promise<FilterOptions> {
 			const data = (await response.json()) as {
 				data?: {
 					liked_by?: Array<FilterOption>;
+					marked?: Array<FilterOption>;
 					persons?: Array<FilterOption>;
 					tags?: Array<FilterOption>;
 					places?: Array<FilterOption>;
@@ -54,12 +56,19 @@ async function fetchFilterOptions(ajaxUrl: string): Promise<FilterOptions> {
 			};
 			return {
 				liked_by: data.data?.liked_by ?? [],
+				marked: data.data?.marked ?? [],
 				person: data.data?.persons ?? [],
 				tag: data.data?.tags ?? [],
 				place: data.data?.places ?? [],
 			};
 		})
-		.catch(() => ({ liked_by: [], person: [], tag: [], place: [] }));
+		.catch(() => ({
+			liked_by: [],
+			marked: [],
+			person: [],
+			tag: [],
+			place: [],
+		}));
 	return optionsPromise;
 }
 

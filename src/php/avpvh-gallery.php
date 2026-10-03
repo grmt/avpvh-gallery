@@ -115,6 +115,8 @@ require_once __DIR__ . '/frontend/class-subject-tag-seed.php';
 require_once __DIR__ . '/frontend/class-subject-tags.php';
 require_once __DIR__ . '/frontend/class-photo-places.php';
 require_once __DIR__ . '/frontend/class-like-visibility.php';
+require_once __DIR__ . '/frontend/class-mark-circles.php';
+require_once __DIR__ . '/frontend/class-photo-marks.php';
 require_once __DIR__ . '/frontend/class-photo-filter-options.php';
 require_once __DIR__ . '/frontend/class-photo-filter-scope.php';
 require_once __DIR__ . '/frontend/class-photo-filter.php';

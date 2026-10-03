@@ -1571,3 +1571,22 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	transform: rotate(45deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	width: 4px;
 }
+
+.avpvh-mark-badge {
+	background: rgb(0, 0, 0, 55%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border-radius: 3px;
+	color: #ffd54f;
+	font-size: 13px;
+	left: 4px;
+	letter-spacing: 1px;
+	line-height: 1;
+	padding: 2px 4px;
+	pointer-events: none;
+	position: absolute;
+	top: 4px;
+	z-index: 2;
+}
+
+.avpvh-mark-circle {
+	font-size: 13px;
+}

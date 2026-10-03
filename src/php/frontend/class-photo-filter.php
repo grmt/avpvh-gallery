@@ -188,14 +188,14 @@ final class Photo_Filter {
 		$operator = (string) ( $condition['op'] ?? 'and' );
 
 		if (
-			! isset( self::SUBQUERIES[ $kind ] )
+			! ( isset( self::SUBQUERIES[ $kind ] ) || 'marked' === $kind )
 			|| '' === $value
 			|| ! in_array( $operator, array( 'and', 'or', 'not' ), true )
 		) {
 			return null;
 		}
 
-		if ( 'liked_by' === $kind && ! Like_Visibility::can_see( (int) $value ) ) {
+		if ( ! self::viewer_may_use( $kind, $value ) ) {
 			return null;
 		}
 
@@ -204,6 +204,23 @@ final class Photo_Filter {
 			'op'    => $operator,
 			'value' => 'liked_by' === $kind ? (int) $value : $value,
 		);
+	}
+
+	/**
+	 * Whether the viewer may filter on this: likes only of people whose likes
+	 * they may see, marks ("<circle>|<minimum level>") only in their circles.
+	 *
+	 * @param string $kind  Condition kind.
+	 * @param string $value Condition value.
+	 *
+	 * @return bool
+	 */
+	private static function viewer_may_use( $kind, $value ) {
+		if ( 'liked_by' === $kind ) {
+			return Like_Visibility::can_see( (int) $value );
+		}
+
+		return 'marked' !== $kind || Mark_Circles::allowed( explode( '|', $value )[0] );
 	}
 
 	/**
@@ -222,27 +239,31 @@ final class Photo_Filter {
 		$either = array();
 		$args   = array();
 
+		$either_args = array();
+
 		foreach ( $conditions as $condition ) {
-			$subquery = str_replace( '{prefix}', $prefix, self::SUBQUERIES[ $condition['kind'] ] );
+			list( $subquery, $values ) = self::subquery( $condition, $prefix );
 
 			if ( 'or' === $condition['op'] ) {
-				$either[] = array( "m.image_id IN ({$subquery})", $condition['value'] );
+				$either[]    = "m.image_id IN ({$subquery})";
+				$either_args = array_merge( $either_args, $values );
 
 				continue;
 			}
 
 			$where[] = 'm.image_id ' . ( 'not' === $condition['op'] ? 'NOT IN' : 'IN' ) . " ({$subquery})";
-			$args[]  = $condition['value'];
+			$args    = array_merge( $args, $values );
 		}
 
 		if ( array() !== $either ) {
-			$where[] = '(' . implode( ' OR ', array_column( $either, 0 ) ) . ')';
-			$args    = array_merge( $args, array_column( $either, 1 ) );
+			$where[] = '(' . implode( ' OR ', $either ) . ')';
+			$args    = array_merge( $args, $either_args );
 		}
 
 		$from = "FROM ( SELECT image_id FROM {$prefix}agallery_photo_reactions
 		                UNION SELECT image_id FROM {$prefix}agallery_photo_tags
-		                UNION SELECT image_id FROM {$prefix}agallery_photo_places ) m
+		                UNION SELECT image_id FROM {$prefix}agallery_photo_places
+		                UNION SELECT image_id FROM {$prefix}agallery_photo_marks ) m
 		         LEFT JOIN {$prefix}agallery_photo_exif_dates d ON d.image_id = m.image_id
 		         WHERE " . implode( ' AND ', $where ) . "
 		           AND m.image_id NOT IN ( SELECT image_id FROM {$prefix}agallery_photo_exclusions )";
@@ -285,6 +306,42 @@ final class Photo_Filter {
 		return array(
 			array_slice( $inside, ( $page - 1 ) * self::PAGE_SIZE, self::PAGE_SIZE ),
 			count( $inside ),
+		);
+	}
+
+	/**
+	 * The photos a condition matches, as SQL with placeholders and their
+	 * values.
+	 *
+	 * @param array{kind: string, value: string|int, op: string} $condition A valid condition.
+	 * @param string                                             $prefix    The table prefix.
+	 *
+	 * @return array{0: string, 1: array<string|int>}
+	 */
+	private static function subquery( array $condition, $prefix ) {
+		if ( 'marked' !== $condition['kind'] ) {
+			return array(
+				str_replace( '{prefix}', $prefix, self::SUBQUERIES[ $condition['kind'] ] ),
+				array( $condition['value'] ),
+			);
+		}
+
+		list( $circle, $level ) = array_pad( explode( '|', (string) $condition['value'] ), 2, '1' );
+		$owners                 = Mark_Circles::household_owners( $circle );
+		$level                  = max( 1, (int) $level );
+
+		if ( null === $owners ) {
+			return array(
+				"SELECT image_id FROM {$prefix}agallery_photo_marks WHERE circle = %s AND owner = 0 AND level >= %d",
+				array( $circle, $level ),
+			);
+		}
+
+		return array(
+			"SELECT image_id FROM {$prefix}agallery_photo_marks WHERE circle = 'family' AND owner IN ("
+				. implode( ', ', array_map( 'intval', $owners ) )
+				. ') GROUP BY image_id HAVING MAX(level) >= %d',
+			array( $level ),
 		);
 	}
 

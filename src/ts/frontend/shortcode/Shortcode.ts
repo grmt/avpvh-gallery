@@ -33,6 +33,14 @@ import {
 	type FilterCondition,
 	isActiveFilter,
 } from './PhotoFilter';
+import {
+	activeCircle,
+	buildCirclePicker,
+	enableMarking,
+	fetchCircles,
+	type MarkCircle,
+	showMarks,
+} from './PhotoMarks';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
 
@@ -96,6 +104,10 @@ export class Shortcode {
 	private filterTotal: number | null = null;
 	// "Alleen deze map": filter only the current folder and below it.
 	private filterHere = false;
+	// The circles the viewer can mark photos in (see PhotoMarks), and the
+	// one right-clicks currently mark in; empty when not logged in.
+	private markCircles: Array<MarkCircle> = [];
+	private markCircle = '';
 	private hasMore = false;
 	private path = '';
 	private lastPage = 1;
@@ -178,6 +190,7 @@ export class Shortcode {
 		this.lightbox.init();
 		this.photoTagger = new PhotoTagger();
 		void this.photoTagger.init(container);
+		this.setupMarking();
 		this.get();
 		this.setupFolderSwipe();
 		this.setupFolderKeyboard();
@@ -5079,38 +5092,84 @@ export class Shortcode {
 		this.openLightboxIfPending();
 	}
 
+	// Marking by right-click in the grid, for logged-in users.
+	private setupMarking(): void {
+		if ('' === avpvhShortcodeLocalize.rest_nonce) {
+			return;
+		}
+		enableMarking(
+			avpvhShortcodeLocalize.ajax_url,
+			avpvhShortcodeLocalize.tag_nonce,
+			this.container[0],
+			() => this.markCircle
+		);
+		void fetchCircles(avpvhShortcodeLocalize.ajax_url).then((circles) => {
+			this.markCircles = circles;
+			this.markCircle = activeCircle(circles);
+			this.refreshMarks();
+			this.container
+				.find('.avpvh-filter-bar')
+				.first()
+				.prepend(this.circlePicker());
+		});
+	}
+
+	private circlePicker(): HTMLElement {
+		return buildCirclePicker(
+			this.markCircles,
+			this.markCircle,
+			(circle) => {
+				this.markCircle = circle;
+				this.refreshMarks();
+			}
+		);
+	}
+
+	// Shows the active circle's marks on the thumbnails.
+	private refreshMarks(): void {
+		if (this.markCircle !== '') {
+			void showMarks(
+				avpvhShortcodeLocalize.ajax_url,
+				this.container[0],
+				this.markCircle
+			);
+		}
+	}
+
 	// The filter bar above the grid, for logged-in users (the filter
-	// endpoints are wp_ajax_-only).
+	// endpoints are wp_ajax_-only), with the marking circle in front.
 	private mountFilterBar(): void {
 		if ('' === avpvhShortcodeLocalize.rest_nonce) {
 			return;
 		}
-		this.container.prepend(
-			buildFilterBar(
-				avpvhShortcodeLocalize.ajax_url,
-				this.filter ?? this.draftConditions,
-				this.filterTotal,
-				{
-					available: this.path !== '',
-					here: this.filterHere,
-					onToggle: (here) => {
-						this.filterHere = here;
-						if (this.filter !== null) {
-							this.getFiltered(this.filter);
-						}
-					},
-				},
-				(conditions) => {
-					if (isActiveFilter(conditions)) {
-						this.draftConditions = [];
-						this.getFiltered(conditions);
-					} else {
-						this.draftConditions = conditions;
-						this.get();
+		const bar = buildFilterBar(
+			avpvhShortcodeLocalize.ajax_url,
+			this.filter ?? this.draftConditions,
+			this.filterTotal,
+			{
+				available: this.path !== '',
+				here: this.filterHere,
+				onToggle: (here) => {
+					this.filterHere = here;
+					if (this.filter !== null) {
+						this.getFiltered(this.filter);
 					}
+				},
+			},
+			(conditions) => {
+				if (isActiveFilter(conditions)) {
+					this.draftConditions = [];
+					this.getFiltered(conditions);
+				} else {
+					this.draftConditions = conditions;
+					this.get();
 				}
-			)
+			}
 		);
+		if (this.markCircles.length > 0) {
+			bar.prepend(this.circlePicker());
+		}
+		this.container.prepend(bar);
 	}
 
 	// Shows the first page of photos matching a filter, across the whole
@@ -5388,6 +5447,7 @@ export class Shortcode {
 	}
 
 	private postLoad(): void {
+		this.refreshMarks();
 		this.container
 			.find('a[data-avpvh-path]')
 			.off('click.avpvh')

@@ -22,7 +22,7 @@ final class Photo_Tags_DB {
 	 * Schema version stored in wp_options.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility -- matches the no-modifier convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION).
-	const SCHEMA_VERSION = 7;
+	const SCHEMA_VERSION = 8;
 
 	/**
 	 * Runs schema migration if needed; hooked to init.
@@ -134,6 +134,22 @@ final class Photo_Tags_DB {
 		dbDelta( $sql_places );
 
 		self::create_tag_tree_table( $charset_collate );
+		// Marks: a selection narrowed down in rounds (level 1, 2, 3…), kept
+		// per circle — a family ('family', one row per user; the household
+		// shares them) or an LDAP group ('group:<name>', owner 0, shared by
+		// the whole group). See Photo_Marks.
+		$table_marks = $wpdb->prefix . 'agallery_photo_marks';
+		$sql_marks   = "CREATE TABLE {$table_marks} (
+			image_id VARCHAR(255) NOT NULL,
+			circle VARCHAR(80) NOT NULL,
+			owner BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			level TINYINT UNSIGNED NOT NULL,
+			updated_by BIGINT UNSIGNED,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (image_id, circle, owner),
+			INDEX idx_circle_owner (circle, owner)
+		) {$charset_collate};";
+		dbDelta( $sql_marks );
 
 		update_option( 'avpvh_photo_tags_schema', self::SCHEMA_VERSION );
 	}
@@ -148,6 +164,7 @@ final class Photo_Tags_DB {
 
 		$tables = array(
 			$wpdb->prefix . 'agallery_tag_nodes',
+			$wpdb->prefix . 'agallery_photo_marks',
 			$wpdb->prefix . 'agallery_photo_places',
 			$wpdb->prefix . 'agallery_tag_log',
 			$wpdb->prefix . 'agallery_photo_reactions',
