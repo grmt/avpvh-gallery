@@ -11,6 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use stdClass;
+
 /**
  * The user's shared photo selections on their profile ([avpvh_gallery_shares]):
  * each with its link and expiry, and "Opnieuw maken" for expired or failed
@@ -67,6 +69,8 @@ final class Photo_Shares_Page {
 	 * finds now. admin-post form: share, _wpnonce.
 	 *
 	 * @return void
+	 *
+	 * @SuppressWarnings("PHPMD.ExitExpression")
 	 */
 	public static function handle_recreate() {
 		check_admin_referer( 'avpvh_gallery_share_recreate' );
@@ -85,7 +89,7 @@ final class Photo_Shares_Page {
 	 * Whether the current user may make this share again: their own, over,
 	 * and not too many open.
 	 *
-	 * @param object $share The share.
+	 * @param stdClass $share The share.
 	 *
 	 * @return bool
 	 */
@@ -99,7 +103,7 @@ final class Photo_Shares_Page {
 	 * A share's status cell: its link, progress, or what went wrong with a
 	 * button to make it again.
 	 *
-	 * @param object $share The share.
+	 * @param stdClass $share The share.
 	 *
 	 * @return string
 	 */

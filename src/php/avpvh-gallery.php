@@ -45,14 +45,15 @@ SOFTWARE.
 
 namespace Avpvh;
 
+// Within the first 50 lines, where the WordPress.org plugin check looks for it.
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Admin\Exif_Dates_CLI;
 use Avpvh\Admin\Move_Files_CLI;
 use Avpvh\Admin\Tag_Import_CLI;
 use WP_CLI;
-
-if ( ! defined( 'ABSPATH' ) ) {
-	die( 'Die, die, die!' );
-}
 
 require_once __DIR__ . '/vendor/scoper-autoload.php';
 

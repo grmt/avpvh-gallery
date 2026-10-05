@@ -21,3 +21,14 @@
 function avpvh_format_name( $member, $format = 'full' ) {
 	return '';
 }
+
+/**
+ * The avpvh-members member record of a WordPress user, if any.
+ *
+ * @param int $user_id WordPress user ID.
+ *
+ * @return object|null
+ */
+function avpvh_get_member_by_wp_user( int $user_id ) {
+	return null;
+}

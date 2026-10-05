@@ -184,6 +184,7 @@ final class Drive_Path_Resolver {
 	 * @return string
 	 */
 	private static function normalize( $name ) {
+		// @phan-suppress-next-line PhanUndeclaredClassConstant, PhanUndeclaredClassMethod -- intl is optional (class_exists).
 		$normalized = class_exists( 'Normalizer' ) ? Normalizer::normalize( $name, Normalizer::FORM_C ) : $name;
 
 		return false === $normalized ? $name : $normalized;
@@ -201,11 +202,11 @@ final class Drive_Path_Resolver {
 		$by_name = array();
 
 		foreach ( $files as $file ) {
-			$id = $is_folders && isset( $file['shortcutDetails']['targetId'] )
+			$file_id = $is_folders && isset( $file['shortcutDetails']['targetId'] )
 				? (string) $file['shortcutDetails']['targetId']
 				: (string) $file['id'];
 
-			$by_name[ self::normalize( (string) $file['name'] ) ][] = $id;
+			$by_name[ self::normalize( (string) $file['name'] ) ][] = $file_id;
 		}
 
 		return $by_name;

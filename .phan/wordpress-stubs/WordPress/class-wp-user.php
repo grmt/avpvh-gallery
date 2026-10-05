@@ -26,4 +26,9 @@ class WP_User {
 	 * @var string|null
 	 */
 	public $display_name;
+
+	/**
+	 * @var string
+	 */
+	public $user_email;
 }

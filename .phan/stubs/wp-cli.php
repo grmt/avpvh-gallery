@@ -1,6 +1,6 @@
 <?php
 /**
- * Minimal WP-CLI signatures used by Admin\Exif_Dates_CLI. WP-CLI isn't a
+ * Minimal WP-CLI signatures used by the plugin's WP-CLI commands. WP-CLI isn't a
  * dependency of the plugin (it only exists when the site is driven from the
  * command line), so neither wordpress-stubs package covers it. This file is
  * only scanned for static analysis; it's never required by the plugin itself.

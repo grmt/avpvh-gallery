@@ -257,6 +257,7 @@ final class Share_Drive {
 		try {
 			self::drive()->files->delete( $folder_id, array( 'supportsAllDrives' => true ) );
 		} catch ( Throwable $e ) {
+			// @phan-suppress-previous-line PhanUnusedVariableCaughtException -- not allowed to delete: bin it instead.
 			self::drive()->files->update(
 				$folder_id,
 				new DriveFile( array( 'trashed' => true ) ),
@@ -352,7 +353,8 @@ final class Share_Drive {
 	 * @throws RuntimeException One of them failed.
 	 */
 	private static function batch( array $items, callable $make ) {
-		$client = self::drive()->getClient();
+		$client   = self::drive()->getClient();
+		$requests = array();
 		$client->setUseBatch( true );
 
 		try {
@@ -364,7 +366,6 @@ final class Share_Drive {
 		$batch = self::drive()->createBatch();
 
 		foreach ( $requests as $index => $request ) {
-			// @phan-suppress-next-line PhanTypeMismatchArgument
 			$batch->add( $request, 'r' . $index );
 		}
 
@@ -402,13 +403,16 @@ final class Share_Drive {
 	 * @return Drive
 	 */
 	private static function drive() {
-		if ( null === self::$drive ) {
+		$drive = self::$drive;
+
+		if ( null === $drive ) {
 			$client = new Client();
 			$client->setAuthConfig( Options::$share_service_account->credentials() );
 			$client->addScope( Drive::DRIVE );
-			self::$drive = new Drive( $client );
+			$drive       = new Drive( $client );
+			self::$drive = $drive;
 		}
 
-		return self::$drive;
+		return $drive;
 	}
 }
