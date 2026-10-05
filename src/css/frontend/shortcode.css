@@ -119,6 +119,10 @@ html.pswp-is-open body {
 	}
 }
 
+.avpvh-breadcrumb-sibling[hidden] {
+	display: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
 .avpvh-gallery {
 	margin: 1em auto 0;
 	opacity: 0;
