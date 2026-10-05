@@ -119,8 +119,12 @@ require_once __DIR__ . '/frontend/class-photo-places.php';
 require_once __DIR__ . '/frontend/class-like-visibility.php';
 require_once __DIR__ . '/frontend/class-photo-marks.php';
 require_once __DIR__ . '/frontend/class-photo-date-order.php';
+require_once __DIR__ . '/frontend/class-filter-memory.php';
 require_once __DIR__ . '/frontend/class-share-drive.php';
+require_once __DIR__ . '/frontend/class-share-recipient.php';
+require_once __DIR__ . '/frontend/class-photo-shares-db.php';
 require_once __DIR__ . '/frontend/class-photo-shares.php';
+require_once __DIR__ . '/frontend/class-photo-shares-page.php';
 require_once __DIR__ . '/frontend/class-photo-filter-options.php';
 require_once __DIR__ . '/frontend/class-photo-filter-scope.php';
 require_once __DIR__ . '/frontend/class-photo-filter.php';
@@ -131,6 +135,9 @@ require_once __DIR__ . '/admin/class-tinymce-plugin.php';
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/admin/class-exif-dates-cli.php';
+	require_once __DIR__ . '/admin/class-drive-path-resolver.php';
+	require_once __DIR__ . '/admin/class-tag-import-plan.php';
+	require_once __DIR__ . '/admin/class-tag-import-votes.php';
 	require_once __DIR__ . '/admin/class-tag-import-cli.php';
 	require_once __DIR__ . '/admin/class-move-files-cli.php';
 	WP_CLI::add_command( 'avpvh-gallery', Exif_Dates_CLI::class );

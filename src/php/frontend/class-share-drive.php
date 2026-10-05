@@ -71,32 +71,6 @@ final class Share_Drive {
 	}
 
 	/**
-	 * Creates a folder in a given folder.
-	 *
-	 * @param string $name      The folder's name.
-	 * @param string $parent_id The folder to make it in.
-	 *
-	 * @return string The new folder's ID.
-	 */
-	private static function create_folder_in( $name, $parent_id ) {
-		$folder = self::drive()->files->create(
-			new DriveFile(
-				array(
-					'mimeType' => 'application/vnd.google-apps.folder',
-					'name'     => $name,
-					'parents'  => array( $parent_id ),
-				)
-			),
-			array(
-				'fields'            => 'id',
-				'supportsAllDrives' => true,
-			)
-		);
-
-		return (string) $folder->getId();
-	}
-
-	/**
 	 * Copies files into a folder, numbered in the given order
 	 * ("001 PICT1346.JPG"), a batch at a time.
 	 *
@@ -115,28 +89,30 @@ final class Share_Drive {
 			self::batch(
 				$indexes,
 				static function ( $index ) use ( $ids, $names, $folder_id ) {
-						return self::drive()->files->copy(
-							$ids[ $index ],
-							new DriveFile(
-								array(
-									'name'    => sprintf( '%03d %s', $index + 1, $names[ $ids[ $index ] ] ?? $ids[ $index ] ),
-									'parents' => array( $folder_id ),
-								)
-							),
+					$file_id = $ids[ $index ];
+
+					return self::drive()->files->copy(
+						$file_id,
+						new DriveFile(
 							array(
-								'fields'            => 'id',
-								'supportsAllDrives' => true,
+								'name'    => sprintf( '%03d %s', $index + 1, $names[ $file_id ] ?? $file_id ),
+								'parents' => array( $folder_id ),
 							)
-						);
+						),
+						array(
+							'fields'            => 'id',
+							'supportsAllDrives' => true,
+						)
+					);
 				}
 			);
 		}
 	}
 
 	/**
-	 * The ID of the folder at a path below another folder ("03-Weekenden/2024
-	 * Meerveld"), matching names exactly; '' if a part doesn't exist and
-	 * $create is false, else the missing parts are made.
+	 * The ID of the folder at a path below another folder, such as
+	 * 03-Weekenden/2024 Meerveld, matching names exactly. When a part doesn't
+	 * exist it is made, or, without create, an empty string is returned.
 	 *
 	 * @param string $parent_id The folder the path starts in.
 	 * @param string $path      Folder names separated by "/".
@@ -152,7 +128,7 @@ final class Share_Drive {
 				array(
 					'fields'                    => 'files(id, name)',
 					'includeItemsFromAllDrives' => true,
-					'q'                         => sprintf( "'%s' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false and name = '%s'", $parent_id, str_replace( array( '\\', "'" ), array( '\\\\', "\\'" ), $name ) ),
+					'q'                         => self::folder_query( $parent_id, $name ),
 					'supportsAllDrives'         => true,
 				)
 			)->getFiles();
@@ -290,6 +266,47 @@ final class Share_Drive {
 	}
 
 	/**
+	 * The Drive query for the folders with a name in a folder.
+	 *
+	 * @param string $parent_id The folder to look in.
+	 * @param string $name      The name.
+	 *
+	 * @return string
+	 */
+	private static function folder_query( $parent_id, $name ) {
+		$quoted = str_replace( array( '\\', "'" ), array( '\\\\', "\\'" ), $name );
+
+		return "'{$parent_id}' in parents and mimeType = 'application/vnd.google-apps.folder'"
+			. " and trashed = false and name = '{$quoted}'";
+	}
+
+	/**
+	 * Creates a folder in a given folder.
+	 *
+	 * @param string $name      The folder's name.
+	 * @param string $parent_id The folder to make it in.
+	 *
+	 * @return string The new folder's ID.
+	 */
+	private static function create_folder_in( $name, $parent_id ) {
+		$folder = self::drive()->files->create(
+			new DriveFile(
+				array(
+					'mimeType' => 'application/vnd.google-apps.folder',
+					'name'     => $name,
+					'parents'  => array( $parent_id ),
+				)
+			),
+			array(
+				'fields'            => 'id',
+				'supportsAllDrives' => true,
+			)
+		);
+
+		return (string) $folder->getId();
+	}
+
+	/**
 	 * The files' names, by ID.
 	 *
 	 * @param array<string> $ids Drive file IDs.
@@ -358,7 +375,9 @@ final class Share_Drive {
 			$response = $results[ 'response-r' . $index ] ?? null;
 
 			if ( null === $response || $response instanceof Throwable ) {
-				throw new RuntimeException( esc_html( null === $response ? 'No response from Drive' : $response->getMessage() ) );
+				$message = null === $response ? 'No response from Drive' : $response->getMessage();
+
+				throw new RuntimeException( esc_html( $message ) );
 			}
 
 			$responses[] = $response;

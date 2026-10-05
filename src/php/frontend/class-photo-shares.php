@@ -15,11 +15,11 @@ use Throwable;
 
 /**
  * Sharing a filter's photos through Google Drive: the photos the gallery
- * shows for a filter are copied (in capture order) into a new folder in the
- * plugin's Drive, which only the user's Google account may view. The user
- * gets the link by e-mail and on their profile ([avpvh_gallery_shares]),
- * and after a week the folder is deleted. The filter is kept, so an expired
- * share can be made again — with the photos that match it by then.
+ * shows for a filter are copied (in date order) into a new folder, which
+ * only the user's Google account (Share_Recipient) may view. The user gets
+ * the link by e-mail and on their profile (Photo_Shares_Page), and after a
+ * week the folder is deleted. The filter is kept, so an expired share can
+ * be made again — with the photos that match it by then.
  *
  * Copying runs in the background (WP-cron); the e-mail says when it's done.
  * The folders are made by the service account set in the plugin's settings
@@ -37,7 +37,7 @@ final class Photo_Shares {
 	/**
 	 * At most this many shares per user that are being made or still open.
 	 */
-	private const MAX_OPEN = 5;
+	public const MAX_OPEN = 5;
 
 	/**
 	 * Days a share stays available.
@@ -55,13 +55,10 @@ final class Photo_Shares {
 	private const EXPIRE_HOOK = 'avpvh_gallery_expire_shares';
 
 	/**
-	 * Registers the AJAX endpoint, the profile shortcode, the recreate form
-	 * handler and the cron jobs.
+	 * Registers the AJAX endpoint and the cron jobs.
 	 */
 	public function __construct() {
 		add_action( 'wp_ajax_gallery_share_create', array( self::class, 'ajax_create' ) );
-		add_action( 'admin_post_avpvh_gallery_share_recreate', array( self::class, 'handle_recreate' ) );
-		add_shortcode( 'avpvh_gallery_shares', array( self::class, 'shortcode' ) );
 		add_action( self::BUILD_HOOK, array( self::class, 'build' ) );
 		add_action( self::EXPIRE_HOOK, array( self::class, 'expire' ) );
 		add_action( 'init', array( self::class, 'schedule_expiry' ) );
@@ -100,9 +97,8 @@ final class Photo_Shares {
 			wp_send_json_error( array( 'message' => $error ), 400 );
 		}
 
-		$recipient = self::recipient( get_current_user_id() );
 		self::start(
-			self::insert(
+			Photo_Shares_DB::insert(
 				array(
 					'conditions'  => (string) wp_json_encode( $valid ),
 					'description' => mb_substr( $description, 0, 500 ),
@@ -111,7 +107,114 @@ final class Photo_Shares {
 			)
 		);
 
-		wp_send_json_success( array( 'recipient' => $recipient ) );
+		wp_send_json_success( array( 'recipient' => Share_Recipient::for_user( get_current_user_id() ) ) );
+	}
+
+	/**
+	 * Makes a share again with its saved filter (see Photo_Shares_Page).
+	 *
+	 * @param object $share The share.
+	 *
+	 * @return void
+	 */
+	public static function restart( $share ) {
+		Photo_Shares_DB::update(
+			(int) $share->id,
+			array(
+				'created_at'      => current_time( 'mysql' ),
+				'drive_folder_id' => '',
+				'error'           => '',
+				'expires_at'      => null,
+				'photo_count'     => 0,
+				'recipient'       => Share_Recipient::for_user( (int) $share->user_id ),
+				'status'          => 'pending',
+			)
+		);
+		self::start( (int) $share->id );
+	}
+
+	/**
+	 * Cron: copies a share's photos into a new folder, shares it with the
+	 * recipient and mails them the link. On failure the half-made folder is
+	 * removed and the share marked failed (shown on the profile).
+	 *
+	 * @param int $share_id Share ID.
+	 *
+	 * @return void
+	 */
+	public static function build( $share_id ) {
+		$share = Photo_Shares_DB::get( (int) $share_id );
+
+		if ( null === $share || 'pending' !== $share->status ) {
+			return;
+		}
+
+		wp_set_current_user( (int) $share->user_id );
+		$folder = '';
+
+		try {
+			$conditions = Photo_Filter::valid_conditions( $share->conditions );
+			$matching   = Photo_Filter::all_matching_ids( $conditions, $share->folder_id );
+			$ids        = array_slice( $matching, 0, self::MAX_PHOTOS );
+			$folder     = Share_Drive::create_folder( self::folder_name( $share ) );
+			Share_Drive::copy_into( $ids, $folder );
+			Share_Drive::share_with( $folder, $share->recipient );
+		} catch ( Throwable $e ) {
+			self::fail( $share, $folder, $e );
+
+			return;
+		}
+
+		Photo_Shares_DB::update(
+			(int) $share->id,
+			array(
+				'drive_folder_id' => $folder,
+				'expires_at'      => wp_date( 'Y-m-d H:i:s', time() + self::DAYS * DAY_IN_SECONDS ),
+				'photo_count'     => count( $ids ),
+				'status'          => 'ready',
+			)
+		);
+		self::mail_link( Photo_Shares_DB::get( (int) $share->id ) );
+	}
+
+	/**
+	 * Cron (daily): deletes the folders of shares past their date.
+	 *
+	 * @return void
+	 */
+	public static function expire() {
+		foreach ( Photo_Shares_DB::expired() as $share ) {
+			try {
+				Share_Drive::remove( (string) $share->drive_folder_id );
+			} catch ( Throwable $e ) {
+				// Already gone (or Drive unreachable): the share is over either way.
+				unset( $e );
+			}
+
+			Photo_Shares_DB::update( (int) $share->id, array( 'status' => 'expired' ) );
+		}
+	}
+
+	/**
+	 * A Drive folder's web address.
+	 *
+	 * @param string $folder_id Drive folder ID.
+	 *
+	 * @return string
+	 */
+	public static function folder_url( $folder_id ) {
+		return 'https://drive.google.com/drive/folders/' . rawurlencode( $folder_id );
+	}
+
+	/**
+	 * A stored date and time as "11 oktober 2026, 14:30".
+	 *
+	 * @param string $mysql Local date and time.
+	 *
+	 * @return string
+	 */
+	public static function date( $mysql ) {
+		return '' === $mysql ? '' : date_i18n( 'j F Y, H:i', (int) strtotime( $mysql ) );
 	}
 
 	/**
@@ -127,7 +230,7 @@ final class Photo_Shares {
 			return 'Delen via Google Drive is nog niet ingesteld; vraag een beheerder';
 		}
 
-		if ( self::MAX_OPEN <= self::open_count( get_current_user_id() ) ) {
+		if ( self::MAX_OPEN <= Photo_Shares_DB::open_count( get_current_user_id() ) ) {
 			return sprintf( 'Je hebt al %d delingen open; wacht tot er een verloopt', self::MAX_OPEN );
 		}
 
@@ -147,43 +250,6 @@ final class Photo_Shares {
 	}
 
 	/**
-	 * Makes an expired or failed share again, with the photos its filter
-	 * finds now. admin-post form: share, _wpnonce.
-	 *
-	 * @return void
-	 */
-	public static function handle_recreate() {
-		check_admin_referer( 'avpvh_gallery_share_recreate' );
-		$share_id = absint( $_POST['share'] ?? 0 );
-		$share    = self::get( $share_id );
-		$back     = wp_get_referer();
-
-		if (
-			null !== $share &&
-			(int) $share->user_id === get_current_user_id() &&
-			in_array( $share->status, array( 'expired', 'failed' ), true ) &&
-			self::MAX_OPEN > self::open_count( get_current_user_id() )
-		) {
-			self::update(
-				$share_id,
-				array(
-					'created_at'      => current_time( 'mysql' ),
-					'drive_folder_id' => '',
-					'error'           => '',
-					'expires_at'      => null,
-					'photo_count'     => 0,
-					'recipient'       => self::recipient( get_current_user_id() ),
-					'status'          => 'pending',
-				)
-			);
-			self::start( $share_id );
-		}
-
-		wp_safe_redirect( false === $back ? home_url() : $back );
-		exit;
-	}
-
-	/**
 	 * Schedules making a share right away.
 	 *
 	 * @param int $share_id Share ID.
@@ -193,53 +259,6 @@ final class Photo_Shares {
 	private static function start( $share_id ) {
 		wp_schedule_single_event( time(), self::BUILD_HOOK, array( $share_id ) );
 		spawn_cron();
-	}
-
-	/**
-	 * Cron: copies a share's photos into a new folder, shares it with the
-	 * recipient and mails them the link. On failure the half-made folder is
-	 * removed and the share marked failed (shown on the profile).
-	 *
-	 * @param int $share_id Share ID.
-	 *
-	 * @return void
-	 */
-	public static function build( $share_id ) {
-		$share = self::get( (int) $share_id );
-
-		if ( null === $share || 'pending' !== $share->status ) {
-			return;
-		}
-
-		wp_set_current_user( (int) $share->user_id );
-		$folder = '';
-
-		try {
-			$ids = array_slice(
-				Photo_Filter::all_matching_ids( Photo_Filter::valid_conditions( $share->conditions ), $share->folder_id ),
-				0,
-				self::MAX_PHOTOS
-			);
-			$folder = Share_Drive::create_folder( self::folder_name( $share ) );
-			Share_Drive::copy_into( $ids, $folder );
-			Share_Drive::share_with( $folder, $share->recipient );
-		} catch ( Throwable $e ) {
-			self::fail( $share, (string) $folder, $e );
-
-			return;
-		}
-
-		$expires = wp_date( 'Y-m-d H:i:s', time() + self::DAYS * DAY_IN_SECONDS );
-		self::update(
-			(int) $share->id,
-			array(
-				'drive_folder_id' => (string) $folder,
-				'expires_at'      => $expires,
-				'photo_count'     => count( $ids ),
-				'status'          => 'ready',
-			)
-		);
-		self::mail_link( self::get( (int) $share->id ) );
 	}
 
 	/**
@@ -256,12 +275,12 @@ final class Photo_Shares {
 			try {
 				Share_Drive::remove( $folder_id );
 			} catch ( Throwable $ignored ) {
-				// Left for whoever looks in the plugin's Drive.
+				// Left for whoever looks in the selections folder.
 				unset( $ignored );
 			}
 		}
 
-		self::update(
+		Photo_Shares_DB::update(
 			(int) $share->id,
 			array(
 				'error'  => mb_substr( self::explain( $error, $share->recipient ), 0, 500 ),
@@ -281,99 +300,19 @@ final class Photo_Shares {
 	private static function explain( Throwable $error, $recipient ) {
 		$message = $error->getMessage();
 
-		if ( false !== stripos( $message, 'insufficient' ) || false !== stripos( $message, 'notFound' ) || false !== stripos( $message, 'File not found' ) ) {
-			return 'Het service-account kan de foto’s of de map voor selecties niet bereiken; vraag een beheerder de instellingen te controleren.';
+		if ( 1 === preg_match( '/insufficient|notFound|File not found/i', $message ) ) {
+			return 'Het service-account kan de foto’s of de map voor selecties niet bereiken; '
+				. 'vraag een beheerder de instellingen te controleren.';
 		}
 
-		if ( false !== stripos( $message, 'invalidSharingRequest' ) || false !== stripos( $message, 'no Google account' ) ) {
-			return sprintf( 'Bij %s hoort geen Google-account. Voeg op je profiel een Google-adres toe en maak de deling opnieuw.', $recipient );
+		if ( 1 === preg_match( '/invalidSharingRequest|no Google account/i', $message ) ) {
+			return sprintf(
+				'Bij %s hoort geen Google-account. Voeg op je profiel een Google-adres toe en maak de deling opnieuw.',
+				$recipient
+			);
 		}
 
 		return 'Delen mislukt: ' . $message;
-	}
-
-	/**
-	 * Cron (daily): deletes the folders of shares past their date.
-	 *
-	 * @return void
-	 */
-	public static function expire() {
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin table.
-		$shares = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}agallery_photo_shares WHERE status = 'ready' AND expires_at < %s",
-				current_time( 'mysql' )
-			)
-		);
-
-		foreach ( is_array( $shares ) ? $shares : array() as $share ) {
-			try {
-				Share_Drive::remove( (string) $share->drive_folder_id );
-			} catch ( Throwable $e ) {
-				// Already gone (or Drive unreachable): the share is over either way.
-				unset( $e );
-			}
-
-			self::update( (int) $share->id, array( 'status' => 'expired' ) );
-		}
-	}
-
-	/**
-	 * The address to share with: the user's e-mail address when it's a
-	 * Gmail address; otherwise the Google address they verified in
-	 * avpvh-members, if any; otherwise still their e-mail address (it may be
-	 * a Google account on another domain).
-	 *
-	 * @param int $user_id WordPress user ID.
-	 *
-	 * @return string
-	 */
-	public static function recipient( $user_id ) {
-		$user    = get_userdata( $user_id );
-		$member  = function_exists( 'avpvh_get_member_by_wp_user' ) ? avpvh_get_member_by_wp_user( $user_id ) : null;
-		$primary = is_object( $member ) && '' !== (string) ( $member->email ?? '' )
-			? (string) $member->email
-			: ( false === $user ? '' : (string) $user->user_email );
-
-		if ( 1 === preg_match( '/@(gmail|googlemail)\.com$/i', $primary ) || ! is_object( $member ) ) {
-			return $primary;
-		}
-
-		return self::google_identities( (int) $member->id )[0] ?? $primary;
-	}
-
-	/**
-	 * A member's Google-verified addresses (avpvh-members), verified first.
-	 *
-	 * @param int $member_id avpvh-members member ID.
-	 *
-	 * @return array<string>
-	 */
-	private static function google_identities( $member_id ) {
-		if ( ! class_exists( '\\AVPVH_DB' ) || ! method_exists( '\\AVPVH_DB', 'get_member_identities' ) ) {
-			return array();
-		}
-
-		$google = array_filter(
-			(array) call_user_func( array( '\\AVPVH_DB', 'get_member_identities' ), $member_id ),
-			static function ( $identity ) {
-				return is_object( $identity ) && 'google' === ( $identity->provider ?? '' );
-			}
-		);
-		usort(
-			$google,
-			static function ( $a, $b ) {
-				return (int) empty( $a->verified_at ) - (int) empty( $b->verified_at );
-			}
-		);
-
-		return array_map(
-			static function ( $identity ) {
-				return (string) $identity->email;
-			},
-			$google
-		);
 	}
 
 	/**
@@ -395,71 +334,15 @@ final class Photo_Shares {
 			self::folder_url( (string) $share->drive_folder_id ),
 			'',
 			'Filter: ' . ( '' === $share->description ? '–' : $share->description ),
-			sprintf( 'Alleen te openen met het Google-account %s, tot %s.', $share->recipient, self::date( (string) $share->expires_at ) ),
+			sprintf(
+				'Alleen te openen met het Google-account %s, tot %s.',
+				$share->recipient,
+				self::date( (string) $share->expires_at )
+			),
 			'Daarna wordt de map verwijderd; op je profiel kun je de selectie dan opnieuw laten maken.',
 		);
 
 		wp_mail( (string) $share->recipient, 'Je fotoselectie staat klaar', implode( "\n", $lines ) );
-	}
-
-	/**
-	 * The [avpvh_gallery_shares] shortcode: the current user's shares with
-	 * their link and expiry, and "Opnieuw maken" for expired or failed ones.
-	 *
-	 * @return string
-	 */
-	public static function shortcode() {
-		if ( ! is_user_logged_in() ) {
-			return '';
-		}
-
-		$shares = self::for_user( get_current_user_id() );
-		$html   = '<div class="avpvh-gallery-shares"><h3>Gedeelde fotoselecties</h3>';
-
-		if ( array() === $shares ) {
-			return $html . '<p>Je hebt nog geen foto’s gedeeld. Filter in de galerie en kies "Delen via Google Drive".</p></div>';
-		}
-
-		$html .= '<table><thead><tr><th>Selectie</th><th>Foto’s</th><th>Status</th><th>Beschikbaar tot</th></tr></thead><tbody>';
-
-		foreach ( $shares as $share ) {
-			$html .= sprintf(
-				'<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
-				esc_html( '' === $share->description ? '–' : $share->description ),
-				esc_html( 0 < (int) $share->photo_count ? (string) $share->photo_count : '' ),
-				self::status_html( $share ),
-				esc_html( 'ready' === $share->status ? self::date( (string) $share->expires_at ) : '' )
-			);
-		}
-
-		return $html . '</tbody></table></div>';
-	}
-
-	/**
-	 * A share's status cell: its link, progress, or what went wrong with a
-	 * button to make it again.
-	 *
-	 * @param object $share The share.
-	 *
-	 * @return string
-	 */
-	private static function status_html( $share ) {
-		if ( 'ready' === $share->status ) {
-			return sprintf( '<a href="%s" target="_blank" rel="noopener">Openen in Google Drive</a>', esc_url( self::folder_url( (string) $share->drive_folder_id ) ) );
-		}
-
-		if ( 'pending' === $share->status ) {
-			return 'Wordt gemaakt… (je krijgt een e-mail)';
-		}
-
-		$text = 'expired' === $share->status ? 'Verlopen' : esc_html( (string) $share->error );
-
-		return $text . sprintf(
-			' <form method="post" action="%s" style="display:inline">%s<input type="hidden" name="action" value="avpvh_gallery_share_recreate"><input type="hidden" name="share" value="%d"><button type="submit">Opnieuw maken</button></form>',
-			esc_url( admin_url( 'admin-post.php' ) ),
-			wp_nonce_field( 'avpvh_gallery_share_recreate', '_wpnonce', true, false ),
-			(int) $share->id
-		);
 	}
 
 	/**
@@ -473,122 +356,5 @@ final class Photo_Shares {
 		$name = 'Fotoselectie ' . current_time( 'Y-m-d' );
 
 		return '' === $share->description ? $name : $name . ' – ' . mb_substr( (string) $share->description, 0, 80 );
-	}
-
-	/**
-	 * A Drive folder's web address.
-	 *
-	 * @param string $folder_id Drive folder ID.
-	 *
-	 * @return string
-	 */
-	private static function folder_url( $folder_id ) {
-		return 'https://drive.google.com/drive/folders/' . rawurlencode( $folder_id );
-	}
-
-	/**
-	 * A stored date and time as "11 oktober 2026, 14:30".
-	 *
-	 * @param string $mysql Local date and time.
-	 *
-	 * @return string
-	 */
-	private static function date( $mysql ) {
-		return '' === $mysql ? '' : date_i18n( 'j F Y, H:i', (int) strtotime( $mysql ) );
-	}
-
-	/**
-	 * How many of a user's shares are being made or still open.
-	 *
-	 * @param int $user_id WordPress user ID.
-	 *
-	 * @return int
-	 */
-	private static function open_count( $user_id ) {
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin table.
-		return (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}agallery_photo_shares WHERE user_id = %d AND status IN ('pending', 'ready')",
-				$user_id
-			)
-		);
-	}
-
-	/**
-	 * A user's shares, newest first.
-	 *
-	 * @param int $user_id WordPress user ID.
-	 *
-	 * @return array<object>
-	 */
-	private static function for_user( $user_id ) {
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin table.
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}agallery_photo_shares WHERE user_id = %d ORDER BY created_at DESC LIMIT 20",
-				$user_id
-			)
-		);
-
-		return is_array( $rows ) ? $rows : array();
-	}
-
-	/**
-	 * One share.
-	 *
-	 * @param int $share_id Share ID.
-	 *
-	 * @return object|null
-	 */
-	private static function get( $share_id ) {
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin table.
-		$row = $wpdb->get_row(
-			$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}agallery_photo_shares WHERE id = %d", $share_id )
-		);
-
-		return is_object( $row ) ? $row : null;
-	}
-
-	/**
-	 * Stores a new pending share for the current user.
-	 *
-	 * @param array{conditions: string, description: string, folder_id: string} $fields The filter.
-	 *
-	 * @return int The new share's ID.
-	 */
-	private static function insert( array $fields ) {
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- plugin table.
-		$wpdb->insert(
-			$wpdb->prefix . 'agallery_photo_shares',
-			array_merge(
-				$fields,
-				array(
-					'created_at' => current_time( 'mysql' ),
-					'recipient'  => self::recipient( get_current_user_id() ),
-					'status'     => 'pending',
-					'user_id'    => get_current_user_id(),
-				)
-			)
-		);
-
-		return (int) $wpdb->insert_id;
-	}
-
-	/**
-	 * Changes a share.
-	 *
-	 * @param int                  $share_id Share ID.
-	 * @param array<string, mixed> $fields   Columns to change.
-	 *
-	 * @return void
-	 */
-	private static function update( $share_id, array $fields ) {
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin table.
-		$wpdb->update( $wpdb->prefix . 'agallery_photo_shares', $fields, array( 'id' => $share_id ) );
 	}
 }

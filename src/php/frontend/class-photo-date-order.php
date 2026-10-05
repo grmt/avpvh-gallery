@@ -119,11 +119,28 @@ final class Photo_Date_Order {
 	 * @return string
 	 */
 	public static function name_date( $name ) {
-		if ( 1 !== preg_match( '/(?<!\d)((?:19|20)\d{2})(\d{2})(\d{2})(?:[_-]?([01]\d|2[0-3])([0-5]\d)([0-5]\d)?)?(?!\d)/', $name, $parts ) || ! checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1] ) ) {
+		if (
+			1 !== preg_match(
+				'/(?<!\d)((?:19|20)\d{2})(\d{2})(\d{2})(?:[_-]?([01]\d|2[0-3])([0-5]\d)([0-5]\d)?)?(?!\d)/',
+				$name,
+				$parts
+			)
+			|| ! checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1] )
+		) {
 			return '';
 		}
 
-		return sprintf( '%s-%s-%s %s:%s:%s', $parts[1], $parts[2], $parts[3], $parts[4] ?? '00', $parts[5] ?? '00', '' === ( $parts[6] ?? '' ) ? '00' : $parts[6] );
+		$seconds = $parts[6] ?? '';
+
+		return sprintf(
+			'%s-%s-%s %s:%s:%s',
+			$parts[1],
+			$parts[2],
+			$parts[3],
+			$parts[4] ?? '00',
+			$parts[5] ?? '00',
+			'' === $seconds ? '00' : $seconds
+		);
 	}
 
 	/**
@@ -231,8 +248,15 @@ final class Photo_Date_Order {
 
 		foreach ( array_chunk( $ids, 500 ) as $chunk ) {
 			$placeholders = implode( ', ', array_fill( 0, count( $chunk ), '%s' ) );
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- plugin table, fixed name; the IDs are prepared.
-			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT image_id, original_datetime FROM {$wpdb->prefix}agallery_photo_exif_dates WHERE original_datetime IS NOT NULL AND image_id IN ({$placeholders})", $chunk ) );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- plugin table, fixed name; the IDs are prepared.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT image_id, original_datetime FROM {$wpdb->prefix}agallery_photo_exif_dates
+					 WHERE original_datetime IS NOT NULL AND image_id IN ({$placeholders})",
+					$chunk
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 			foreach ( is_array( $rows ) ? $rows : array() as $row ) {
 				$dates[ (string) $row->image_id ] = (string) $row->original_datetime;
@@ -259,7 +283,15 @@ final class Photo_Date_Order {
 			$promises = array();
 
 			foreach ( $missing as $file_id ) {
-				$promises[ $file_id ] = API_Facade::get_file( $file_id, array( 'id', 'name', 'createdTime', 'imageMediaMetadata' => array( 'time' ) ) )->then(
+				$promises[ $file_id ] = API_Facade::get_file(
+					$file_id,
+					array(
+						'id',
+						'name',
+						'createdTime',
+						'imageMediaMetadata' => array( 'time' ),
+					)
+				)->then(
 					null,
 					static function () {
 						return array();
@@ -289,7 +321,14 @@ final class Photo_Date_Order {
 	private static function record_date( array $file ) {
 		$taken = (string) ( $file['imageMediaMetadata']['time'] ?? '' );
 
-		if ( 1 === preg_match( '/^(\d{4}):(\d{2}):(\d{2}) (\d{2}:\d{2}:\d{2})/', $taken, $parts ) && '0000' !== $parts[1] ) {
+		if (
+			1 === preg_match(
+				'/^(\d{4}):(\d{2}):(\d{2}) (\d{2}:\d{2}:\d{2})/',
+				$taken,
+				$parts
+			)
+			&& '0000' !== $parts[1]
+		) {
 			return "{$parts[1]}-{$parts[2]}-{$parts[3]} {$parts[4]}";
 		}
 

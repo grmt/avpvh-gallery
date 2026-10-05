@@ -15,11 +15,11 @@ use Avpvh\Admin\Asset_Set_Option;
 use Avpvh\Admin\Readonly_String_Option;
 use Avpvh\Frontend\Boolean_Option;
 use Avpvh\Frontend\Bounded_Integer_Option;
-use Avpvh\Frontend\Service_Account_Option;
 use Avpvh\Frontend\Code_String_Option;
 use Avpvh\Frontend\Integer_Option;
 use Avpvh\Frontend\Ordering_Option;
 use Avpvh\Frontend\Root_Path_Option;
+use Avpvh\Frontend\Service_Account_Option;
 use Avpvh\Frontend\String_Option;
 
 require_once __DIR__ . '/frontend/class-boolean-option.php';
@@ -294,7 +294,7 @@ final class Options {
 
 		self::$root_path = new Root_Path_Option( 'root_path', array( 'root' ), 'basic', 'root_selection', '' );
 
-		self::$grid_height    = new Bounded_Integer_Option(
+		self::$grid_height           = new Bounded_Integer_Option(
 			'grid_height',
 			250,
 			1,
@@ -302,28 +302,28 @@ final class Options {
 			'grid',
 			esc_html__( 'Row height', 'avpvh-gallery' )
 		);
-		self::$grid_spacing   = new Integer_Option(
+		self::$grid_spacing          = new Integer_Option(
 			'grid_spacing',
 			4,
 			'advanced',
 			'grid',
 			esc_html__( 'Item spacing', 'avpvh-gallery' )
 		);
-		self::$dir_title_size = new String_Option(
+		self::$dir_title_size        = new String_Option(
 			'dir_title_size',
 			'1.2em',
 			'advanced',
 			'grid',
 			esc_html__( 'Directory title size', 'avpvh-gallery' )
 		);
-		self::$dir_counts     = new Boolean_Option(
+		self::$dir_counts            = new Boolean_Option(
 			'dir_counts',
 			true,
 			'advanced',
 			'grid',
 			esc_html__( 'Directory item counts', 'avpvh-gallery' )
 		);
-		self::$page_size      = new Bounded_Integer_Option(
+		self::$page_size             = new Bounded_Integer_Option(
 			'page_size',
 			50,
 			1,
@@ -361,14 +361,14 @@ final class Options {
 			'sharing',
 			esc_html__( 'Folder ID for shared selections', 'avpvh-gallery' )
 		);
-		self::$page_autoload  = new Boolean_Option(
+		self::$page_autoload         = new Boolean_Option(
 			'page_autoload',
 			true,
 			'advanced',
 			'grid',
 			esc_html__( 'Autoload new images', 'avpvh-gallery' )
 		);
-		self::$image_ordering = new Ordering_Option(
+		self::$image_ordering        = new Ordering_Option(
 			'image_ordering',
 			'time',
 			'ascending',
@@ -376,7 +376,7 @@ final class Options {
 			'grid',
 			esc_html__( 'Image and video ordering', 'avpvh-gallery' )
 		);
-		self::$dir_ordering   = new Ordering_Option(
+		self::$dir_ordering          = new Ordering_Option(
 			'dir_ordering',
 			'time',
 			'descending',
@@ -384,7 +384,7 @@ final class Options {
 			'grid',
 			esc_html__( 'Directory ordering', 'avpvh-gallery' )
 		);
-		self::$dir_prefix     = new String_Option(
+		self::$dir_prefix            = new String_Option(
 			'dir_prefix',
 			'',
 			'advanced',

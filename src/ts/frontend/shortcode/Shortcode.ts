@@ -32,8 +32,8 @@ import {
 	conditionsParam,
 	type FilterCondition,
 	isActiveFilter,
-	type SortOrder,
 	rememberFilter,
+	type SortOrder,
 } from './PhotoFilter';
 import { enableMarking, showMarks } from './PhotoMarks';
 import { QueryParameter } from './QueryParameter';
@@ -5451,7 +5451,13 @@ export class Shortcode {
 					conditions: conditionsParam(this.filter),
 					folder: this.filterFolder(),
 				}
-			: { action: 'page', sort: this.sortOrder, hash: this.hash, path, page };
+			: {
+					action: 'page',
+					sort: this.sortOrder,
+					hash: this.hash,
+					path,
+					page,
+				};
 	}
 
 	// The folder a filter is limited to ("Alleen deze map"), or '' for the

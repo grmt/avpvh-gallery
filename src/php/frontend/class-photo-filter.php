@@ -37,11 +37,6 @@ final class Photo_Filter {
 	private const PAGE_SIZE = 60;
 
 	/**
-	 * User meta holding the remembered filter (see handle_save()).
-	 */
-	private const MEMORY_KEY = 'avpvh_gallery_filter';
-
-	/**
 	 * Per kind of condition: the photos it matches ({prefix} = table prefix;
 	 * one placeholder for the condition's value).
 	 */
@@ -85,70 +80,7 @@ final class Photo_Filter {
 	public function __construct() {
 		add_action( 'wp_ajax_gallery_filter', array( self::class, 'handle_filter' ) );
 		add_action( 'wp_ajax_gallery_filter_options', array( self::class, 'handle_options' ) );
-		add_action( 'wp_ajax_gallery_filter_save', array( self::class, 'handle_save' ) );
-	}
-
-	/**
-	 * The "gallery_filter_save" endpoint: remembers the user's current filter
-	 * (or that there is none), so the gallery shows it again after a reload
-	 * or the next login. POST: state, a JSON {conditions: [{kind, value, op,
-	 * label}], here} or "null".
-	 *
-	 * @return void
-	 */
-	public static function handle_save() {
-		check_ajax_referer( 'avpvh_tag_nonce' );
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- verified above; decoded and sanitized field by field in remembered().
-		$state = self::remembered( json_decode( wp_unslash( (string) ( $_POST['state'] ?? 'null' ) ), true ) );
-
-		if ( null === $state ) {
-			delete_user_meta( get_current_user_id(), self::MEMORY_KEY );
-		} else {
-			update_user_meta( get_current_user_id(), self::MEMORY_KEY, $state );
-		}
-
-		wp_send_json_success();
-	}
-
-	/**
-	 * The current user's remembered filter, or null.
-	 *
-	 * @return array{conditions: array<array{kind: string, value: string, op: string, label: string}>, here: bool}|null
-	 */
-	public static function saved_state() {
-		$state = get_user_meta( get_current_user_id(), self::MEMORY_KEY, true );
-
-		return self::remembered( $state );
-	}
-
-	/**
-	 * A filter state to remember, sanitized, or null for none.
-	 *
-	 * @param mixed $state Decoded state.
-	 *
-	 * @return array{conditions: array<array{kind: string, value: string, op: string, label: string}>, here: bool}|null
-	 */
-	private static function remembered( $state ) {
-		if ( ! is_array( $state ) || ! is_array( $state['conditions'] ?? null ) ) {
-			return null;
-		}
-
-		$conditions = array();
-
-		foreach ( array_slice( $state['conditions'], 0, 20 ) as $condition ) {
-			$valid = self::valid_condition( $condition );
-
-			if ( null !== $valid ) {
-				$valid['value'] = (string) $valid['value'];
-				$valid['label'] = mb_substr( sanitize_text_field( (string) ( $condition['label'] ?? '' ) ), 0, 200 );
-				$conditions[]   = $valid;
-			}
-		}
-
-		return array() === $conditions ? null : array(
-			'conditions' => $conditions,
-			'here'       => true === ( $state['here'] ?? false ),
-		);
+		add_action( 'wp_ajax_gallery_filter_save', array( Filter_Memory::class, 'handle_save' ) );
 	}
 
 	/**
@@ -196,6 +128,7 @@ final class Photo_Filter {
 		$folder_id = sanitize_text_field( wp_unslash( (string) ( $_GET['folder'] ?? '' ) ) );
 
 		// "Datum (nieuw → oud)": newest first.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
 		$newest_first = 'date_desc' === sanitize_key( wp_unslash( (string) ( $_GET['sort'] ?? '' ) ) );
 
 		list( $ids, $total ) = '' === $folder_id
@@ -219,17 +152,6 @@ final class Photo_Filter {
 	 */
 	public static function handle_options() {
 		wp_send_json_success( Photo_Filter_Options::all() );
-	}
-
-	/**
-	 * The valid conditions in the request. A liked_by condition on someone
-	 * whose likes the viewer may not see (Like_Visibility) is dropped.
-	 *
-	 * @return array<array{kind: string, value: string|int, op: string}>
-	 */
-	private static function conditions_from_request() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only lookup; decoded JSON is validated field by field in valid_conditions().
-		return self::valid_conditions( wp_unslash( (string) ( $_GET['conditions'] ?? '[]' ) ) );
 	}
 
 	/**
@@ -262,7 +184,7 @@ final class Photo_Filter {
 	 *
 	 * @return array{kind: string, value: string|int, op: string}|null
 	 */
-	private static function valid_condition( $condition ) {
+	public static function valid_condition( $condition ) {
 		if ( ! is_array( $condition ) ) {
 			return null;
 		}
@@ -288,6 +210,37 @@ final class Photo_Filter {
 			'op'    => $operator,
 			'value' => 'liked_by' === $kind ? (int) $value : $value,
 		);
+	}
+
+	/**
+	 * All photos matching the conditions, in date order, optionally only
+	 * those in a folder or below it — what the gallery shows for that
+	 * filter (see Photo_Shares). None when there is no "and"/"or" condition.
+	 *
+	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See valid_conditions().
+	 * @param string                                                    $folder_id  Drive folder ID, or '' for the whole gallery.
+	 *
+	 * @return array<string>
+	 */
+	public static function all_matching_ids( array $conditions, $folder_id ) {
+		if ( array() === array_intersect( array( 'and', 'or' ), array_column( $conditions, 'op' ) ) ) {
+			return array();
+		}
+
+		list( $ids ) = self::matching_ids( $conditions, 0 );
+
+		return '' === $folder_id ? $ids : Photo_Filter_Scope::within( $ids, $folder_id );
+	}
+
+	/**
+	 * The valid conditions in the request. A liked_by condition on someone
+	 * whose likes the viewer may not see (Like_Visibility) is dropped.
+	 *
+	 * @return array<array{kind: string, value: string|int, op: string}>
+	 */
+	private static function conditions_from_request() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only lookup; decoded JSON is validated field by field in valid_conditions().
+		return self::valid_conditions( wp_unslash( (string) ( $_GET['conditions'] ?? '[]' ) ) );
 	}
 
 	/**
@@ -365,26 +318,6 @@ final class Photo_Filter {
 	}
 
 	/**
-	 * All photos matching the conditions, in date order, optionally only
-	 * those in a folder or below it — what the gallery shows for that
-	 * filter (see Photo_Shares). None when there is no "and"/"or" condition.
-	 *
-	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See valid_conditions().
-	 * @param string                                                    $folder_id  Drive folder ID, or '' for the whole gallery.
-	 *
-	 * @return array<string>
-	 */
-	public static function all_matching_ids( array $conditions, $folder_id ) {
-		if ( array() === array_intersect( array( 'and', 'or' ), array_column( $conditions, 'op' ) ) ) {
-			return array();
-		}
-
-		list( $ids ) = self::matching_ids( $conditions, 0 );
-
-		return '' === $folder_id ? $ids : Photo_Filter_Scope::within( $ids, $folder_id );
-	}
-
-	/**
 	 * One page of the matching photos that are in a folder or below it, and
 	 * how many there are in all.
 	 *
@@ -423,7 +356,8 @@ final class Photo_Filter {
 		}
 
 		return array(
-			"SELECT image_id FROM {$prefix}agallery_photo_marks WHERE circle = %s GROUP BY image_id HAVING SUM(level) >= %d",
+			"SELECT image_id FROM {$prefix}agallery_photo_marks
+			 WHERE circle = %s GROUP BY image_id HAVING SUM(level) >= %d",
 			array( Photo_Marks::CIRCLE, (int) $condition['value'] ),
 		);
 	}

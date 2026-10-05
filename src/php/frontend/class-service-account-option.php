@@ -46,11 +46,16 @@ final class Service_Account_Option extends Option {
 
 		if ( '' !== $email ) {
 			echo '<p>' . esc_html__( 'Set for', 'avpvh-gallery' ) . ' <code>' . esc_html( $email ) . '</code> ';
-			echo '<label><input type="checkbox" name="' . esc_attr( $this->name ) . '_remove" value="1"> ' . esc_html__( 'remove', 'avpvh-gallery' ) . '</label></p>';
+			echo '<label><input type="checkbox" name="' . esc_attr( $this->name ) . '_remove" value="1"> ' . esc_html__(
+				'remove',
+				'avpvh-gallery'
+			) . '</label></p>';
 		}
 
-		echo '<textarea name="' . esc_attr( $this->name ) . '" rows="4" cols="60" autocomplete="off" placeholder="' .
-			esc_attr__( 'Paste the service account\'s JSON key to set or replace it', 'avpvh-gallery' ) . '"></textarea>';
+		$placeholder = __( 'Paste the service account\'s JSON key to set or replace it', 'avpvh-gallery' );
+
+		echo '<textarea name="' . esc_attr( $this->name ) . '" rows="4" cols="60" autocomplete="off" placeholder="'
+			. esc_attr( $placeholder ) . '"></textarea>';
 	}
 
 	/**
@@ -75,8 +80,17 @@ final class Service_Account_Option extends Option {
 
 		$key = json_decode( $pasted, true );
 
-		if ( ! is_array( $key ) || 'service_account' !== ( $key['type'] ?? '' ) || empty( $key['client_email'] ) || empty( $key['private_key'] ) ) {
-			add_settings_error( $this->name, 'invalid', esc_html__( 'That is not a Google service account JSON key; the previous key was kept.', 'avpvh-gallery' ) );
+		if (
+			! is_array( $key )
+			|| 'service_account' !== ( $key['type'] ?? '' )
+			|| '' === (string) ( $key['client_email'] ?? '' )
+			|| '' === (string) ( $key['private_key'] ?? '' )
+		) {
+			add_settings_error(
+				$this->name,
+				'invalid',
+				esc_html__( 'That is not a service account JSON key; the previous key was kept.', 'avpvh-gallery' )
+			);
 
 			return (string) get_option( $this->name, '' );
 		}

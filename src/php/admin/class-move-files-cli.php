@@ -15,6 +15,7 @@ use Avpvh\Frontend\Share_Drive;
 use Avpvh\Options;
 use Throwable;
 use WP_CLI;
+use function WP_CLI\Utils\format_items;
 
 /**
  * WP-CLI commands that move files between the gallery's folders as planned
@@ -38,12 +39,13 @@ final class Move_Files_CLI {
 	 * Transients that remember which folder a photo is in (see
 	 * Photo_Filter_Scope and Photo_Date_Order); stale after moving.
 	 */
+	// phpcs:ignore SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- PHPCSUtils false positive on an array value.
 	private const FOLDER_CACHES = array( 'avpvh_filter_parents', 'avpvh_folder_years', 'avpvh_photo_record_dates' );
 
 	/**
 	 * Moves files as planned in a CSV with (at least) the columns file_id and
-	 * target, a folder path below the gallery root ("03-Weekenden/2024
-	 * Meerveld"). Every file must now be in the --from folder.
+	 * target, a folder path below the gallery root such as 03-Weekenden/2024
+	 * Meerveld. Every file must now be in the --from folder.
 	 *
 	 * Without --apply this is a dry run: it checks every file and reports
 	 * which folders would be made, but changes nothing.
@@ -68,24 +70,25 @@ final class Move_Files_CLI {
 	 * @param array<string, string> $assoc_args Named arguments.
 	 *
 	 * @return void
+	 *
+	 * @phan-suppress PhanPluginPossiblyStaticPublicMethod -- WP-CLI calls commands on an instance.
 	 */
 	public function move_files( $args, $assoc_args ) {
+		$root = self::gallery_root_id();
+		$from = (string) ( $assoc_args['from'] ?? '' );
+
 		if ( ! Share_Drive::has_account() ) {
 			WP_CLI::error( 'No service account set (Advanced settings › Sharing selections via Google Drive).' );
 		}
-
-		$root = self::gallery_root_id();
-		$from = (string) ( $assoc_args['from'] ?? '' );
-		$rows = self::read_plan( $args[0] );
 
 		if ( '' === $root || '' === $from ) {
 			WP_CLI::error( 'Needs a configured gallery root and --from.' );
 		}
 
+		$rows   = self::read_plan( $args[0] );
 		$errors = self::check_sources( $rows, $from );
-		$plan   = self::resolve_targets( $rows, $root, false );
 
-		self::report( $rows, $plan, $errors );
+		self::report( $rows, self::resolve_targets( $rows, $root, false ), $errors );
 
 		if ( 0 < $errors ) {
 			WP_CLI::error( sprintf( '%d files are not in the --from folder; nothing moved.', $errors ) );
@@ -108,21 +111,15 @@ final class Move_Files_CLI {
 	 * [<batch>]
 	 * : The batch ID move-files printed. Omit to list the batches.
 	 *
-	 * @subcommand undo-move-files
-	 *
 	 * @param array<int, string> $args Batch ID.
 	 *
 	 * @return void
+	 *
+	 * @phan-suppress PhanPluginPossiblyStaticPublicMethod -- WP-CLI calls commands on an instance.
 	 */
 	public function undo_move_files( $args ) {
 		if ( ! isset( $args[0] ) ) {
-			global $wpdb;
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- listing this command's own receipts.
-			$names = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s ORDER BY option_name", $wpdb->esc_like( self::RECEIPT_PREFIX ) . '%' ) );
-
-			foreach ( $names as $name ) {
-				WP_CLI::log( substr( $name, strlen( self::RECEIPT_PREFIX ) ) );
-			}
+			array_map( array( WP_CLI::class, 'log' ), self::batches() );
 
 			return;
 		}
@@ -163,6 +160,29 @@ final class Move_Files_CLI {
 	}
 
 	/**
+	 * The batch IDs that can be undone.
+	 *
+	 * @return array<string>
+	 */
+	private static function batches() {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- this command's own receipts.
+		$names = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s ORDER BY option_name",
+				$wpdb->esc_like( self::RECEIPT_PREFIX ) . '%'
+			)
+		);
+
+		return array_map(
+			static function ( $name ) {
+				return substr( $name, strlen( self::RECEIPT_PREFIX ) );
+			},
+			$names
+		);
+	}
+
+	/**
 	 * The plan's rows: file_id and target, with the line number.
 	 *
 	 * @param string $file Path, or - for standard input.
@@ -174,26 +194,31 @@ final class Move_Files_CLI {
 		$handle = fopen( '-' === $file ? 'php://stdin' : $file, 'rb' );
 		$header = false === $handle ? false : fgetcsv( $handle, null, ',', '"', '' );
 
-		if ( false === $handle || ! is_array( $header ) || ! in_array( 'file_id', $header, true ) || ! in_array( 'target', $header, true ) ) {
+		if (
+			false === $handle
+			|| ! is_array( $header )
+			|| array() !== array_diff( array( 'file_id', 'target' ), $header )
+		) {
 			WP_CLI::error( 'Needs a readable CSV with the columns file_id and target.' );
 		}
 
-		$rows = array();
-		$line = 1;
+		$rows   = array();
+		$line   = 1;
+		$values = fgetcsv( $handle, null, ',', '"', '' );
 
-		while ( false !== ( $values = fgetcsv( $handle, null, ',', '"', '' ) ) ) { // phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition.FoundInWhileCondition
+		while ( false !== $values ) {
 			++$line;
 
-			if ( count( $values ) !== count( $header ) ) {
-				continue;
+			if ( count( $values ) === count( $header ) ) {
+				$row    = array_combine( $header, $values );
+				$rows[] = array(
+					'file_id' => trim( (string) $row['file_id'] ),
+					'line'    => $line,
+					'target'  => trim( (string) $row['target'], " /\t" ),
+				);
 			}
 
-			$row    = array_combine( $header, $values );
-			$rows[] = array(
-				'file_id' => trim( (string) $row['file_id'] ),
-				'line'    => $line,
-				'target'  => trim( (string) $row['target'], " /\t" ),
-			);
+			$values = fgetcsv( $handle, null, ',', '"', '' );
 		}
 
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- CLI input file.
@@ -206,7 +231,7 @@ final class Move_Files_CLI {
 	 * Warns about each file that isn't in the source folder now.
 	 *
 	 * @param array<int, array{line: int, file_id: string, target: string}> $rows Plan rows.
-	 * @param string                                                         $from Source folder ID.
+	 * @param string                                                        $from Source folder ID.
 	 *
 	 * @return int How many.
 	 */
@@ -215,10 +240,12 @@ final class Move_Files_CLI {
 		$errors  = 0;
 
 		foreach ( $rows as $row ) {
-			if ( ! in_array( $from, $parents[ $row['file_id'] ] ?? array(), true ) ) {
-				++$errors;
-				WP_CLI::warning( sprintf( 'Line %d: %s is not in the --from folder.', $row['line'], $row['file_id'] ) );
+			if ( in_array( $from, $parents[ $row['file_id'] ] ?? array(), true ) ) {
+				continue;
 			}
+
+			++$errors;
+			WP_CLI::warning( sprintf( 'Line %d: %s is not in the --from folder.', $row['line'], $row['file_id'] ) );
 		}
 
 		return $errors;
@@ -229,8 +256,8 @@ final class Move_Files_CLI {
 	 * false).
 	 *
 	 * @param array<int, array{line: int, file_id: string, target: string}> $rows   Plan rows.
-	 * @param string                                                         $root   Gallery root folder ID.
-	 * @param bool                                                           $create Whether to make missing folders.
+	 * @param string                                                        $root   Gallery root folder ID.
+	 * @param bool                                                          $create Whether to make missing folders.
 	 *
 	 * @return array<string, string>
 	 */
@@ -248,8 +275,8 @@ final class Move_Files_CLI {
 	 * Prints how many files go to each folder and which folders are new.
 	 *
 	 * @param array<int, array{line: int, file_id: string, target: string}> $rows    Plan rows.
-	 * @param array<string, string>                                          $folders Target path => folder ID ('' = new).
-	 * @param int                                                            $errors  Files not in the source folder.
+	 * @param array<string, string>                                         $folders Target path => folder ID ('' = new).
+	 * @param int                                                           $errors  Files not in the source folder.
 	 *
 	 * @return void
 	 */
@@ -266,9 +293,11 @@ final class Move_Files_CLI {
 			);
 		}
 
-		\WP_CLI\Utils\format_items( 'table', $table, array( 'folder', 'state', 'files' ) );
+		format_items( 'table', $table, array( 'folder', 'state', 'files' ) );
 		$new = count( array_keys( $folders, '', true ) );
-		WP_CLI::log( sprintf( '%d files, %d folders (%d new), %d errors.', count( $rows ), count( $folders ), $new, $errors ) );
+		WP_CLI::log(
+			sprintf( '%d files, %d folders (%d new), %d errors.', count( $rows ), count( $folders ), $new, $errors )
+		);
 	}
 
 	/**
@@ -276,8 +305,8 @@ final class Move_Files_CLI {
 	 * that was moved — also when a later one fails.
 	 *
 	 * @param array<int, array{line: int, file_id: string, target: string}> $rows    Plan rows.
-	 * @param array<string, string>                                          $folders Target path => folder ID.
-	 * @param string                                                         $from    Source folder ID.
+	 * @param array<string, string>                                         $folders Target path => folder ID.
+	 * @param string                                                        $from    Source folder ID.
 	 *
 	 * @return void
 	 */
@@ -308,7 +337,13 @@ final class Move_Files_CLI {
 		add_option( self::RECEIPT_PREFIX . $batch, $moved, '', false );
 		self::forget_folders();
 
-		$message = sprintf( '%d of %d files moved. Batch: %s (undo: wp avpvh-gallery undo-move-files %s)', count( $moved ), count( $rows ), $batch, $batch );
+		$message = sprintf(
+			'%d of %d files moved. Batch: %s (undo: wp avpvh-gallery undo-move-files %s)',
+			count( $moved ),
+			count( $rows ),
+			$batch,
+			$batch
+		);
 
 		if ( count( $moved ) < count( $rows ) ) {
 			WP_CLI::error( $message );

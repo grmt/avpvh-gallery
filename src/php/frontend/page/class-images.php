@@ -12,7 +12,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Avpvh\API_Facade;
-use Avpvh\GET_Helpers;
 use Avpvh\Exceptions\Internal_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Exceptions\Unsupported_Value_Exception;
@@ -21,6 +20,7 @@ use Avpvh\Frontend\Options_Proxy;
 use Avpvh\Frontend\Pagination_Helper;
 use Avpvh\Frontend\Paging_Pagination_Helper;
 use Avpvh\Frontend\Photo_Date_Order;
+use Avpvh\GET_Helpers;
 use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
 use DateTime;
 
@@ -126,6 +126,29 @@ final class Images {
 	}
 
 	/**
+	 * Formats Drive image records from one folder the way a folder page
+	 * does — excluded photos dropped, orientation corrections merged — but
+	 * without the folder's ordering. Used for filter results (Photo_Filter),
+	 * whose photos come from all over the gallery.
+	 *
+	 * @param array<array<string, mixed>> $records   Raw Google Drive image records.
+	 * @param string                      $parent_id The Drive folder the records are in.
+	 * @param Options_Proxy               $options   The configuration of the gallery.
+	 *
+	 * @return array<array<string, mixed>>
+	 */
+	public static function from_records( array $records, $parent_id, $options ) {
+		$images = array_map(
+			static function ( $image ) use ( $options, $parent_id ) {
+				return self::format_image( $image, $options, $parent_id );
+			},
+			self::filter_excluded( $records )
+		);
+
+		return self::merge_corrections( $images, $parent_id, $options );
+	}
+
+	/**
 	 * Like get(), but in date order (see Photo_Date_Order::sort_records()):
 	 * the whole folder is listed and ordered before the page is taken from
 	 * it, so the order holds across pages.
@@ -171,6 +194,7 @@ final class Images {
 				$page   = array();
 				$pagination_helper->iterate(
 					$newest_first ? array_reverse( $sorted ) : $sorted,
+					// phpcs:ignore SlevomatCodingStandard.PHP.DisallowReference.DisallowedInheritingVariableByReference
 					static function ( $record ) use ( &$page ) {
 						$page[] = $record;
 					}
@@ -188,29 +212,6 @@ final class Images {
 				);
 			}
 		);
-	}
-
-	/**
-	 * Formats Drive image records from one folder the way a folder page
-	 * does — excluded photos dropped, orientation corrections merged — but
-	 * without the folder's ordering. Used for filter results (Photo_Filter),
-	 * whose photos come from all over the gallery.
-	 *
-	 * @param array<array<string, mixed>> $records   Raw Google Drive image records.
-	 * @param string                      $parent_id The Drive folder the records are in.
-	 * @param Options_Proxy               $options   The configuration of the gallery.
-	 *
-	 * @return array<array<string, mixed>>
-	 */
-	public static function from_records( array $records, $parent_id, $options ) {
-		$images = array_map(
-			static function ( $image ) use ( $options, $parent_id ) {
-				return self::format_image( $image, $options, $parent_id );
-			},
-			self::filter_excluded( $records )
-		);
-
-		return self::merge_corrections( $images, $parent_id, $options );
 	}
 
 	/**
@@ -240,7 +241,7 @@ final class Images {
 			// it as plain text in the lightbox caption). Escaping it here as well
 			// showed quotes as "&quot;".
 			'description' => array_key_exists( 'description', $image ) ? (string) $image['description'] : '',
-			'exif'        => self::format_exif( $metadata, array_key_exists( 'name', $image ) ? (string) $image['name'] : '' ),
+			'exif'        => self::format_exif( $metadata, $image ),
 			'folder_id'   => $parent_id,
 			'height'      => $height,
 			'id'          => $image['id'],
@@ -262,12 +263,14 @@ final class Images {
 	 * does for ordering (see Photo_Date_Order).
 	 *
 	 * @param array<string, mixed> $metadata The image's `imageMediaMetadata` fields (possibly empty).
-	 * @param string               $name     The file name.
+	 * @param array<string, mixed> $image    The raw Google Drive image record (for its name).
 	 *
 	 * @return array<string, mixed> The non-null EXIF fields.
 	 */
-	private static function format_exif( $metadata, $name ) {
-		$named = empty( $metadata['time'] ) ? Photo_Date_Order::name_date( $name ) : '';
+	private static function format_exif( $metadata, $image ) {
+		$named = '' === (string) ( $metadata['time'] ?? '' )
+			? Photo_Date_Order::name_date( (string) ( $image['name'] ?? '' ) )
+			: '';
 
 		if ( '' !== $named ) {
 			// Just the date when the name has no time ("IMG-20210804-WA0014").
@@ -277,25 +280,25 @@ final class Images {
 
 		return array_filter(
 			array(
-				'aperture' => self::numeric_metadata_value(
+				'aperture'    => self::numeric_metadata_value(
 					$metadata,
 					'aperture',
 					static function ( $value ) {
 						return round( floatval( $value ), 1 );
 					}
 				),
-				'exposure' => self::numeric_metadata_value( $metadata, 'exposureTime', 'floatval' ),
-				'focal'    => self::numeric_metadata_value(
+				'exposure'    => self::numeric_metadata_value( $metadata, 'exposureTime', 'floatval' ),
+				'focal'       => self::numeric_metadata_value(
 					$metadata,
 					'focalLength',
 					static function ( $value ) {
 						return round( floatval( $value ) );
 					}
 				),
-				'iso'      => self::numeric_metadata_value( $metadata, 'isoSpeed', 'intval' ),
-				'make'     => array_key_exists( 'cameraMake', $metadata ) ? $metadata['cameraMake'] : null,
-				'model'    => array_key_exists( 'cameraModel', $metadata ) ? $metadata['cameraModel'] : null,
-				'time'     => array_key_exists( 'time', $metadata ) ? $metadata['time'] : null,
+				'iso'         => self::numeric_metadata_value( $metadata, 'isoSpeed', 'intval' ),
+				'make'        => array_key_exists( 'cameraMake', $metadata ) ? $metadata['cameraMake'] : null,
+				'model'       => array_key_exists( 'cameraModel', $metadata ) ? $metadata['cameraModel'] : null,
+				'time'        => array_key_exists( 'time', $metadata ) ? $metadata['time'] : null,
 				'time_source' => '' === $named ? null : 'name',
 			),
 			static function ( $value ) {

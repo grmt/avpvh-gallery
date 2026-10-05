@@ -174,7 +174,7 @@ export interface FilterScope {
 
 // How photos are ordered: by name (folders only), or by date old to new or
 // new to old (see Photo_Date_Order).
-export type SortOrder = 'date' | 'date_desc' | 'name';
+export type SortOrder = 'date_desc' | 'date' | 'name';
 
 // The folder order picker: the current order and what to do on a change.
 export interface FilterSort {
@@ -188,6 +188,70 @@ export interface FilterShare {
 	enabled: boolean;
 	folder: string;
 	nonce: string;
+}
+
+// "Delen via Google Drive": after confirming, starts the share and says
+// where the link will be sent.
+function shareButton(
+	ajaxUrl: string,
+	share: FilterShare,
+	conditions: Array<FilterCondition>,
+	total: number,
+	here: boolean,
+	status: HTMLElement
+): HTMLElement {
+	const button = document.createElement('button');
+	button.type = 'button';
+	button.className = 'avpvh-filter-share';
+	button.textContent = 'Delen via Google Drive';
+	button.title =
+		'Kopieer deze foto’s naar een map in Google Drive die alleen jij een week lang kunt openen; de link komt per e-mail';
+	// The first click asks for confirmation in the button itself, the second
+	// one starts the share.
+	button.addEventListener('click', () => {
+		if (button.dataset['confirm'] !== '1') {
+			button.dataset['confirm'] = '1';
+			button.textContent = `Ja, ${String(total)} foto${total === 1 ? '' : "'s"} delen (link per e-mail, een week geldig)`;
+			return;
+		}
+		button.disabled = true;
+		void requestShare(
+			ajaxUrl,
+			share,
+			conditions,
+			describe(conditions, here)
+		).then((message) => {
+			status.textContent = message;
+		});
+	});
+	return button;
+}
+
+// "Volgorde": by name, or by date either way. Filter results are always by
+// date (first the folder's year), so there only the direction is offered.
+function sortPicker(sort: FilterSort, filtering: boolean): HTMLElement {
+	const label = document.createElement('label');
+	label.className = 'avpvh-filter-sort';
+	label.title =
+		'Datum: op opnamedatum (EXIF), anders de datum die Google Drive kent';
+	const byDate: Array<[string, string]> = [
+		['date', 'Datum (oud → nieuw)'],
+		['date_desc', 'Datum (nieuw → oud)'],
+	];
+	const picker = select(
+		'avpvh-filter-select',
+		filtering ? byDate : [['name', 'Naam'], ...byDate]
+	);
+	picker.value = filtering && sort.order === 'name' ? 'date' : sort.order;
+	picker.addEventListener('change', () => {
+		sort.onChange(
+			picker.value === 'date' || picker.value === 'date_desc'
+				? picker.value
+				: 'name'
+		);
+	});
+	label.append(document.createTextNode('Volgorde '), picker);
+	return label;
 }
 
 // The filter bar shown above the gallery: the current conditions as
@@ -334,7 +398,14 @@ export function buildFilterBar(
 			total > 0
 		) {
 			bar.appendChild(
-				shareButton(ajaxUrl, share, conditions, total, scope.here, status)
+				shareButton(
+					ajaxUrl,
+					share,
+					conditions,
+					total,
+					scope.here,
+					status
+				)
 			);
 		}
 		const clear = document.createElement('button');
@@ -348,68 +419,4 @@ export function buildFilterBar(
 	}
 
 	return bar;
-}
-
-// "Delen via Google Drive": after confirming, starts the share and says
-// where the link will be sent.
-function shareButton(
-	ajaxUrl: string,
-	share: FilterShare,
-	conditions: Array<FilterCondition>,
-	total: number,
-	here: boolean,
-	status: HTMLElement
-): HTMLElement {
-	const button = document.createElement('button');
-	button.type = 'button';
-	button.className = 'avpvh-filter-share';
-	button.textContent = 'Delen via Google Drive';
-	button.title =
-		'Kopieer deze foto’s naar een map in Google Drive die alleen jij een week lang kunt openen; de link komt per e-mail';
-	button.addEventListener('click', () => {
-		if (
-			!window.confirm(
-				`${String(total)} foto${total === 1 ? '' : "'s"} delen via Google Drive? Je krijgt een link per e-mail, die een week geldig is.`
-			)
-		) {
-			return;
-		}
-		button.disabled = true;
-		void requestShare(
-			ajaxUrl,
-			share,
-			conditions,
-			describe(conditions, here)
-		).then((message) => {
-			status.textContent = message;
-		});
-	});
-	return button;
-}
-
-// "Volgorde": by name, or by date either way. Filter results are always by
-// date (first the folder's year), so there only the direction is offered.
-function sortPicker(sort: FilterSort, filtering: boolean): HTMLElement {
-	const label = document.createElement('label');
-	label.className = 'avpvh-filter-sort';
-	label.title =
-		'Datum: op opnamedatum (EXIF), anders de datum die Google Drive kent';
-	const byDate: Array<[string, string]> = [
-		['date', 'Datum (oud → nieuw)'],
-		['date_desc', 'Datum (nieuw → oud)'],
-	];
-	const picker = select(
-		'avpvh-filter-select',
-		filtering ? byDate : [['name', 'Naam'], ...byDate]
-	);
-	picker.value = filtering && sort.order === 'name' ? 'date' : sort.order;
-	picker.addEventListener('change', () => {
-		sort.onChange(
-			picker.value === 'date' || picker.value === 'date_desc'
-				? picker.value
-				: 'name'
-		);
-	});
-	label.append(document.createTextNode('Volgorde '), picker);
-	return label;
 }

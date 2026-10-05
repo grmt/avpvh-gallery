@@ -89,7 +89,48 @@ final class Photo_Marks {
 		self::store( $image_id, $level );
 		Tag_Log::record( $image_id, 'mark', self::CIRCLE, $level . ' ster(ren)', 0 < $delta ? 'add' : 'remove' );
 
-		wp_send_json_success( array( 'mark' => self::tallies( array( $image_id ) )[ $image_id ] ?? self::empty_tally() ) );
+		wp_send_json_success(
+			array( 'mark' => self::tallies( array( $image_id ) )[ $image_id ] ?? self::empty_tally() )
+		);
+	}
+
+	/**
+	 * Per photo: the current user's stars, everyone else's, and who gave
+	 * how many ("Annet 2, Lisette 1" — see short_names()).
+	 *
+	 * @param array<string> $ids Drive file IDs.
+	 *
+	 * @return array<string, array{mine: int, others: int, voters: string}>
+	 */
+	public static function tallies( array $ids ) {
+		global $wpdb;
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%s' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- plugin table, fixed name; the rest is prepared.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT image_id, owner, level FROM {$wpdb->prefix}agallery_photo_marks
+				 WHERE circle = %s AND level > 0 AND image_id IN ({$placeholders})
+				 ORDER BY level DESC, owner",
+				array_merge( array( self::CIRCLE ), $ids )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows    = is_array( $rows ) ? $rows : array();
+		$names   = self::short_names();
+		$me      = get_current_user_id();
+		$tallies = array();
+
+		foreach ( $rows as $row ) {
+			$image_id               = (string) $row->image_id;
+			$tallies[ $image_id ] ??= self::empty_tally();
+			$key                    = (int) $row->owner === $me ? 'mine' : 'others';
+
+			$tallies[ $image_id ][ $key ]   += (int) $row->level;
+			$tallies[ $image_id ]['voters'] .= ( '' === $tallies[ $image_id ]['voters'] ? '' : ', ' )
+				. ( $names[ (int) $row->owner ] ?? '?' ) . ' ' . (int) $row->level;
+		}
+
+		return $tallies;
 	}
 
 	/**
@@ -130,45 +171,6 @@ final class Photo_Marks {
 			'others' => 0,
 			'voters' => '',
 		);
-	}
-
-	/**
-	 * Per photo: the current user's stars, everyone else's, and who gave
-	 * how many ("Annet 2, Lisette 1" — see short_names()).
-	 *
-	 * @param array<string> $ids Drive file IDs.
-	 *
-	 * @return array<string, array{mine: int, others: int, voters: string}>
-	 */
-	public static function tallies( array $ids ) {
-		global $wpdb;
-		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%s' ) );
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- plugin table, fixed name; the rest is prepared.
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT image_id, owner, level FROM {$wpdb->prefix}agallery_photo_marks
-				 WHERE circle = %s AND level > 0 AND image_id IN ({$placeholders})
-				 ORDER BY level DESC, owner",
-				array_merge( array( self::CIRCLE ), $ids )
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-		$rows    = is_array( $rows ) ? $rows : array();
-		$names   = self::short_names();
-		$me      = get_current_user_id();
-		$tallies = array();
-
-		foreach ( $rows as $row ) {
-			$image_id             = (string) $row->image_id;
-			$tallies[ $image_id ] = $tallies[ $image_id ] ?? self::empty_tally();
-			$key                  = (int) $row->owner === $me ? 'mine' : 'others';
-
-			$tallies[ $image_id ][ $key ]    += (int) $row->level;
-			$tallies[ $image_id ]['voters'] .= ( '' === $tallies[ $image_id ]['voters'] ? '' : ', ' )
-				. ( $names[ (int) $row->owner ] ?? '?' ) . ' ' . (int) $row->level;
-		}
-
-		return $tallies;
 	}
 
 	/**

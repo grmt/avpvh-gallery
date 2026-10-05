@@ -22,8 +22,9 @@ use Avpvh\Frontend\Page;
 use Avpvh\Frontend\PDF_Proxy;
 use Avpvh\Frontend\Photo_Filter;
 use Avpvh\Frontend\Photo_Marks;
-use Avpvh\Frontend\Photo_Shares;
 use Avpvh\Frontend\Photo_Places;
+use Avpvh\Frontend\Photo_Shares;
+use Avpvh\Frontend\Photo_Shares_Page;
 use Avpvh\Frontend\Photo_Tags;
 use Avpvh\Frontend\Shortcode;
 use Avpvh\Frontend\Subject_Tags;
@@ -65,6 +66,7 @@ final class Main {
 		new Photo_Filter();
 		new Photo_Marks();
 		new Photo_Shares();
+		new Photo_Shares_Page();
 		new Settings_Pages();
 		new TinyMCE_Plugin();
 	}

@@ -54,6 +54,13 @@ final class Sharing {
 	 * @return void
 	 */
 	public static function html() {
-		echo '<p>' . esc_html__( 'Members can copy the photos a filter finds into a temporary folder that only their Google account may open. A service account makes these folders: it must be able to read the gallery\'s photos and add files to the folder below (e.g. as content manager of the shared drive). Folders are removed after a week.', 'avpvh-gallery' ) . '</p>';
+		$text = array(
+			__( 'Members can copy the photos a filter finds into a temporary folder.', 'avpvh-gallery' ),
+			__( 'Only their own Google account may open it, and it is removed after a week.', 'avpvh-gallery' ),
+			__( 'A service account makes them; it must be able to read the gallery\'s photos', 'avpvh-gallery' ),
+			__( 'and add files to the folder below (e.g. as content manager).', 'avpvh-gallery' ),
+		);
+
+		echo '<p>' . esc_html( implode( ' ', $text ) ) . '</p>';
 	}
 }

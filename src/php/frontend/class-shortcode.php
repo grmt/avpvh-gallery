@@ -181,50 +181,71 @@ final class Shortcode {
 		// Admins and "boek" members may exclude photos and remove tags.
 		$may_curate = Exclusion_Permission::check() ? 'true' : 'false';
 
+		return array_merge(
+			self::member_data(),
+			array(
+				'ajax_url'             => admin_url( 'admin-ajax.php' ),
+				'branded_assets'       => $branded_assets ? 'true' : 'false',
+				'breadcrumbs_top'      => esc_html__( 'Gallery', 'avpvh-gallery' ),
+				'can_exclude_photos'   => $may_curate,
+				'can_remove_tags'      => $may_curate,
+				'empty_gallery'        => esc_html__( 'The gallery is empty.', 'avpvh-gallery' ),
+				'error_header'         => esc_html__(
+					'The AVPVH Gallery plugin has encountered an error. Error message:',
+					'avpvh-gallery'
+				),
+				'error_trace_header'   => esc_html__( 'Stack trace:', 'avpvh-gallery' ),
+				'exclusion_url'        => rest_url( 'avpvh-gallery/v1/exif-inspector/exclusion' ),
+				'exif_date_url'        => rest_url( 'avpvh-gallery/v1/exif-date' ),
+				'exif_inspector_url'   => current_user_can( 'manage_options' )
+					? admin_url( 'admin.php?page=avpvh_exif_inspector' )
+					: '',
+				'exif_orientation_url' => current_user_can( 'manage_options' )
+					? rest_url( 'avpvh-gallery/v1/exif-inspector/orientation' )
+					: '',
+				'grid_height'          => $options->get( 'grid_height' ),
+				'grid_spacing'         => 10 === (int) $options->get( 'grid_spacing' ) ? 4 : $options->get(
+					'grid_spacing'
+				),
+				'is_admin'             => current_user_can( 'manage_options' ) ? 'true' : 'false',
+				'load_more'            => esc_html__( 'Load more', 'avpvh-gallery' ),
+				'navigation_icon_url'  => plugins_url( '/avpvh-gallery/frontend/images/' . $navigation_icon ),
+				'page_autoload'        => $options->get( 'page_autoload' ),
+				'page_size'            => (string) $options->get( 'page_size' ),
+				'photo_place_url'      => rest_url( 'avpvh-gallery/v1/photo-place' ),
+				'preview_activity'     => $options->get( 'preview_activity_indicator' ),
+				'preview_arrows'       => $options->get( 'preview_arrows' ),
+				'preview_captions'     => $options->get( 'preview_captions' ),
+				'preview_closebutton'  => $options->get( 'preview_close_button' ),
+				'preview_quitOnEnd'    => 'true' === $options->get( 'preview_loop' ) ? 'false' : 'true',
+				'preview_speed'        => $options->get( 'preview_speed' ),
+				'reactions'            => Photo_Tags::REACTIONS,
+				'rest_nonce'           => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : '',
+				'server_error'         => esc_html__( 'The server returned an unexpected response.', 'avpvh-gallery' ),
+				'subject_tags'         => Subject_Tag_Tree::groups(),
+				'subject_tags_url'     => rest_url( 'avpvh-gallery/v1/subject-tags' ),
+				'tag_nonce'            => wp_create_nonce( 'avpvh_tag_nonce' ),
+			)
+		);
+	}
+
+	/**
+	 * The frontend data only logged-in members get: whether they can share a
+	 * filter via Google Drive, and their remembered filter.
+	 *
+	 * @return array{can_share: string, saved_filter: array<string, mixed>|null}
+	 */
+	private static function member_data() {
+		if ( ! is_user_logged_in() ) {
+			return array(
+				'can_share'    => 'false',
+				'saved_filter' => null,
+			);
+		}
+
 		return array(
-			'ajax_url'             => admin_url( 'admin-ajax.php' ),
-			'branded_assets'       => $branded_assets ? 'true' : 'false',
-			'breadcrumbs_top'      => esc_html__( 'Gallery', 'avpvh-gallery' ),
-			'can_exclude_photos'   => $may_curate,
-			'can_remove_tags'      => $may_curate,
-			'empty_gallery'        => esc_html__( 'The gallery is empty.', 'avpvh-gallery' ),
-			'error_header'         => esc_html__(
-				'The AVPVH Gallery plugin has encountered an error. Error message:',
-				'avpvh-gallery'
-			),
-			'error_trace_header'   => esc_html__( 'Stack trace:', 'avpvh-gallery' ),
-			'exclusion_url'        => rest_url( 'avpvh-gallery/v1/exif-inspector/exclusion' ),
-			'exif_date_url'        => rest_url( 'avpvh-gallery/v1/exif-date' ),
-			'exif_inspector_url'   => current_user_can( 'manage_options' )
-				? admin_url( 'admin.php?page=avpvh_exif_inspector' )
-				: '',
-			'exif_orientation_url' => current_user_can( 'manage_options' )
-				? rest_url( 'avpvh-gallery/v1/exif-inspector/orientation' )
-				: '',
-			'grid_height'          => $options->get( 'grid_height' ),
-			'grid_spacing'         => 10 === (int) $options->get( 'grid_spacing' ) ? 4 : $options->get(
-				'grid_spacing'
-			),
-			'is_admin'             => current_user_can( 'manage_options' ) ? 'true' : 'false',
-			'load_more'            => esc_html__( 'Load more', 'avpvh-gallery' ),
-			'navigation_icon_url'  => plugins_url( '/avpvh-gallery/frontend/images/' . $navigation_icon ),
-			'page_autoload'        => $options->get( 'page_autoload' ),
-			'page_size'            => (string) $options->get( 'page_size' ),
-			'photo_place_url'      => rest_url( 'avpvh-gallery/v1/photo-place' ),
-			'preview_activity'     => $options->get( 'preview_activity_indicator' ),
-			'preview_arrows'       => $options->get( 'preview_arrows' ),
-			'preview_captions'     => $options->get( 'preview_captions' ),
-			'preview_closebutton'  => $options->get( 'preview_close_button' ),
-			'preview_quitOnEnd'    => 'true' === $options->get( 'preview_loop' ) ? 'false' : 'true',
-			'preview_speed'        => $options->get( 'preview_speed' ),
-			'reactions'            => Photo_Tags::REACTIONS,
-			'rest_nonce'           => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : '',
-			'can_share'            => is_user_logged_in() && Share_Drive::configured() ? 'true' : 'false',
-			'saved_filter'         => is_user_logged_in() ? Photo_Filter::saved_state() : null,
-			'server_error'         => esc_html__( 'The server returned an unexpected response.', 'avpvh-gallery' ),
-			'subject_tags'         => Subject_Tag_Tree::groups(),
-			'subject_tags_url'     => rest_url( 'avpvh-gallery/v1/subject-tags' ),
-			'tag_nonce'            => wp_create_nonce( 'avpvh_tag_nonce' ),
+			'can_share'    => Share_Drive::configured() ? 'true' : 'false',
+			'saved_filter' => Filter_Memory::saved_state(),
 		);
 	}
 
