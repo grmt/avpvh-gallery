@@ -71,58 +71,40 @@ final class Photo_Filter_Options {
 	}
 
 	/**
-	 * Per circle of the viewer, each mark level in use ("Boek ★★ of meer")
-	 * with how many photos have at least that level.
+	 * Each number of stars in use ("★ 3 of meer"), counting everyone's
+	 * votes together, with how many photos have at least that many.
 	 *
 	 * @return array<array{value: string, label: string, count: int}>
 	 */
 	private static function marks() {
-		$options = array();
-
-		foreach ( Mark_Circles::available() as $circle => $label ) {
-			$counts = self::mark_level_counts( $circle );
-
-			for ( $level = 1; isset( $counts[ $level ] ); ++$level ) {
-				$stars     = str_repeat( '★', $level );
-				$options[] = array(
-					'count' => $counts[ $level ],
-					'label' => $label . ' ' . $stars . ( isset( $counts[ $level + 1 ] ) ? ' of meer' : '' ),
-					'value' => $circle . '|' . $level,
-				);
-			}
-		}
-
-		return $options;
-	}
-
-	/**
-	 * How many photos have at least each level in a circle.
-	 *
-	 * @param string $circle Circle key.
-	 *
-	 * @return array<int, int> Level => number of photos at that level or higher.
-	 */
-	private static function mark_level_counts( $circle ) {
 		global $wpdb;
-		$owner_clause = Mark_Circles::owner_clause( $circle );
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin table, fixed name; owner IDs are integers; the circle is prepared.
-		$levels = $wpdb->get_col(
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin table, fixed name; the circle is prepared.
+		$totals = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT MAX(level) FROM {$wpdb->prefix}agallery_photo_marks
-				 WHERE circle = %s AND {$owner_clause} GROUP BY image_id",
-				$circle
+				"SELECT SUM(level) FROM {$wpdb->prefix}agallery_photo_marks WHERE circle = %s GROUP BY image_id",
+				Photo_Marks::CIRCLE
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$counts = array();
 
-		foreach ( array_map( 'intval', $levels ) as $highest ) {
-			for ( $level = 1; $level <= $highest; ++$level ) {
-				$counts[ $level ] = ( $counts[ $level ] ?? 0 ) + 1;
+		foreach ( array_map( 'intval', $totals ) as $total ) {
+			for ( $stars = 1; $stars <= $total; ++$stars ) {
+				$counts[ $stars ] = ( $counts[ $stars ] ?? 0 ) + 1;
 			}
 		}
 
-		return $counts;
+		$options = array();
+
+		foreach ( $counts as $stars => $count ) {
+			$options[] = array(
+				'count' => $count,
+				'label' => '★ ' . $stars . ( isset( $counts[ $stars + 1 ] ) ? ' of meer' : '' ),
+				'value' => (string) $stars,
+			);
+		}
+
+		return $options;
 	}
 
 	/**

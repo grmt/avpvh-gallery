@@ -69,6 +69,21 @@ final class Photo_Filter_Scope {
 	}
 
 	/**
+	 * Each file's parent folder ('' when unknown), from the same cache.
+	 *
+	 * @param array<string> $ids Drive file IDs.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function parents( array $ids ) {
+		$cached  = get_transient( self::CACHE_KEY );
+		$parents = self::with_parents_of( $ids, is_array( $cached ) ? $cached : array() );
+		set_transient( self::CACHE_KEY, $parents, DAY_IN_SECONDS );
+
+		return array_intersect_key( $parents, array_flip( $ids ) );
+	}
+
+	/**
 	 * Moves every photo one folder up: the photos whose next folder is the
 	 * one asked for have arrived; those at the top are dropped.
 	 *

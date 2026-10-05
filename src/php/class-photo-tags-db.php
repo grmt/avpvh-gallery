@@ -22,7 +22,7 @@ final class Photo_Tags_DB {
 	 * Schema version stored in wp_options.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility -- matches the no-modifier convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION).
-	const SCHEMA_VERSION = 8;
+	const SCHEMA_VERSION = 10;
 
 	/**
 	 * Runs schema migration if needed; hooked to init.
@@ -134,10 +134,10 @@ final class Photo_Tags_DB {
 		dbDelta( $sql_places );
 
 		self::create_tag_tree_table( $charset_collate );
-		// Marks: a selection narrowed down in rounds (level 1, 2, 3…), kept
-		// per circle — a family ('family', one row per user; the household
-		// shares them) or an LDAP group ('group:<name>', owner 0, shared by
-		// the whole group). See Photo_Marks.
+		// Marks: star votes, one row per photo and voter (owner), level =
+		// that voter's stars. circle is always 'votes' since v9; before,
+		// marks were kept per family or LDAP group (see marks_to_votes()).
+		// See Photo_Marks.
 		$table_marks = $wpdb->prefix . 'agallery_photo_marks';
 		$sql_marks   = "CREATE TABLE {$table_marks} (
 			image_id VARCHAR(255) NOT NULL,
@@ -150,6 +150,29 @@ final class Photo_Tags_DB {
 			INDEX idx_circle_owner (circle, owner)
 		) {$charset_collate};";
 		dbDelta( $sql_marks );
+		self::marks_to_votes( $table_marks );
+
+		// Shares: a filter's photos copied into a Drive folder shared with
+		// the user's Google address for a while (see Photo_Shares). The
+		// filter is kept, so an expired share can be made again.
+		$table_shares = $wpdb->prefix . 'agallery_photo_shares';
+		$sql_shares   = "CREATE TABLE {$table_shares} (
+			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			user_id BIGINT UNSIGNED NOT NULL,
+			description VARCHAR(500) NOT NULL DEFAULT '',
+			conditions TEXT NOT NULL,
+			folder_id VARCHAR(255) NOT NULL DEFAULT '',
+			recipient VARCHAR(255) NOT NULL DEFAULT '',
+			status VARCHAR(10) NOT NULL,
+			photo_count INT UNSIGNED NOT NULL DEFAULT 0,
+			drive_folder_id VARCHAR(255) NOT NULL DEFAULT '',
+			error VARCHAR(500) NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL,
+			expires_at DATETIME NULL,
+			INDEX idx_user (user_id),
+			INDEX idx_status_expires (status, expires_at)
+		) {$charset_collate};";
+		dbDelta( $sql_shares );
 
 		update_option( 'avpvh_photo_tags_schema', self::SCHEMA_VERSION );
 	}
@@ -164,6 +187,7 @@ final class Photo_Tags_DB {
 
 		$tables = array(
 			$wpdb->prefix . 'agallery_tag_nodes',
+			$wpdb->prefix . 'agallery_photo_shares',
 			$wpdb->prefix . 'agallery_photo_marks',
 			$wpdb->prefix . 'agallery_photo_places',
 			$wpdb->prefix . 'agallery_tag_log',
@@ -203,6 +227,36 @@ final class Photo_Tags_DB {
 			$wpdb->query( "ALTER TABLE {$table} DROP INDEX image_category_key" );
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Schema v9 turned marks per circle (a family, or an LDAP group sharing
+	 * one row with owner 0) into one pool of votes, one row per voter. Each
+	 * voter keeps their highest mark (a group's shared row goes to whoever
+	 * last changed it), up to the stars one person may give.
+	 *
+	 * @param string $table The marks table.
+	 *
+	 * @return void
+	 */
+	private static function marks_to_votes( $table ) {
+		global $wpdb;
+		$per_person = max( 1, (int) Options::$mark_votes_per_person->get() );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- one-off data migration of a custom plugin table.
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT INTO {$table} (image_id, circle, owner, level, updated_by)
+				 SELECT image_id, 'votes', voter, LEAST(MAX(level), %d), voter
+				 FROM ( SELECT image_id, level, IF(owner = 0, updated_by, owner) AS voter
+				        FROM {$table} WHERE circle <> 'votes' ) old
+				 WHERE voter > 0
+				 GROUP BY image_id, voter
+				 ON DUPLICATE KEY UPDATE level = GREATEST(level, VALUES(level))",
+				$per_person
+			)
+		);
+		$wpdb->query( "DELETE FROM {$table} WHERE circle <> 'votes'" );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	/**

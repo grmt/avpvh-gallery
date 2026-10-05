@@ -32,15 +32,10 @@ import {
 	conditionsParam,
 	type FilterCondition,
 	isActiveFilter,
+	type SortOrder,
+	rememberFilter,
 } from './PhotoFilter';
-import {
-	activeCircle,
-	buildCirclePicker,
-	enableMarking,
-	fetchCircles,
-	type MarkCircle,
-	showMarks,
-} from './PhotoMarks';
+import { enableMarking, showMarks } from './PhotoMarks';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
 
@@ -104,10 +99,16 @@ export class Shortcode {
 	private filterTotal: number | null = null;
 	// "Alleen deze map": filter only the current folder and below it.
 	private filterHere = false;
-	// The circles the viewer can mark photos in (see PhotoMarks), and the
-	// one right-clicks currently mark in; empty when not logged in.
-	private markCircles: Array<MarkCircle> = [];
-	private markCircle = '';
+	// Order chosen by the viewer: by name, or by date (EXIF capture date,
+	// then the date Drive has — see Photo_Date_Order) old to new or new to
+	// old; remembered per browser. Filter results are always by date, in
+	// the chosen direction.
+	private sortOrder: SortOrder = Shortcode.storedSortOrder();
+	// The filter as last remembered for the user (JSON), so it's only sent
+	// when it changes.
+	private rememberedFilter = JSON.stringify(
+		avpvhShortcodeLocalize.saved_filter
+	);
 	private hasMore = false;
 	private path = '';
 	private lastPage = 1;
@@ -165,6 +166,17 @@ export class Shortcode {
 
 	private readonly navigationIconUrl: string;
 
+	private static storedSortOrder(): SortOrder {
+		try {
+			const stored = localStorage.getItem('avpvh_gallery_sort');
+			return stored === 'date' || stored === 'date_desc'
+				? stored
+				: 'name';
+		} catch {
+			return 'name';
+		}
+	}
+
 	public constructor(container: HTMLElement, hash: string) {
 		this.container = $(container);
 		this.hash = hash;
@@ -191,7 +203,7 @@ export class Shortcode {
 		this.photoTagger = new PhotoTagger();
 		void this.photoTagger.init(container);
 		this.setupMarking();
-		this.get();
+		this.start();
 		this.setupFolderSwipe();
 		this.setupFolderKeyboard();
 		window.addEventListener('message', (event: MessageEvent<unknown>) => {
@@ -1053,15 +1065,26 @@ export class Shortcode {
 								);
 								const chosen: Array<string> = [];
 								boxes.forEach((box) => {
-									// Ticked = your vote; the count is everyone's.
-									box.checked = subjectState.tags.includes(
+									// Ticked in colour = your vote; ticked in
+									// grey = only others' (clicking it adds
+									// yours). The count is everyone's.
+									const mine = subjectState.tags.includes(
 										box.value
 									);
 									const detail =
 										subjectState.details[box.value];
 									const count = detail?.count ?? 0;
+									box.checked = mine || count > 0;
+									box.classList.toggle(
+										'avpvh-tag-others-only',
+										!mine && count > 0
+									);
 									const label = box.parentElement;
 									if (label !== null) {
+										label.classList.toggle(
+											'avpvh-tag-tagged',
+											count > 0
+										);
 										label.title =
 											detail === undefined
 												? ''
@@ -1073,7 +1096,7 @@ export class Shortcode {
 										if (votes !== null) {
 											votes.textContent =
 												count > 1 ||
-												(count === 1 && !box.checked)
+												(count === 1 && !mine)
 													? ` (${String(count)})`
 													: '';
 										}
@@ -1083,7 +1106,7 @@ export class Shortcode {
 											);
 										if (clear !== null) {
 											clear.hidden =
-												count <= (box.checked ? 1 : 0);
+												count <= (mine ? 1 : 0);
 										}
 									}
 									if (
@@ -1393,6 +1416,18 @@ export class Shortcode {
 										return;
 									}
 									const fileId = exclusionFileId;
+									// A grey tick (others' votes only) gets
+									// your vote rather than being unticked.
+									if (
+										checkbox.classList.contains(
+											'avpvh-tag-others-only'
+										)
+									) {
+										checkbox.checked = true;
+										checkbox.classList.remove(
+											'avpvh-tag-others-only'
+										);
+									}
 									const active = checkbox.checked;
 									const isHead = slug === group.key;
 									const siblings =
@@ -3801,6 +3836,7 @@ export class Shortcode {
 			avpvhShortcodeLocalize.ajax_url,
 			{
 				action: 'gallery',
+				sort: this.sortOrder,
 				hash: this.hash,
 				path: parentPath,
 				page: searchPage,
@@ -4313,6 +4349,7 @@ export class Shortcode {
 			avpvhShortcodeLocalize.ajax_url,
 			{
 				action: 'gallery',
+				sort: this.sortOrder,
 				hash: this.hash,
 				path: parentPath,
 				page: searchPage,
@@ -4372,7 +4409,13 @@ export class Shortcode {
 
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
-			{ action: 'gallery', hash: this.hash, path: node.path, page: 1 },
+			{
+				action: 'gallery',
+				sort: this.sortOrder,
+				hash: this.hash,
+				path: node.path,
+				page: 1,
+			},
 			(data: GalleryResponse) => {
 				node.loadingMore = false;
 				if (isError(data)) {
@@ -4946,11 +4989,50 @@ export class Shortcode {
 		}
 	}
 
+	// Back/forward: shows the folder in the URL — or, while filtering, keeps
+	// the filter, limited to that folder unless it's the gallery's top.
 	private init(): void {
 		const newPath = this.pathQueryParameter.get();
-		if (this.path !== newPath) {
-			this.path = newPath;
+		if (this.path === newPath) {
+			return;
+		}
+		this.path = newPath;
+		this.showFolder();
+	}
+
+	// The first view: the user's remembered filter if there is one — only
+	// within the folder when the link names one — else the folder.
+	private start(): void {
+		const saved = avpvhShortcodeLocalize.saved_filter;
+		if (
+			'' !== avpvhShortcodeLocalize.rest_nonce &&
+			saved !== null &&
+			isActiveFilter(saved.conditions)
+		) {
+			this.filterHere = saved.here || this.path !== '';
+			this.getFiltered(saved.conditions);
+		} else {
 			this.get();
+		}
+	}
+
+	// Remembers the current filter (or none) for the user, if it changed.
+	private rememberFilter(): void {
+		if ('' === avpvhShortcodeLocalize.rest_nonce) {
+			return;
+		}
+		const state =
+			this.filter !== null && isActiveFilter(this.filter)
+				? { conditions: this.filter, here: this.filterHere }
+				: null;
+		const json = JSON.stringify(state);
+		if (json !== this.rememberedFilter) {
+			this.rememberedFilter = json;
+			rememberFilter(
+				avpvhShortcodeLocalize.ajax_url,
+				avpvhShortcodeLocalize.tag_nonce,
+				state
+			);
 		}
 	}
 
@@ -4958,6 +5040,7 @@ export class Shortcode {
 		const epoch = ++this.getEpoch;
 		this.filter = null;
 		this.filterTotal = null;
+		this.rememberFilter();
 		this.path = this.pathQueryParameter.get();
 		this.lastPage = parseInt(this.pageQueryParameter.get()) || 1;
 		this.container
@@ -4966,7 +5049,7 @@ export class Shortcode {
 		this.container.find('.avpvh-more-button').remove();
 		ShortcodeRegistry.reflowAll();
 
-		const cacheKey = `gallery-${this.hash}-${this.path}-${this.lastPage.toString()}`;
+		const cacheKey = `gallery-${this.sortOrder}-${this.hash}-${this.path}-${this.lastPage.toString()}`;
 		if (Shortcode.cache.has(cacheKey)) {
 			const cachedData = Shortcode.cache.get(cacheKey) as GalleryResponse;
 			if (isError(cachedData)) {
@@ -4983,6 +5066,7 @@ export class Shortcode {
 			avpvhShortcodeLocalize.ajax_url,
 			{
 				action: 'gallery',
+				sort: this.sortOrder,
 				hash: this.hash,
 				path: this.path,
 				page: this.lastPage,
@@ -5100,44 +5184,19 @@ export class Shortcode {
 		enableMarking(
 			avpvhShortcodeLocalize.ajax_url,
 			avpvhShortcodeLocalize.tag_nonce,
-			this.container[0],
-			() => this.markCircle
-		);
-		void fetchCircles(avpvhShortcodeLocalize.ajax_url).then((circles) => {
-			this.markCircles = circles;
-			this.markCircle = activeCircle(circles);
-			this.refreshMarks();
-			this.container
-				.find('.avpvh-filter-bar')
-				.first()
-				.prepend(this.circlePicker());
-		});
-	}
-
-	private circlePicker(): HTMLElement {
-		return buildCirclePicker(
-			this.markCircles,
-			this.markCircle,
-			(circle) => {
-				this.markCircle = circle;
-				this.refreshMarks();
-			}
+			this.container[0]
 		);
 	}
 
-	// Shows the active circle's marks on the thumbnails.
+	// Shows the stars on the thumbnails, for logged-in users.
 	private refreshMarks(): void {
-		if (this.markCircle !== '') {
-			void showMarks(
-				avpvhShortcodeLocalize.ajax_url,
-				this.container[0],
-				this.markCircle
-			);
+		if ('' !== avpvhShortcodeLocalize.rest_nonce) {
+			void showMarks(avpvhShortcodeLocalize.ajax_url, this.container[0]);
 		}
 	}
 
 	// The filter bar above the grid, for logged-in users (the filter
-	// endpoints are wp_ajax_-only), with the marking circle in front.
+	// endpoints are wp_ajax_-only).
 	private mountFilterBar(): void {
 		if ('' === avpvhShortcodeLocalize.rest_nonce) {
 			return;
@@ -5151,10 +5210,48 @@ export class Shortcode {
 				here: this.filterHere,
 				onToggle: (here) => {
 					this.filterHere = here;
+					// The whole gallery: go to its top, as a step back can
+					// return from (see init()).
+					if (!here && this.path !== '' && this.filter !== null) {
+						history.pushState(
+							{},
+							'',
+							this.pathQueryParameter.remove()
+						);
+						if ('' !== this.pageQueryParameter.get()) {
+							history.replaceState(
+								{},
+								'',
+								this.pageQueryParameter.remove()
+							);
+						}
+						this.path = '';
+					}
 					if (this.filter !== null) {
 						this.getFiltered(this.filter);
 					}
 				},
+			},
+			{
+				order: this.sortOrder,
+				onChange: (order) => {
+					this.sortOrder = order;
+					try {
+						localStorage.setItem('avpvh_gallery_sort', order);
+					} catch {
+						// Not remembered; still used for this page view.
+					}
+					if (this.filter !== null) {
+						this.getFiltered(this.filter);
+					} else {
+						this.get();
+					}
+				},
+			},
+			{
+				enabled: avpvhShortcodeLocalize.can_share === 'true',
+				folder: this.filterFolder(),
+				nonce: avpvhShortcodeLocalize.tag_nonce,
 			},
 			(conditions) => {
 				if (isActiveFilter(conditions)) {
@@ -5166,9 +5263,6 @@ export class Shortcode {
 				}
 			}
 		);
-		if (this.markCircles.length > 0) {
-			bar.prepend(this.circlePicker());
-		}
 		this.container.prepend(bar);
 	}
 
@@ -5178,13 +5272,16 @@ export class Shortcode {
 		const epoch = ++this.getEpoch;
 		this.filter = conditions;
 		this.filterTotal = null;
+		this.rememberFilter();
 		this.lastPage = 1;
 		this.container.html('<div class="avpvh-loading"><div></div></div>');
 		this.mountFilterBar();
+		const folder = this.fetchFolder(this.path);
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
 			{
 				action: 'gallery_filter',
+				sort: this.sortOrder,
 				hash: this.hash,
 				page: 1,
 				conditions: conditionsParam(conditions),
@@ -5200,10 +5297,23 @@ export class Shortcode {
 					);
 					return;
 				}
-				this.filterTotal = data.total ?? 0;
-				this.getSuccess({
-					images: data.images ?? [],
-					more: data.more ?? false,
+				void folder.then((listing) => {
+					if (epoch !== this.getEpoch) {
+						return;
+					}
+					this.filterTotal = data.total ?? 0;
+					// The folder's breadcrumbs and subfolders stay, so you
+					// can move around with the filter on.
+					this.getSuccess({
+						...(listing?.path !== undefined
+							? { path: listing.path }
+							: {}),
+						...(listing?.directories !== undefined
+							? { directories: listing.directories }
+							: {}),
+						images: data.images ?? [],
+						more: data.more ?? false,
+					});
 				});
 			}
 		).fail(() => {
@@ -5219,17 +5329,55 @@ export class Shortcode {
 		});
 	}
 
+	// A folder's first page (cached like get()'s), for its breadcrumbs and
+	// subfolders; null if it can't be loaded.
+	private async fetchFolder(
+		path: string
+	): Promise<GallerySuccessResponse | null> {
+		const cacheKey = `gallery-${this.sortOrder}-${this.hash}-${path}-1`;
+		let data = Shortcode.cache.get(cacheKey) as GalleryResponse | undefined;
+		if (data === undefined) {
+			try {
+				data = (await $.get(avpvhShortcodeLocalize.ajax_url, {
+					action: 'gallery',
+					sort: this.sortOrder,
+					hash: this.hash,
+					path,
+					page: 1,
+				})) as GalleryResponse;
+			} catch {
+				return null;
+			}
+			Shortcode.cache.set(cacheKey, data);
+		}
+		return isError(data) ? null : data;
+	}
+
+	// Shows the folder now in this.path: with the filter on (limited to
+	// that folder, unless it's the gallery's top) while filtering, else
+	// the folder itself.
+	private showFolder(): void {
+		this.path = this.pathQueryParameter.get();
+		if (this.filter !== null && isActiveFilter(this.filter)) {
+			this.filterHere = this.path !== '';
+			this.getFiltered(this.filter);
+		} else {
+			this.get();
+		}
+	}
+
 	// The request for one more page: of the folder, or of the filter results.
 	private pageRequest(path: string, page: number): Record<string, unknown> {
 		return this.filter !== null
 			? {
 					action: 'gallery_filter',
+					sort: this.sortOrder,
 					hash: this.hash,
 					page,
 					conditions: conditionsParam(this.filter),
 					folder: this.filterFolder(),
 				}
-			: { action: 'page', hash: this.hash, path, page };
+			: { action: 'page', sort: this.sortOrder, hash: this.hash, path, page };
 	}
 
 	// The folder a filter is limited to ("Alleen deze map"), or '' for the
@@ -5329,7 +5477,7 @@ export class Shortcode {
 			);
 		this.container.find('.avpvh-more-button').remove();
 
-		const cacheKey = `page-${this.hash}-${this.pathQueryParameter.get()}-${JSON.stringify(this.filter)}-${this.filterFolder()}-${this.lastPage.toString()}`;
+		const cacheKey = `page-${this.sortOrder}-${this.hash}-${this.pathQueryParameter.get()}-${JSON.stringify(this.filter)}-${this.filterFolder()}-${this.lastPage.toString()}`;
 		if (Shortcode.cache.has(cacheKey)) {
 			const cachedData = Shortcode.cache.get(cacheKey) as PageResponse;
 			if (isError(cachedData)) {
@@ -5459,7 +5607,7 @@ export class Shortcode {
 						$(e.currentTarget).data('avpvhPath') as string
 					)
 				);
-				this.get();
+				this.showFolder();
 				return false;
 			});
 		this.container
@@ -5573,7 +5721,7 @@ export class Shortcode {
 			return;
 		}
 		const nextPage = this.lastPage + 1;
-		const cacheKey = `page-${this.hash}-${this.pathQueryParameter.get()}-${String(nextPage)}`;
+		const cacheKey = `page-${this.sortOrder}-${this.hash}-${this.pathQueryParameter.get()}-${String(nextPage)}`;
 		if (Shortcode.cache.has(cacheKey)) {
 			return;
 		}
@@ -5581,6 +5729,7 @@ export class Shortcode {
 			avpvhShortcodeLocalize.ajax_url,
 			{
 				action: 'page',
+				sort: this.sortOrder,
 				hash: this.hash,
 				path: this.pathQueryParameter.get(),
 				page: nextPage,
@@ -5822,7 +5971,9 @@ export class Shortcode {
 		if (exif.time !== undefined) {
 			const d = Shortcode.formatExifDate(exif.time);
 			if (d !== '') {
-				parts.push(d);
+				parts.push(
+					exif.time_source === 'name' ? d + ' (uit bestandsnaam)' : d
+				);
 			}
 		}
 		const camera = Shortcode.formatCamera(exif.make, exif.model);

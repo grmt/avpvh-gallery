@@ -37,6 +37,11 @@ final class Photo_Filter {
 	private const PAGE_SIZE = 60;
 
 	/**
+	 * User meta holding the remembered filter (see handle_save()).
+	 */
+	private const MEMORY_KEY = 'avpvh_gallery_filter';
+
+	/**
 	 * Per kind of condition: the photos it matches ({prefix} = table prefix;
 	 * one placeholder for the condition's value).
 	 */
@@ -80,6 +85,70 @@ final class Photo_Filter {
 	public function __construct() {
 		add_action( 'wp_ajax_gallery_filter', array( self::class, 'handle_filter' ) );
 		add_action( 'wp_ajax_gallery_filter_options', array( self::class, 'handle_options' ) );
+		add_action( 'wp_ajax_gallery_filter_save', array( self::class, 'handle_save' ) );
+	}
+
+	/**
+	 * The "gallery_filter_save" endpoint: remembers the user's current filter
+	 * (or that there is none), so the gallery shows it again after a reload
+	 * or the next login. POST: state, a JSON {conditions: [{kind, value, op,
+	 * label}], here} or "null".
+	 *
+	 * @return void
+	 */
+	public static function handle_save() {
+		check_ajax_referer( 'avpvh_tag_nonce' );
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- verified above; decoded and sanitized field by field in remembered().
+		$state = self::remembered( json_decode( wp_unslash( (string) ( $_POST['state'] ?? 'null' ) ), true ) );
+
+		if ( null === $state ) {
+			delete_user_meta( get_current_user_id(), self::MEMORY_KEY );
+		} else {
+			update_user_meta( get_current_user_id(), self::MEMORY_KEY, $state );
+		}
+
+		wp_send_json_success();
+	}
+
+	/**
+	 * The current user's remembered filter, or null.
+	 *
+	 * @return array{conditions: array<array{kind: string, value: string, op: string, label: string}>, here: bool}|null
+	 */
+	public static function saved_state() {
+		$state = get_user_meta( get_current_user_id(), self::MEMORY_KEY, true );
+
+		return self::remembered( $state );
+	}
+
+	/**
+	 * A filter state to remember, sanitized, or null for none.
+	 *
+	 * @param mixed $state Decoded state.
+	 *
+	 * @return array{conditions: array<array{kind: string, value: string, op: string, label: string}>, here: bool}|null
+	 */
+	private static function remembered( $state ) {
+		if ( ! is_array( $state ) || ! is_array( $state['conditions'] ?? null ) ) {
+			return null;
+		}
+
+		$conditions = array();
+
+		foreach ( array_slice( $state['conditions'], 0, 20 ) as $condition ) {
+			$valid = self::valid_condition( $condition );
+
+			if ( null !== $valid ) {
+				$valid['value'] = (string) $valid['value'];
+				$valid['label'] = mb_substr( sanitize_text_field( (string) ( $condition['label'] ?? '' ) ), 0, 200 );
+				$conditions[]   = $valid;
+			}
+		}
+
+		return array() === $conditions ? null : array(
+			'conditions' => $conditions,
+			'here'       => true === ( $state['here'] ?? false ),
+		);
 	}
 
 	/**
@@ -126,9 +195,12 @@ final class Photo_Filter {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
 		$folder_id = sanitize_text_field( wp_unslash( (string) ( $_GET['folder'] ?? '' ) ) );
 
+		// "Datum (nieuw → oud)": newest first.
+		$newest_first = 'date_desc' === sanitize_key( wp_unslash( (string) ( $_GET['sort'] ?? '' ) ) );
+
 		list( $ids, $total ) = '' === $folder_id
-			? self::matching_ids( $conditions, $page )
-			: self::matching_ids_within( $conditions, $page, $folder_id );
+			? self::matching_ids( $conditions, $page, $newest_first )
+			: self::matching_ids_within( $conditions, $page, $folder_id, $newest_first );
 
 		wp_send_json(
 			array(
@@ -156,8 +228,20 @@ final class Photo_Filter {
 	 * @return array<array{kind: string, value: string|int, op: string}>
 	 */
 	private static function conditions_from_request() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only lookup; decoded JSON is validated field by field below.
-		$raw        = json_decode( wp_unslash( (string) ( $_GET['conditions'] ?? '[]' ) ), true );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only lookup; decoded JSON is validated field by field in valid_conditions().
+		return self::valid_conditions( wp_unslash( (string) ( $_GET['conditions'] ?? '[]' ) ) );
+	}
+
+	/**
+	 * The valid conditions in a JSON list of them, for the current user (see
+	 * conditions_from_request()).
+	 *
+	 * @param string $json JSON list of {kind, value, op}.
+	 *
+	 * @return array<array{kind: string, value: string|int, op: string}>
+	 */
+	public static function valid_conditions( $json ) {
+		$raw        = json_decode( $json, true );
 		$conditions = array();
 
 		foreach ( is_array( $raw ) ? $raw : array() as $condition ) {
@@ -208,7 +292,7 @@ final class Photo_Filter {
 
 	/**
 	 * Whether the viewer may filter on this: likes only of people whose likes
-	 * they may see, marks ("<circle>|<minimum level>") only in their circles.
+	 * they may see; marks by a minimum number of stars.
 	 *
 	 * @param string $kind  Condition kind.
 	 * @param string $value Condition value.
@@ -220,19 +304,20 @@ final class Photo_Filter {
 			return Like_Visibility::can_see( (int) $value );
 		}
 
-		return 'marked' !== $kind || Mark_Circles::allowed( explode( '|', $value )[0] );
+		return 'marked' !== $kind || 0 < (int) $value;
 	}
 
 	/**
-	 * The IDs of one page of photos matching the conditions, in capture
-	 * order (photos without a known capture date last), plus the total.
+	 * The IDs of one page of photos matching the conditions, in date order
+	 * (see Photo_Date_Order), plus the total.
 	 *
 	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See conditions_from_request().
 	 * @param int                                                       $page       1-based page number; 0 for all of them.
+	 * @param bool                                                      $newest_first Whether the newest come first.
 	 *
 	 * @return array{0: array<string>, 1: int}
 	 */
-	private static function matching_ids( array $conditions, $page ) {
+	private static function matching_ids( array $conditions, $page, $newest_first = false ) {
 		global $wpdb;
 		$prefix = $wpdb->prefix;
 		$where  = array();
@@ -264,29 +349,39 @@ final class Photo_Filter {
 		                UNION SELECT image_id FROM {$prefix}agallery_photo_tags
 		                UNION SELECT image_id FROM {$prefix}agallery_photo_places
 		                UNION SELECT image_id FROM {$prefix}agallery_photo_marks ) m
-		         LEFT JOIN {$prefix}agallery_photo_exif_dates d ON d.image_id = m.image_id
 		         WHERE " . implode( ' AND ', $where ) . "
 		           AND m.image_id NOT IN ( SELECT image_id FROM {$prefix}agallery_photo_exclusions )";
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- plugin tables with fixed names; every value is a placeholder (in $from, one per criterion) filled by prepare().
-		$total = (int) $wpdb->get_var(
-			$wpdb->prepare( "SELECT COUNT(*) {$from}", $args )
-		);
-		$ids   = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT m.image_id {$from}
-				 ORDER BY d.original_datetime IS NULL, d.original_datetime, m.image_id
-				 LIMIT %d OFFSET %d",
-				array_merge(
-					$args,
-					// Page 0: all of them.
-					0 === $page ? array( 1000000, 0 ) : array( self::PAGE_SIZE, ( $page - 1 ) * self::PAGE_SIZE )
-				)
-			)
-		);
+		$all = $wpdb->get_col( $wpdb->prepare( "SELECT m.image_id {$from}", $args ) );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$ids = Photo_Date_Order::sort( array_map( 'strval', $all ) );
+		$ids = $newest_first ? array_reverse( $ids ) : $ids;
 
-		return array( array_map( 'strval', $ids ), $total );
+		return array(
+			0 === $page ? $ids : array_slice( $ids, ( $page - 1 ) * self::PAGE_SIZE, self::PAGE_SIZE ),
+			count( $ids ),
+		);
+	}
+
+	/**
+	 * All photos matching the conditions, in date order, optionally only
+	 * those in a folder or below it — what the gallery shows for that
+	 * filter (see Photo_Shares). None when there is no "and"/"or" condition.
+	 *
+	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See valid_conditions().
+	 * @param string                                                    $folder_id  Drive folder ID, or '' for the whole gallery.
+	 *
+	 * @return array<string>
+	 */
+	public static function all_matching_ids( array $conditions, $folder_id ) {
+		if ( array() === array_intersect( array( 'and', 'or' ), array_column( $conditions, 'op' ) ) ) {
+			return array();
+		}
+
+		list( $ids ) = self::matching_ids( $conditions, 0 );
+
+		return '' === $folder_id ? $ids : Photo_Filter_Scope::within( $ids, $folder_id );
 	}
 
 	/**
@@ -296,11 +391,12 @@ final class Photo_Filter {
 	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See conditions_from_request().
 	 * @param int                                                       $page       1-based page number.
 	 * @param string                                                    $folder_id  Drive folder ID.
+	 * @param bool                                                      $newest_first Whether the newest come first.
 	 *
 	 * @return array{0: array<string>, 1: int}
 	 */
-	private static function matching_ids_within( array $conditions, $page, $folder_id ) {
-		list( $all ) = self::matching_ids( $conditions, 0 );
+	private static function matching_ids_within( array $conditions, $page, $folder_id, $newest_first = false ) {
+		list( $all ) = self::matching_ids( $conditions, 0, $newest_first );
 		$inside      = Photo_Filter_Scope::within( $all, $folder_id );
 
 		return array(
@@ -326,22 +422,9 @@ final class Photo_Filter {
 			);
 		}
 
-		list( $circle, $level ) = array_pad( explode( '|', (string) $condition['value'] ), 2, '1' );
-		$owners                 = Mark_Circles::household_owners( $circle );
-		$level                  = max( 1, (int) $level );
-
-		if ( null === $owners ) {
-			return array(
-				"SELECT image_id FROM {$prefix}agallery_photo_marks WHERE circle = %s AND owner = 0 AND level >= %d",
-				array( $circle, $level ),
-			);
-		}
-
 		return array(
-			"SELECT image_id FROM {$prefix}agallery_photo_marks WHERE circle = 'family' AND owner IN ("
-				. implode( ', ', array_map( 'intval', $owners ) )
-				. ') GROUP BY image_id HAVING MAX(level) >= %d',
-			array( $level ),
+			"SELECT image_id FROM {$prefix}agallery_photo_marks WHERE circle = %s GROUP BY image_id HAVING SUM(level) >= %d",
+			array( Photo_Marks::CIRCLE, (int) $condition['value'] ),
 		);
 	}
 

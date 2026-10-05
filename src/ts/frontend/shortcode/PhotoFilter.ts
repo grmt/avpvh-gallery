@@ -37,11 +37,10 @@ const OPERATORS: Array<[FilterOperator, string, string]> = [
 	['not', 'Niet', '✗'],
 ];
 
-let optionsPromise: Promise<FilterOptions> | null = null;
-
-// The options are fetched once per page view; filtering doesn't change them.
+// The options are fetched each time a kind is picked: marking, liking or
+// tagging photos since the page loaded changes them (a new ★★ level, say).
 async function fetchFilterOptions(ajaxUrl: string): Promise<FilterOptions> {
-	optionsPromise ??= fetch(`${ajaxUrl}?action=gallery_filter_options`, {
+	return fetch(`${ajaxUrl}?action=gallery_filter_options`, {
 		credentials: 'include',
 	})
 		.then(async (response) => {
@@ -69,7 +68,27 @@ async function fetchFilterOptions(ajaxUrl: string): Promise<FilterOptions> {
 			tag: [],
 			place: [],
 		}));
-	return optionsPromise;
+}
+
+// Remembers the current filter for the user (see Photo_Filter::handle_save),
+// or that there is none, so it's back after a reload or the next login.
+export function rememberFilter(
+	ajaxUrl: string,
+	nonce: string,
+	state: { conditions: Array<FilterCondition>; here: boolean } | null
+): void {
+	void fetch(ajaxUrl, {
+		method: 'POST',
+		credentials: 'include',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+		body: new URLSearchParams({
+			action: 'gallery_filter_save',
+			state: JSON.stringify(state),
+			_ajax_nonce: nonce,
+		}).toString(),
+	}).catch(() => {
+		// Not remembered this time; the filter itself still works.
+	});
 }
 
 // A filter needs at least one "Alle" or "Een van" condition: "Niet" alone
@@ -83,6 +102,51 @@ export function conditionsParam(conditions: Array<FilterCondition>): string {
 	return JSON.stringify(
 		conditions.map(({ kind, value, op }) => ({ kind, value, op }))
 	);
+}
+
+// The filter in words, e.g. "✓ Overleden, ✗ Kamp (alleen deze map)".
+function describe(conditions: Array<FilterCondition>, here: boolean): string {
+	return (
+		conditions
+			.map((condition) => {
+				const operator = OPERATORS.find(([op]) => op === condition.op);
+				return `${operator?.[2] ?? ''} ${condition.label}`;
+			})
+			.join(', ') + (here ? ' (alleen deze map)' : '')
+	);
+}
+
+// Asks the server to share the filter's photos via Google Drive (see
+// Photo_Shares); resolves to what to tell the user.
+async function requestShare(
+	ajaxUrl: string,
+	share: FilterShare,
+	conditions: Array<FilterCondition>,
+	description: string
+): Promise<string> {
+	try {
+		const response = await fetch(ajaxUrl, {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: new URLSearchParams({
+				action: 'gallery_share_create',
+				conditions: conditionsParam(conditions),
+				folder: share.folder,
+				description,
+				_ajax_nonce: share.nonce,
+			}).toString(),
+		});
+		const data = (await response.json()) as {
+			success?: boolean;
+			data?: { recipient?: string; message?: string };
+		};
+		return data.success === true
+			? `De map wordt gemaakt; je krijgt de link per e-mail op ${data.data?.recipient ?? 'je Google-adres'}.`
+			: (data.data?.message ?? 'Delen mislukt');
+	} catch {
+		return 'Delen mislukt';
+	}
 }
 
 function select(
@@ -108,6 +172,24 @@ export interface FilterScope {
 	onToggle(here: boolean): void;
 }
 
+// How photos are ordered: by name (folders only), or by date old to new or
+// new to old (see Photo_Date_Order).
+export type SortOrder = 'date' | 'date_desc' | 'name';
+
+// The folder order picker: the current order and what to do on a change.
+export interface FilterSort {
+	order: SortOrder;
+	onChange(order: SortOrder): void;
+}
+
+// Sharing the filter's photos via Google Drive: whether it's set up, the
+// folder the filter is limited to ('' for the whole gallery) and the nonce.
+export interface FilterShare {
+	enabled: boolean;
+	folder: string;
+	nonce: string;
+}
+
 // The filter bar shown above the gallery: the current conditions as
 // removable chips, a row to add one (how · what kind · which) with the
 // "only this folder" switch, and while filtering the number of photos
@@ -117,6 +199,8 @@ export function buildFilterBar(
 	conditions: Array<FilterCondition>,
 	total: number | null,
 	scope: FilterScope,
+	sort: FilterSort,
+	share: FilterShare,
 	onChange: (conditions: Array<FilterCondition>) => void
 ): HTMLElement {
 	const bar = document.createElement('div');
@@ -153,6 +237,7 @@ export function buildFilterBar(
 		hereLabel.title = 'Alleen foto’s in deze map en de mappen eronder';
 		adder.appendChild(hereLabel);
 	}
+	adder.appendChild(sortPicker(sort, isActiveFilter(conditions)));
 	bar.appendChild(adder);
 
 	kindSelect.addEventListener('change', () => {
@@ -164,6 +249,10 @@ export function buildFilterBar(
 			return;
 		}
 		void fetchFilterOptions(ajaxUrl).then((options) => {
+			// Another kind was picked while these were on their way.
+			if (kindSelect.value !== kind) {
+				return;
+			}
 			const taken = new Set(
 				conditions
 					.filter((condition) => condition.kind === kind)
@@ -238,6 +327,16 @@ export function buildFilterBar(
 			status.textContent = `${String(total)} foto${total === 1 ? '' : "'s"} gevonden`;
 		}
 		bar.appendChild(status);
+		if (
+			share.enabled &&
+			isActiveFilter(conditions) &&
+			total !== null &&
+			total > 0
+		) {
+			bar.appendChild(
+				shareButton(ajaxUrl, share, conditions, total, scope.here, status)
+			);
+		}
 		const clear = document.createElement('button');
 		clear.type = 'button';
 		clear.className = 'avpvh-filter-clear';
@@ -249,4 +348,68 @@ export function buildFilterBar(
 	}
 
 	return bar;
+}
+
+// "Delen via Google Drive": after confirming, starts the share and says
+// where the link will be sent.
+function shareButton(
+	ajaxUrl: string,
+	share: FilterShare,
+	conditions: Array<FilterCondition>,
+	total: number,
+	here: boolean,
+	status: HTMLElement
+): HTMLElement {
+	const button = document.createElement('button');
+	button.type = 'button';
+	button.className = 'avpvh-filter-share';
+	button.textContent = 'Delen via Google Drive';
+	button.title =
+		'Kopieer deze foto’s naar een map in Google Drive die alleen jij een week lang kunt openen; de link komt per e-mail';
+	button.addEventListener('click', () => {
+		if (
+			!window.confirm(
+				`${String(total)} foto${total === 1 ? '' : "'s"} delen via Google Drive? Je krijgt een link per e-mail, die een week geldig is.`
+			)
+		) {
+			return;
+		}
+		button.disabled = true;
+		void requestShare(
+			ajaxUrl,
+			share,
+			conditions,
+			describe(conditions, here)
+		).then((message) => {
+			status.textContent = message;
+		});
+	});
+	return button;
+}
+
+// "Volgorde": by name, or by date either way. Filter results are always by
+// date (first the folder's year), so there only the direction is offered.
+function sortPicker(sort: FilterSort, filtering: boolean): HTMLElement {
+	const label = document.createElement('label');
+	label.className = 'avpvh-filter-sort';
+	label.title =
+		'Datum: op opnamedatum (EXIF), anders de datum die Google Drive kent';
+	const byDate: Array<[string, string]> = [
+		['date', 'Datum (oud → nieuw)'],
+		['date_desc', 'Datum (nieuw → oud)'],
+	];
+	const picker = select(
+		'avpvh-filter-select',
+		filtering ? byDate : [['name', 'Naam'], ...byDate]
+	);
+	picker.value = filtering && sort.order === 'name' ? 'date' : sort.order;
+	picker.addEventListener('change', () => {
+		sort.onChange(
+			picker.value === 'date' || picker.value === 'date_desc'
+				? picker.value
+				: 'name'
+		);
+	});
+	label.append(document.createTextNode('Volgorde '), picker);
+	return label;
 }

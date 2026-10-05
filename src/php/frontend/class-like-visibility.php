@@ -62,19 +62,6 @@ final class Like_Visibility {
 	}
 
 	/**
-	 * The current user's household as WordPress user IDs, including
-	 * themselves — regardless of the IT administrator's wider view. Used
-	 * for family marks (Mark_Circles).
-	 *
-	 * @return array<int>
-	 */
-	public static function household_of_current_user() {
-		$user_id = get_current_user_id();
-
-		return array_values( array_unique( array_merge( array( $user_id ), self::household_user_ids( $user_id ) ) ) );
-	}
-
-	/**
 	 * Whether the current user may see a given user's likes.
 	 *
 	 * @param int $user_id WordPress user ID.

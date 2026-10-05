@@ -219,6 +219,8 @@ final class Shortcode {
 			'preview_speed'        => $options->get( 'preview_speed' ),
 			'reactions'            => Photo_Tags::REACTIONS,
 			'rest_nonce'           => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : '',
+			'can_share'            => is_user_logged_in() && Share_Drive::configured() ? 'true' : 'false',
+			'saved_filter'         => is_user_logged_in() ? Photo_Filter::saved_state() : null,
 			'server_error'         => esc_html__( 'The server returned an unexpected response.', 'avpvh-gallery' ),
 			'subject_tags'         => Subject_Tag_Tree::groups(),
 			'subject_tags_url'     => rest_url( 'avpvh-gallery/v1/subject-tags' ),

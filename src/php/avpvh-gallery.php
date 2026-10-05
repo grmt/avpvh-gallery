@@ -46,6 +46,8 @@ SOFTWARE.
 namespace Avpvh;
 
 use Avpvh\Admin\Exif_Dates_CLI;
+use Avpvh\Admin\Move_Files_CLI;
+use Avpvh\Admin\Tag_Import_CLI;
 use WP_CLI;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -115,8 +117,10 @@ require_once __DIR__ . '/frontend/class-subject-tag-seed.php';
 require_once __DIR__ . '/frontend/class-subject-tags.php';
 require_once __DIR__ . '/frontend/class-photo-places.php';
 require_once __DIR__ . '/frontend/class-like-visibility.php';
-require_once __DIR__ . '/frontend/class-mark-circles.php';
 require_once __DIR__ . '/frontend/class-photo-marks.php';
+require_once __DIR__ . '/frontend/class-photo-date-order.php';
+require_once __DIR__ . '/frontend/class-share-drive.php';
+require_once __DIR__ . '/frontend/class-photo-shares.php';
 require_once __DIR__ . '/frontend/class-photo-filter-options.php';
 require_once __DIR__ . '/frontend/class-photo-filter-scope.php';
 require_once __DIR__ . '/frontend/class-photo-filter.php';
@@ -127,7 +131,13 @@ require_once __DIR__ . '/admin/class-tinymce-plugin.php';
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/admin/class-exif-dates-cli.php';
+	require_once __DIR__ . '/admin/class-tag-import-cli.php';
+	require_once __DIR__ . '/admin/class-move-files-cli.php';
 	WP_CLI::add_command( 'avpvh-gallery', Exif_Dates_CLI::class );
+	WP_CLI::add_command( 'avpvh-gallery import-tags', array( new Tag_Import_CLI(), 'import_tags' ) );
+	WP_CLI::add_command( 'avpvh-gallery undo-tag-import', array( new Tag_Import_CLI(), 'undo_tag_import' ) );
+	WP_CLI::add_command( 'avpvh-gallery move-files', array( new Move_Files_CLI(), 'move_files' ) );
+	WP_CLI::add_command( 'avpvh-gallery undo-move-files', array( new Move_Files_CLI(), 'undo_move_files' ) );
 }
 
 require_once __DIR__ . '/class-main.php';
