@@ -3788,7 +3788,44 @@ export class Shortcode {
 	private findAdjacentFolder(
 		currentPath: string,
 		direction: 'next' | 'prev',
-		pswp?: PhotoSwipe,
+		pswp?: PhotoSwipe
+	): void {
+		this.resolveAdjacentFolder(
+			currentPath,
+			direction,
+			(newPath, targetDir) => {
+				if (pswp !== undefined) {
+					// Called from lightbox boundary: reopen in the new folder
+					this.pendingLightboxOpen =
+						'next' === direction ? 'first' : 'last';
+				}
+				history.pushState({}, '', this.pathQueryParameter.add(newPath));
+				// Backwards, load the folder up to its last photo, so
+				// that's the one the lightbox reopens on.
+				history.replaceState(
+					{},
+					'',
+					'prev' === direction
+						? this.pageQueryParameter.add(
+								Shortcode.pagesFor(targetDir).toString()
+							)
+						: this.pageQueryParameter.remove()
+				);
+				this.path = newPath;
+				this.folderNavigating = false;
+				this.get();
+			},
+			() => {
+				this.folderNavigating = false;
+			}
+		);
+	}
+
+	private resolveAdjacentFolder(
+		currentPath: string,
+		direction: 'next' | 'prev',
+		onFound: (path: string, directory: Directory) => void,
+		onNotFound: () => void,
 		searchPage = 1
 	): void {
 		const lastSlash = currentPath.lastIndexOf('/');
@@ -3807,7 +3844,7 @@ export class Shortcode {
 			},
 			(data: GalleryResponse) => {
 				if (isError(data)) {
-					this.folderNavigating = false;
+					onNotFound();
 					return;
 				}
 				const siblings = data.directories ?? [];
@@ -3821,14 +3858,15 @@ export class Shortcode {
 				// Current folder not in this page — try the next page if there are more
 				if (currentIndex < 0) {
 					if (data.more === true) {
-						this.findAdjacentFolder(
+						this.resolveAdjacentFolder(
 							currentPath,
 							direction,
-							pswp,
+							onFound,
+							onNotFound,
 							searchPage + 1
 						);
 					} else {
-						this.folderNavigating = false;
+						onNotFound();
 					}
 					return;
 				}
@@ -3848,30 +3886,7 @@ export class Shortcode {
 					const newPath =
 						('' !== canonicalParent ? canonicalParent + '/' : '') +
 						targetDir.id;
-					if (pswp !== undefined) {
-						// Called from lightbox boundary: reopen in the new folder
-						this.pendingLightboxOpen =
-							'next' === direction ? 'first' : 'last';
-					}
-					history.pushState(
-						{},
-						'',
-						this.pathQueryParameter.add(newPath)
-					);
-					// Backwards, load the folder up to its last photo, so
-					// that's the one the lightbox reopens on.
-					history.replaceState(
-						{},
-						'',
-						'prev' === direction
-							? this.pageQueryParameter.add(
-									Shortcode.pagesFor(targetDir).toString()
-								)
-							: this.pageQueryParameter.remove()
-					);
-					this.path = newPath;
-					this.folderNavigating = false;
-					this.get();
+					onFound(newPath, targetDir);
 					return;
 				}
 
@@ -3879,10 +3894,11 @@ export class Shortcode {
 				// (see listsAllFolders()); a folder before the first one
 				// never turns up there.
 				if ('next' === direction && !Shortcode.listsAllFolders(data)) {
-					this.findAdjacentFolder(
+					this.resolveAdjacentFolder(
 						currentPath,
 						direction,
-						pswp,
+						onFound,
+						onNotFound,
 						searchPage + 1
 					);
 					return;
@@ -3891,15 +3907,19 @@ export class Shortcode {
 				// No adjacent folder at this level; recurse up if parent exists
 				if ('' === parentPath) {
 					// At root level, nowhere to go
-					this.folderNavigating = false;
+					onNotFound();
 					return;
 				}
 				// Go up one level and search there
-				this.findAdjacentFolder(parentPath, direction, pswp);
+				this.resolveAdjacentFolder(
+					parentPath,
+					direction,
+					onFound,
+					onNotFound
+				);
 			}
 		).fail(() => {
-			// Network or server error — release the lock so the user can retry
-			this.folderNavigating = false;
+			onNotFound();
 		});
 	}
 
@@ -5448,6 +5468,7 @@ export class Shortcode {
 
 	private postLoad(): void {
 		this.refreshMarks();
+		this.refreshBreadcrumbSiblingVisibility();
 		this.container
 			.find('a[data-avpvh-path]')
 			.off('click.avpvh')
@@ -5568,6 +5589,29 @@ export class Shortcode {
 		}
 	}
 
+	private refreshBreadcrumbSiblingVisibility(): void {
+		const currentPath = this.path;
+		if ('' === currentPath) {
+			return;
+		}
+
+		(['prev', 'next'] as const).forEach((direction) => {
+			this.resolveAdjacentFolder(
+				currentPath,
+				direction,
+				() => {
+					if (this.path !== currentPath) {
+						return;
+					}
+					this.container
+						.find(`.avpvh-breadcrumb-${direction}`)
+						.removeAttr('hidden');
+				},
+				() => undefined
+			);
+		});
+	}
+
 	private prefetchNextPage(): void {
 		if (!this.hasMore) {
 			return;
@@ -5625,7 +5669,7 @@ export class Shortcode {
 		};
 		let html =
 			'<div class="avpvh-breadcrumbs">' +
-			'<a class="avpvh-breadcrumb-sibling avpvh-breadcrumb-prev" href="#" data-avpvh-dir="prev" aria-label="Previous folder">' +
+			'<a class="avpvh-breadcrumb-sibling avpvh-breadcrumb-prev" href="#" data-avpvh-dir="prev" aria-label="Previous folder" hidden>' +
 			siblingIcon('prev') +
 			'</a>' +
 			'<a class="avpvh-breadcrumb-up" data-avpvh-path="' +
@@ -5652,7 +5696,7 @@ export class Shortcode {
 		const wideActive = this.isWideMode ? ' active' : '';
 		const portraitActive = this.isPortraitMode ? ' active' : '';
 		html +=
-			'<a class="avpvh-breadcrumb-sibling avpvh-breadcrumb-next" href="#" data-avpvh-dir="next" aria-label="Next folder">' +
+			'<a class="avpvh-breadcrumb-sibling avpvh-breadcrumb-next" href="#" data-avpvh-dir="next" aria-label="Next folder" hidden>' +
 			siblingIcon('next') +
 			'</a>' +
 			'<div class="avpvh-mode-selector">' +
