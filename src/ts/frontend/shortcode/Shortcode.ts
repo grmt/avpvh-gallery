@@ -32,7 +32,10 @@ import {
 	conditionsParam,
 	type FilterCondition,
 	isActiveFilter,
+	rememberFilter,
+	type SortOrder,
 } from './PhotoFilter';
+import { enableMarking, showMarks } from './PhotoMarks';
 import { QueryParameter } from './QueryParameter';
 import { ShortcodeRegistry } from './ShortcodeRegistry';
 
@@ -96,6 +99,16 @@ export class Shortcode {
 	private filterTotal: number | null = null;
 	// "Alleen deze map": filter only the current folder and below it.
 	private filterHere = false;
+	// Order chosen by the viewer: by name, or by date (EXIF capture date,
+	// then the date Drive has — see Photo_Date_Order) old to new or new to
+	// old; remembered per browser. Filter results are always by date, in
+	// the chosen direction.
+	private sortOrder: SortOrder = Shortcode.storedSortOrder();
+	// The filter as last remembered for the user (JSON), so it's only sent
+	// when it changes.
+	private rememberedFilter = JSON.stringify(
+		avpvhShortcodeLocalize.saved_filter
+	);
 	private hasMore = false;
 	private path = '';
 	private lastPage = 1;
@@ -153,6 +166,17 @@ export class Shortcode {
 
 	private readonly navigationIconUrl: string;
 
+	private static storedSortOrder(): SortOrder {
+		try {
+			const stored = localStorage.getItem('avpvh_gallery_sort');
+			return stored === 'date' || stored === 'date_desc'
+				? stored
+				: 'name';
+		} catch {
+			return 'name';
+		}
+	}
+
 	public constructor(container: HTMLElement, hash: string) {
 		this.container = $(container);
 		this.hash = hash;
@@ -178,7 +202,8 @@ export class Shortcode {
 		this.lightbox.init();
 		this.photoTagger = new PhotoTagger();
 		void this.photoTagger.init(container);
-		this.get();
+		this.setupMarking();
+		this.start();
 		this.setupFolderSwipe();
 		this.setupFolderKeyboard();
 		window.addEventListener('message', (event: MessageEvent<unknown>) => {
@@ -931,7 +956,16 @@ export class Shortcode {
 						navigate.addEventListener('click', (e) => {
 							e.stopPropagation();
 							if (direction === 'next') {
-								instance.next();
+								if (
+									instance.currIndex ===
+									instance.getNumItems() - 1
+								) {
+									this.nextBoundary(instance);
+								} else {
+									instance.next();
+								}
+							} else if (instance.currIndex === 0) {
+								this.prevBoundary(instance);
 							} else {
 								instance.prev();
 							}
@@ -1040,15 +1074,26 @@ export class Shortcode {
 								);
 								const chosen: Array<string> = [];
 								boxes.forEach((box) => {
-									// Ticked = your vote; the count is everyone's.
-									box.checked = subjectState.tags.includes(
+									// Ticked in colour = your vote; ticked in
+									// grey = only others' (clicking it adds
+									// yours). The count is everyone's.
+									const mine = subjectState.tags.includes(
 										box.value
 									);
 									const detail =
 										subjectState.details[box.value];
 									const count = detail?.count ?? 0;
+									box.checked = mine || count > 0;
+									box.classList.toggle(
+										'avpvh-tag-others-only',
+										!mine && count > 0
+									);
 									const label = box.parentElement;
 									if (label !== null) {
+										label.classList.toggle(
+											'avpvh-tag-tagged',
+											count > 0
+										);
 										label.title =
 											detail === undefined
 												? ''
@@ -1060,7 +1105,7 @@ export class Shortcode {
 										if (votes !== null) {
 											votes.textContent =
 												count > 1 ||
-												(count === 1 && !box.checked)
+												(count === 1 && !mine)
 													? ` (${String(count)})`
 													: '';
 										}
@@ -1070,7 +1115,7 @@ export class Shortcode {
 											);
 										if (clear !== null) {
 											clear.hidden =
-												count <= (box.checked ? 1 : 0);
+												count <= (mine ? 1 : 0);
 										}
 									}
 									if (
@@ -1380,6 +1425,18 @@ export class Shortcode {
 										return;
 									}
 									const fileId = exclusionFileId;
+									// A grey tick (others' votes only) gets
+									// your vote rather than being unticked.
+									if (
+										checkbox.classList.contains(
+											'avpvh-tag-others-only'
+										)
+									) {
+										checkbox.checked = true;
+										checkbox.classList.remove(
+											'avpvh-tag-others-only'
+										);
+									}
 									const active = checkbox.checked;
 									const isHead = slug === group.key;
 									const siblings =
@@ -2661,7 +2718,7 @@ export class Shortcode {
 				// rotation/flip correction directly so it isn't skipped.
 				Shortcode.applySlideRotation(pswp);
 				// With loop:false PhotoSwipe rubber-bands at boundaries — no 'change'
-				// event fires. Detect backward boundary swipes via touchstart/touchend.
+				// event fires. Detect boundary swipes via touchstart/touchend.
 				const onTouchStart = (e: TouchEvent): void => {
 					if (e.touches.length === 1) {
 						this.lightboxTouchStartX = e.touches[0].clientX;
@@ -2676,6 +2733,12 @@ export class Shortcode {
 						e.changedTouches[0].clientX - this.lightboxTouchStartX;
 					if (dx > 50 && this.lightboxTouchStartIndex === 0) {
 						this.prevBoundary(pswp);
+					} else if (
+						dx < -50 &&
+						this.lightboxTouchStartIndex === pswp.currIndex &&
+						pswp.currIndex === pswp.getNumItems() - 1
+					) {
+						this.nextBoundary(pswp);
 					}
 				};
 				document.addEventListener('touchstart', onTouchStart, {
@@ -3172,8 +3235,22 @@ export class Shortcode {
 		// slideshow would pause itself after a single frame.
 
 		// ── Boundary navigation ───────────────────────────────────────
-		// Capture click on the prev arrow when at the start of the first node.
-		// Forward navigation is handled seamlessly via preloaded items.
+		// PhotoSwipe disables its arrows at the ends of the current data source.
+		// Keep them clickable: at those boundaries we continue in the adjacent
+		// folder instead of wrapping or getting stuck in the current folder.
+		const enableBoundaryButtons = (): void => {
+			setTimeout(() => {
+				el.querySelectorAll<HTMLButtonElement>(
+					'.pswp__button--arrow'
+				).forEach((button) => {
+					button.disabled = false;
+				});
+			}, 0);
+		};
+		pswp.on('change', enableBoundaryButtons);
+		enableBoundaryButtons();
+
+		// Capture clicks before PhotoSwipe's own prev()/next() handlers.
 		el.addEventListener(
 			'click',
 			(e: MouseEvent) => {
@@ -3181,13 +3258,22 @@ export class Shortcode {
 				if (!(target instanceof Element)) {
 					return;
 				}
+				const atFirst = pswp.currIndex === 0;
+				const atLast = pswp.currIndex === pswp.getNumItems() - 1;
 				if (
-					target.closest('.pswp__button--arrow--prev') !== null &&
-					pswp.currIndex === 0
+					(atFirst &&
+						target.closest('.pswp__button--arrow--prev') !==
+							null) ||
+					(atLast &&
+						target.closest('.pswp__button--arrow--next') !== null)
 				) {
 					e.stopImmediatePropagation();
 					e.preventDefault();
-					this.prevBoundary(pswp);
+					if (atFirst) {
+						this.prevBoundary(pswp);
+					} else {
+						this.nextBoundary(pswp);
+					}
 				}
 			},
 			true
@@ -3202,9 +3288,19 @@ export class Shortcode {
 			if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
 				onActivity(null);
 			}
-			if (e.key === 'ArrowLeft' && pswp.currIndex === 0) {
+			const isPrevBoundary =
+				e.key === 'ArrowLeft' && pswp.currIndex === 0;
+			const isNextBoundary =
+				e.key === 'ArrowRight' &&
+				pswp.currIndex === pswp.getNumItems() - 1;
+			if (isPrevBoundary || isNextBoundary) {
 				e.stopImmediatePropagation();
-				this.prevBoundary(pswp);
+				e.preventDefault();
+				if (isPrevBoundary) {
+					this.prevBoundary(pswp);
+				} else {
+					this.nextBoundary(pswp);
+				}
 			}
 		};
 		document.addEventListener('keydown', handleKeydown, true);
@@ -3315,6 +3411,12 @@ export class Shortcode {
 	}
 
 	private nextBoundary(pswp: PhotoSwipe): void {
+		if (this.filter === null && !this.folderNavigating) {
+			this.folderNavigating = true;
+			this.navigateToAdjacentFolder('next', pswp);
+			return;
+		}
+
 		// At the absolute end of all currently loaded items.
 		// If next-folder preloading is in progress, do nothing — items will
 		// be appended soon and appendItemsToDatasource restarts the timer.
@@ -3775,7 +3877,44 @@ export class Shortcode {
 	private findAdjacentFolder(
 		currentPath: string,
 		direction: 'next' | 'prev',
-		pswp?: PhotoSwipe,
+		pswp?: PhotoSwipe
+	): void {
+		this.resolveAdjacentFolder(
+			currentPath,
+			direction,
+			(newPath, targetDir) => {
+				if (pswp !== undefined) {
+					// Called from lightbox boundary: reopen in the new folder
+					this.pendingLightboxOpen =
+						'next' === direction ? 'first' : 'last';
+				}
+				history.pushState({}, '', this.pathQueryParameter.add(newPath));
+				// Backwards, load the folder up to its last photo, so
+				// that's the one the lightbox reopens on.
+				history.replaceState(
+					{},
+					'',
+					'prev' === direction
+						? this.pageQueryParameter.add(
+								Shortcode.pagesFor(targetDir).toString()
+							)
+						: this.pageQueryParameter.remove()
+				);
+				this.path = newPath;
+				this.folderNavigating = false;
+				this.get();
+			},
+			() => {
+				this.folderNavigating = false;
+			}
+		);
+	}
+
+	private resolveAdjacentFolder(
+		currentPath: string,
+		direction: 'next' | 'prev',
+		onFound: (path: string, directory: Directory) => void,
+		onNotFound: () => void,
 		searchPage = 1
 	): void {
 		const lastSlash = currentPath.lastIndexOf('/');
@@ -3788,13 +3927,14 @@ export class Shortcode {
 			avpvhShortcodeLocalize.ajax_url,
 			{
 				action: 'gallery',
+				sort: this.sortOrder,
 				hash: this.hash,
 				path: parentPath,
 				page: searchPage,
 			},
 			(data: GalleryResponse) => {
 				if (isError(data)) {
-					this.folderNavigating = false;
+					onNotFound();
 					return;
 				}
 				const siblings = data.directories ?? [];
@@ -3808,14 +3948,15 @@ export class Shortcode {
 				// Current folder not in this page — try the next page if there are more
 				if (currentIndex < 0) {
 					if (data.more === true) {
-						this.findAdjacentFolder(
+						this.resolveAdjacentFolder(
 							currentPath,
 							direction,
-							pswp,
+							onFound,
+							onNotFound,
 							searchPage + 1
 						);
 					} else {
-						this.folderNavigating = false;
+						onNotFound();
 					}
 					return;
 				}
@@ -3835,30 +3976,7 @@ export class Shortcode {
 					const newPath =
 						('' !== canonicalParent ? canonicalParent + '/' : '') +
 						targetDir.id;
-					if (pswp !== undefined) {
-						// Called from lightbox boundary: reopen in the new folder
-						this.pendingLightboxOpen =
-							'next' === direction ? 'first' : 'last';
-					}
-					history.pushState(
-						{},
-						'',
-						this.pathQueryParameter.add(newPath)
-					);
-					// Backwards, load the folder up to its last photo, so
-					// that's the one the lightbox reopens on.
-					history.replaceState(
-						{},
-						'',
-						'prev' === direction
-							? this.pageQueryParameter.add(
-									Shortcode.pagesFor(targetDir).toString()
-								)
-							: this.pageQueryParameter.remove()
-					);
-					this.path = newPath;
-					this.folderNavigating = false;
-					this.get();
+					onFound(newPath, targetDir);
 					return;
 				}
 
@@ -3866,10 +3984,11 @@ export class Shortcode {
 				// (see listsAllFolders()); a folder before the first one
 				// never turns up there.
 				if ('next' === direction && !Shortcode.listsAllFolders(data)) {
-					this.findAdjacentFolder(
+					this.resolveAdjacentFolder(
 						currentPath,
 						direction,
-						pswp,
+						onFound,
+						onNotFound,
 						searchPage + 1
 					);
 					return;
@@ -3878,15 +3997,19 @@ export class Shortcode {
 				// No adjacent folder at this level; recurse up if parent exists
 				if ('' === parentPath) {
 					// At root level, nowhere to go
-					this.folderNavigating = false;
+					onNotFound();
 					return;
 				}
 				// Go up one level and search there
-				this.findAdjacentFolder(parentPath, direction, pswp);
+				this.resolveAdjacentFolder(
+					parentPath,
+					direction,
+					onFound,
+					onNotFound
+				);
 			}
 		).fail(() => {
-			// Network or server error — release the lock so the user can retry
-			this.folderNavigating = false;
+			onNotFound();
 		});
 	}
 
@@ -4300,6 +4423,7 @@ export class Shortcode {
 			avpvhShortcodeLocalize.ajax_url,
 			{
 				action: 'gallery',
+				sort: this.sortOrder,
 				hash: this.hash,
 				path: parentPath,
 				page: searchPage,
@@ -4359,7 +4483,13 @@ export class Shortcode {
 
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
-			{ action: 'gallery', hash: this.hash, path: node.path, page: 1 },
+			{
+				action: 'gallery',
+				sort: this.sortOrder,
+				hash: this.hash,
+				path: node.path,
+				page: 1,
+			},
 			(data: GalleryResponse) => {
 				node.loadingMore = false;
 				if (isError(data)) {
@@ -4933,11 +5063,50 @@ export class Shortcode {
 		}
 	}
 
+	// Back/forward: shows the folder in the URL — or, while filtering, keeps
+	// the filter, limited to that folder unless it's the gallery's top.
 	private init(): void {
 		const newPath = this.pathQueryParameter.get();
-		if (this.path !== newPath) {
-			this.path = newPath;
+		if (this.path === newPath) {
+			return;
+		}
+		this.path = newPath;
+		this.showFolder();
+	}
+
+	// The first view: the user's remembered filter if there is one — only
+	// within the folder when the link names one — else the folder.
+	private start(): void {
+		const saved = avpvhShortcodeLocalize.saved_filter;
+		if (
+			'' !== avpvhShortcodeLocalize.rest_nonce &&
+			saved !== null &&
+			isActiveFilter(saved.conditions)
+		) {
+			this.filterHere = saved.here || this.path !== '';
+			this.getFiltered(saved.conditions);
+		} else {
 			this.get();
+		}
+	}
+
+	// Remembers the current filter (or none) for the user, if it changed.
+	private rememberFilter(): void {
+		if ('' === avpvhShortcodeLocalize.rest_nonce) {
+			return;
+		}
+		const state =
+			this.filter !== null && isActiveFilter(this.filter)
+				? { conditions: this.filter, here: this.filterHere }
+				: null;
+		const json = JSON.stringify(state);
+		if (json !== this.rememberedFilter) {
+			this.rememberedFilter = json;
+			rememberFilter(
+				avpvhShortcodeLocalize.ajax_url,
+				avpvhShortcodeLocalize.tag_nonce,
+				state
+			);
 		}
 	}
 
@@ -4945,6 +5114,7 @@ export class Shortcode {
 		const epoch = ++this.getEpoch;
 		this.filter = null;
 		this.filterTotal = null;
+		this.rememberFilter();
 		this.path = this.pathQueryParameter.get();
 		this.lastPage = parseInt(this.pageQueryParameter.get()) || 1;
 		this.container
@@ -4953,7 +5123,7 @@ export class Shortcode {
 		this.container.find('.avpvh-more-button').remove();
 		ShortcodeRegistry.reflowAll();
 
-		const cacheKey = `gallery-${this.hash}-${this.path}-${this.lastPage.toString()}`;
+		const cacheKey = `gallery-${this.sortOrder}-${this.hash}-${this.path}-${this.lastPage.toString()}`;
 		if (Shortcode.cache.has(cacheKey)) {
 			const cachedData = Shortcode.cache.get(cacheKey) as GalleryResponse;
 			if (isError(cachedData)) {
@@ -4970,6 +5140,7 @@ export class Shortcode {
 			avpvhShortcodeLocalize.ajax_url,
 			{
 				action: 'gallery',
+				sort: this.sortOrder,
 				hash: this.hash,
 				path: this.path,
 				page: this.lastPage,
@@ -5079,38 +5250,94 @@ export class Shortcode {
 		this.openLightboxIfPending();
 	}
 
+	// Marking by right-click in the grid, for logged-in users.
+	private setupMarking(): void {
+		if ('' === avpvhShortcodeLocalize.rest_nonce) {
+			return;
+		}
+		enableMarking(
+			avpvhShortcodeLocalize.ajax_url,
+			avpvhShortcodeLocalize.tag_nonce,
+			this.container[0]
+		);
+	}
+
+	// Shows the stars on the thumbnails, for logged-in users.
+	private refreshMarks(): void {
+		if ('' !== avpvhShortcodeLocalize.rest_nonce) {
+			void showMarks(avpvhShortcodeLocalize.ajax_url, this.container[0]);
+		}
+	}
+
 	// The filter bar above the grid, for logged-in users (the filter
 	// endpoints are wp_ajax_-only).
 	private mountFilterBar(): void {
 		if ('' === avpvhShortcodeLocalize.rest_nonce) {
 			return;
 		}
-		this.container.prepend(
-			buildFilterBar(
-				avpvhShortcodeLocalize.ajax_url,
-				this.filter ?? this.draftConditions,
-				this.filterTotal,
-				{
-					available: this.path !== '',
-					here: this.filterHere,
-					onToggle: (here) => {
-						this.filterHere = here;
-						if (this.filter !== null) {
-							this.getFiltered(this.filter);
+		const bar = buildFilterBar(
+			avpvhShortcodeLocalize.ajax_url,
+			this.filter ?? this.draftConditions,
+			this.filterTotal,
+			{
+				available: this.path !== '',
+				here: this.filterHere,
+				onToggle: (here) => {
+					this.filterHere = here;
+					// The whole gallery: go to its top, as a step back can
+					// return from (see init()).
+					if (!here && this.path !== '' && this.filter !== null) {
+						history.pushState(
+							{},
+							'',
+							this.pathQueryParameter.remove()
+						);
+						if ('' !== this.pageQueryParameter.get()) {
+							history.replaceState(
+								{},
+								'',
+								this.pageQueryParameter.remove()
+							);
 						}
-					},
+						this.path = '';
+					}
+					if (this.filter !== null) {
+						this.getFiltered(this.filter);
+					}
 				},
-				(conditions) => {
-					if (isActiveFilter(conditions)) {
-						this.draftConditions = [];
-						this.getFiltered(conditions);
+			},
+			{
+				order: this.sortOrder,
+				onChange: (order) => {
+					this.sortOrder = order;
+					try {
+						localStorage.setItem('avpvh_gallery_sort', order);
+					} catch {
+						// Not remembered; still used for this page view.
+					}
+					if (this.filter !== null) {
+						this.getFiltered(this.filter);
 					} else {
-						this.draftConditions = conditions;
 						this.get();
 					}
+				},
+			},
+			{
+				enabled: avpvhShortcodeLocalize.can_share === 'true',
+				folder: this.filterFolder(),
+				nonce: avpvhShortcodeLocalize.tag_nonce,
+			},
+			(conditions) => {
+				if (isActiveFilter(conditions)) {
+					this.draftConditions = [];
+					this.getFiltered(conditions);
+				} else {
+					this.draftConditions = conditions;
+					this.get();
 				}
-			)
+			}
 		);
+		this.container.prepend(bar);
 	}
 
 	// Shows the first page of photos matching a filter, across the whole
@@ -5119,13 +5346,16 @@ export class Shortcode {
 		const epoch = ++this.getEpoch;
 		this.filter = conditions;
 		this.filterTotal = null;
+		this.rememberFilter();
 		this.lastPage = 1;
 		this.container.html('<div class="avpvh-loading"><div></div></div>');
 		this.mountFilterBar();
+		const folder = this.fetchFolder(this.path);
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
 			{
 				action: 'gallery_filter',
+				sort: this.sortOrder,
 				hash: this.hash,
 				page: 1,
 				conditions: conditionsParam(conditions),
@@ -5141,10 +5371,23 @@ export class Shortcode {
 					);
 					return;
 				}
-				this.filterTotal = data.total ?? 0;
-				this.getSuccess({
-					images: data.images ?? [],
-					more: data.more ?? false,
+				void folder.then((listing) => {
+					if (epoch !== this.getEpoch) {
+						return;
+					}
+					this.filterTotal = data.total ?? 0;
+					// The folder's breadcrumbs and subfolders stay, so you
+					// can move around with the filter on.
+					this.getSuccess({
+						...(listing?.path !== undefined
+							? { path: listing.path }
+							: {}),
+						...(listing?.directories !== undefined
+							? { directories: listing.directories }
+							: {}),
+						images: data.images ?? [],
+						more: data.more ?? false,
+					});
 				});
 			}
 		).fail(() => {
@@ -5160,17 +5403,61 @@ export class Shortcode {
 		});
 	}
 
+	// A folder's first page (cached like get()'s), for its breadcrumbs and
+	// subfolders; null if it can't be loaded.
+	private async fetchFolder(
+		path: string
+	): Promise<GallerySuccessResponse | null> {
+		const cacheKey = `gallery-${this.sortOrder}-${this.hash}-${path}-1`;
+		let data = Shortcode.cache.get(cacheKey) as GalleryResponse | undefined;
+		if (data === undefined) {
+			try {
+				data = (await $.get(avpvhShortcodeLocalize.ajax_url, {
+					action: 'gallery',
+					sort: this.sortOrder,
+					hash: this.hash,
+					path,
+					page: 1,
+				})) as GalleryResponse;
+			} catch {
+				return null;
+			}
+			Shortcode.cache.set(cacheKey, data);
+		}
+		return isError(data) ? null : data;
+	}
+
+	// Shows the folder now in this.path: with the filter on (limited to
+	// that folder, unless it's the gallery's top) while filtering, else
+	// the folder itself.
+	private showFolder(): void {
+		this.path = this.pathQueryParameter.get();
+		if (this.filter !== null && isActiveFilter(this.filter)) {
+			this.filterHere = this.path !== '';
+			this.getFiltered(this.filter);
+		} else {
+			this.get();
+		}
+	}
+
 	// The request for one more page: of the folder, or of the filter results.
 	private pageRequest(path: string, page: number): Record<string, unknown> {
 		return this.filter !== null
 			? {
 					action: 'gallery_filter',
+					sort: this.sortOrder,
 					hash: this.hash,
 					page,
 					conditions: conditionsParam(this.filter),
 					folder: this.filterFolder(),
 				}
-			: { action: 'page', hash: this.hash, path, page };
+			: {
+					action: 'page',
+					sort: this.sortOrder,
+					hash: this.hash,
+					path,
+					page,
+				};
 	}
 
 	// The folder a filter is limited to ("Alleen deze map"), or '' for the
@@ -5270,7 +5557,7 @@ export class Shortcode {
 			);
 		this.container.find('.avpvh-more-button').remove();
 
-		const cacheKey = `page-${this.hash}-${this.pathQueryParameter.get()}-${JSON.stringify(this.filter)}-${this.filterFolder()}-${this.lastPage.toString()}`;
+		const cacheKey = `page-${this.sortOrder}-${this.hash}-${this.pathQueryParameter.get()}-${JSON.stringify(this.filter)}-${this.filterFolder()}-${this.lastPage.toString()}`;
 		if (Shortcode.cache.has(cacheKey)) {
 			const cachedData = Shortcode.cache.get(cacheKey) as PageResponse;
 			if (isError(cachedData)) {
@@ -5388,6 +5675,8 @@ export class Shortcode {
 	}
 
 	private postLoad(): void {
+		this.refreshMarks();
+		this.refreshBreadcrumbSiblingVisibility();
 		this.container
 			.find('a[data-avpvh-path]')
 			.off('click.avpvh')
@@ -5399,7 +5688,7 @@ export class Shortcode {
 						$(e.currentTarget).data('avpvhPath') as string
 					)
 				);
-				this.get();
+				this.showFolder();
 				return false;
 			});
 		this.container
@@ -5508,12 +5797,35 @@ export class Shortcode {
 		}
 	}
 
+	private refreshBreadcrumbSiblingVisibility(): void {
+		const currentPath = this.path;
+		if ('' === currentPath) {
+			return;
+		}
+
+		(['prev', 'next'] as const).forEach((direction) => {
+			this.resolveAdjacentFolder(
+				currentPath,
+				direction,
+				() => {
+					if (this.path !== currentPath) {
+						return;
+					}
+					this.container
+						.find(`.avpvh-breadcrumb-${direction}`)
+						.removeAttr('hidden');
+				},
+				() => undefined
+			);
+		});
+	}
+
 	private prefetchNextPage(): void {
 		if (!this.hasMore) {
 			return;
 		}
 		const nextPage = this.lastPage + 1;
-		const cacheKey = `page-${this.hash}-${this.pathQueryParameter.get()}-${String(nextPage)}`;
+		const cacheKey = `page-${this.sortOrder}-${this.hash}-${this.pathQueryParameter.get()}-${String(nextPage)}`;
 		if (Shortcode.cache.has(cacheKey)) {
 			return;
 		}
@@ -5521,6 +5833,7 @@ export class Shortcode {
 			avpvhShortcodeLocalize.ajax_url,
 			{
 				action: 'page',
+				sort: this.sortOrder,
 				hash: this.hash,
 				path: this.pathQueryParameter.get(),
 				page: nextPage,
@@ -5565,7 +5878,7 @@ export class Shortcode {
 		};
 		let html =
 			'<div class="avpvh-breadcrumbs">' +
-			'<a class="avpvh-breadcrumb-sibling avpvh-breadcrumb-prev" href="#" data-avpvh-dir="prev" aria-label="Previous folder">' +
+			'<a class="avpvh-breadcrumb-sibling avpvh-breadcrumb-prev" href="#" data-avpvh-dir="prev" aria-label="Previous folder" hidden>' +
 			siblingIcon('prev') +
 			'</a>' +
 			'<a class="avpvh-breadcrumb-up" data-avpvh-path="' +
@@ -5592,7 +5905,7 @@ export class Shortcode {
 		const wideActive = this.isWideMode ? ' active' : '';
 		const portraitActive = this.isPortraitMode ? ' active' : '';
 		html +=
-			'<a class="avpvh-breadcrumb-sibling avpvh-breadcrumb-next" href="#" data-avpvh-dir="next" aria-label="Next folder">' +
+			'<a class="avpvh-breadcrumb-sibling avpvh-breadcrumb-next" href="#" data-avpvh-dir="next" aria-label="Next folder" hidden>' +
 			siblingIcon('next') +
 			'</a>' +
 			'<div class="avpvh-mode-selector">' +
@@ -5762,7 +6075,9 @@ export class Shortcode {
 		if (exif.time !== undefined) {
 			const d = Shortcode.formatExifDate(exif.time);
 			if (d !== '') {
-				parts.push(d);
+				parts.push(
+					exif.time_source === 'name' ? d + ' (uit bestandsnaam)' : d
+				);
 			}
 		}
 		const camera = Shortcode.formatCamera(exif.make, exif.model);

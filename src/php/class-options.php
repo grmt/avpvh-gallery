@@ -19,12 +19,14 @@ use Avpvh\Frontend\Code_String_Option;
 use Avpvh\Frontend\Integer_Option;
 use Avpvh\Frontend\Ordering_Option;
 use Avpvh\Frontend\Root_Path_Option;
+use Avpvh\Frontend\Service_Account_Option;
 use Avpvh\Frontend\String_Option;
 
 require_once __DIR__ . '/frontend/class-boolean-option.php';
 require_once __DIR__ . '/frontend/class-integer-option.php';
 require_once __DIR__ . '/frontend/class-bounded-integer-option.php';
 require_once __DIR__ . '/frontend/class-string-option.php';
+require_once __DIR__ . '/frontend/class-service-account-option.php';
 require_once __DIR__ . '/frontend/class-code-string-option.php';
 require_once __DIR__ . '/frontend/class-array-option.php';
 require_once __DIR__ . '/frontend/class-ordering-option.php';
@@ -128,6 +130,35 @@ final class Options {
 	 * @var Bounded_Integer_Option $page_size
 	 */
 	public static $page_size;
+
+	/**
+	 * How many stars one person may give one photo (see Photo_Marks).
+	 *
+	 * @var Bounded_Integer_Option $mark_votes_per_person
+	 */
+	public static $mark_votes_per_person;
+
+	/**
+	 * How many stars one photo may get from everyone together.
+	 *
+	 * @var Bounded_Integer_Option $mark_votes_per_photo
+	 */
+	public static $mark_votes_per_photo;
+
+	/**
+	 * The Google service account that makes shared photo selections (see
+	 * Share_Drive).
+	 *
+	 * @var Service_Account_Option $share_service_account
+	 */
+	public static $share_service_account;
+
+	/**
+	 * The Drive folder shared photo selections are made in.
+	 *
+	 * @var String_Option $share_folder
+	 */
+	public static $share_folder;
 
 	/**
 	 * Whether to autoload new images. Accepts `true`, `false`.
@@ -263,7 +294,7 @@ final class Options {
 
 		self::$root_path = new Root_Path_Option( 'root_path', array( 'root' ), 'basic', 'root_selection', '' );
 
-		self::$grid_height    = new Bounded_Integer_Option(
+		self::$grid_height           = new Bounded_Integer_Option(
 			'grid_height',
 			250,
 			1,
@@ -271,28 +302,28 @@ final class Options {
 			'grid',
 			esc_html__( 'Row height', 'avpvh-gallery' )
 		);
-		self::$grid_spacing   = new Integer_Option(
+		self::$grid_spacing          = new Integer_Option(
 			'grid_spacing',
 			4,
 			'advanced',
 			'grid',
 			esc_html__( 'Item spacing', 'avpvh-gallery' )
 		);
-		self::$dir_title_size = new String_Option(
+		self::$dir_title_size        = new String_Option(
 			'dir_title_size',
 			'1.2em',
 			'advanced',
 			'grid',
 			esc_html__( 'Directory title size', 'avpvh-gallery' )
 		);
-		self::$dir_counts     = new Boolean_Option(
+		self::$dir_counts            = new Boolean_Option(
 			'dir_counts',
 			true,
 			'advanced',
 			'grid',
 			esc_html__( 'Directory item counts', 'avpvh-gallery' )
 		);
-		self::$page_size      = new Bounded_Integer_Option(
+		self::$page_size             = new Bounded_Integer_Option(
 			'page_size',
 			50,
 			1,
@@ -300,14 +331,44 @@ final class Options {
 			'grid',
 			esc_html__( 'Items per page', 'avpvh-gallery' )
 		);
-		self::$page_autoload  = new Boolean_Option(
+		self::$mark_votes_per_person = new Bounded_Integer_Option(
+			'mark_votes_per_person',
+			3,
+			1,
+			'advanced',
+			'grid',
+			esc_html__( 'Stars per person per photo', 'avpvh-gallery' )
+		);
+		self::$mark_votes_per_photo  = new Bounded_Integer_Option(
+			'mark_votes_per_photo',
+			10,
+			1,
+			'advanced',
+			'grid',
+			esc_html__( 'Stars per photo (everyone together)', 'avpvh-gallery' )
+		);
+		self::$share_service_account = new Service_Account_Option(
+			'share_service_account',
+			'',
+			'advanced',
+			'sharing',
+			esc_html__( 'Service account (JSON key)', 'avpvh-gallery' )
+		);
+		self::$share_folder          = new String_Option(
+			'share_folder',
+			'',
+			'advanced',
+			'sharing',
+			esc_html__( 'Folder ID for shared selections', 'avpvh-gallery' )
+		);
+		self::$page_autoload         = new Boolean_Option(
 			'page_autoload',
 			true,
 			'advanced',
 			'grid',
 			esc_html__( 'Autoload new images', 'avpvh-gallery' )
 		);
-		self::$image_ordering = new Ordering_Option(
+		self::$image_ordering        = new Ordering_Option(
 			'image_ordering',
 			'time',
 			'ascending',
@@ -315,7 +376,7 @@ final class Options {
 			'grid',
 			esc_html__( 'Image and video ordering', 'avpvh-gallery' )
 		);
-		self::$dir_ordering   = new Ordering_Option(
+		self::$dir_ordering          = new Ordering_Option(
 			'dir_ordering',
 			'time',
 			'descending',
@@ -323,7 +384,7 @@ final class Options {
 			'grid',
 			esc_html__( 'Directory ordering', 'avpvh-gallery' )
 		);
-		self::$dir_prefix     = new String_Option(
+		self::$dir_prefix            = new String_Option(
 			'dir_prefix',
 			'',
 			'advanced',

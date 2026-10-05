@@ -80,6 +80,7 @@ final class Photo_Filter {
 	public function __construct() {
 		add_action( 'wp_ajax_gallery_filter', array( self::class, 'handle_filter' ) );
 		add_action( 'wp_ajax_gallery_filter_options', array( self::class, 'handle_options' ) );
+		add_action( 'wp_ajax_gallery_filter_save', array( Filter_Memory::class, 'handle_save' ) );
 	}
 
 	/**
@@ -126,9 +127,13 @@ final class Photo_Filter {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
 		$folder_id = sanitize_text_field( wp_unslash( (string) ( $_GET['folder'] ?? '' ) ) );
 
+		// "Datum (nieuw → oud)": newest first.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
+		$newest_first = 'date_desc' === sanitize_key( wp_unslash( (string) ( $_GET['sort'] ?? '' ) ) );
+
 		list( $ids, $total ) = '' === $folder_id
-			? self::matching_ids( $conditions, $page )
-			: self::matching_ids_within( $conditions, $page, $folder_id );
+			? self::matching_ids( $conditions, $page, $newest_first )
+			: self::matching_ids_within( $conditions, $page, $folder_id, $newest_first );
 
 		wp_send_json(
 			array(
@@ -150,14 +155,15 @@ final class Photo_Filter {
 	}
 
 	/**
-	 * The valid conditions in the request. A liked_by condition on someone
-	 * whose likes the viewer may not see (Like_Visibility) is dropped.
+	 * The valid conditions in a JSON list of them, for the current user (see
+	 * conditions_from_request()).
+	 *
+	 * @param string $json JSON list of {kind, value, op}.
 	 *
 	 * @return array<array{kind: string, value: string|int, op: string}>
 	 */
-	private static function conditions_from_request() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only lookup; decoded JSON is validated field by field below.
-		$raw        = json_decode( wp_unslash( (string) ( $_GET['conditions'] ?? '[]' ) ), true );
+	public static function valid_conditions( $json ) {
+		$raw        = json_decode( $json, true );
 		$conditions = array();
 
 		foreach ( is_array( $raw ) ? $raw : array() as $condition ) {
@@ -178,7 +184,7 @@ final class Photo_Filter {
 	 *
 	 * @return array{kind: string, value: string|int, op: string}|null
 	 */
-	private static function valid_condition( $condition ) {
+	public static function valid_condition( $condition ) {
 		if ( ! is_array( $condition ) ) {
 			return null;
 		}
@@ -188,14 +194,14 @@ final class Photo_Filter {
 		$operator = (string) ( $condition['op'] ?? 'and' );
 
 		if (
-			! isset( self::SUBQUERIES[ $kind ] )
+			! ( isset( self::SUBQUERIES[ $kind ] ) || 'marked' === $kind )
 			|| '' === $value
 			|| ! in_array( $operator, array( 'and', 'or', 'not' ), true )
 		) {
 			return null;
 		}
 
-		if ( 'liked_by' === $kind && ! Like_Visibility::can_see( (int) $value ) ) {
+		if ( ! self::viewer_may_use( $kind, $value ) ) {
 			return null;
 		}
 
@@ -207,65 +213,108 @@ final class Photo_Filter {
 	}
 
 	/**
-	 * The IDs of one page of photos matching the conditions, in capture
-	 * order (photos without a known capture date last), plus the total.
+	 * All photos matching the conditions, in date order, optionally only
+	 * those in a folder or below it — what the gallery shows for that
+	 * filter (see Photo_Shares). None when there is no "and"/"or" condition.
+	 *
+	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See valid_conditions().
+	 * @param string                                                    $folder_id  Drive folder ID, or '' for the whole gallery.
+	 *
+	 * @return array<string>
+	 */
+	public static function all_matching_ids( array $conditions, $folder_id ) {
+		if ( array() === array_intersect( array( 'and', 'or' ), array_column( $conditions, 'op' ) ) ) {
+			return array();
+		}
+
+		list( $ids ) = self::matching_ids( $conditions, 0 );
+
+		return '' === $folder_id ? $ids : Photo_Filter_Scope::within( $ids, $folder_id );
+	}
+
+	/**
+	 * The valid conditions in the request. A liked_by condition on someone
+	 * whose likes the viewer may not see (Like_Visibility) is dropped.
+	 *
+	 * @return array<array{kind: string, value: string|int, op: string}>
+	 */
+	private static function conditions_from_request() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only lookup; decoded JSON is validated field by field in valid_conditions().
+		return self::valid_conditions( wp_unslash( (string) ( $_GET['conditions'] ?? '[]' ) ) );
+	}
+
+	/**
+	 * Whether the viewer may filter on this: likes only of people whose likes
+	 * they may see; marks by a minimum number of stars.
+	 *
+	 * @param string $kind  Condition kind.
+	 * @param string $value Condition value.
+	 *
+	 * @return bool
+	 */
+	private static function viewer_may_use( $kind, $value ) {
+		if ( 'liked_by' === $kind ) {
+			return Like_Visibility::can_see( (int) $value );
+		}
+
+		return 'marked' !== $kind || 0 < (int) $value;
+	}
+
+	/**
+	 * The IDs of one page of photos matching the conditions, in date order
+	 * (see Photo_Date_Order), plus the total.
 	 *
 	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See conditions_from_request().
 	 * @param int                                                       $page       1-based page number; 0 for all of them.
+	 * @param bool                                                      $newest_first Whether the newest come first.
 	 *
 	 * @return array{0: array<string>, 1: int}
 	 */
-	private static function matching_ids( array $conditions, $page ) {
+	private static function matching_ids( array $conditions, $page, $newest_first = false ) {
 		global $wpdb;
 		$prefix = $wpdb->prefix;
 		$where  = array();
 		$either = array();
 		$args   = array();
 
+		$either_args = array();
+
 		foreach ( $conditions as $condition ) {
-			$subquery = str_replace( '{prefix}', $prefix, self::SUBQUERIES[ $condition['kind'] ] );
+			list( $subquery, $values ) = self::subquery( $condition, $prefix );
 
 			if ( 'or' === $condition['op'] ) {
-				$either[] = array( "m.image_id IN ({$subquery})", $condition['value'] );
+				$either[]    = "m.image_id IN ({$subquery})";
+				$either_args = array_merge( $either_args, $values );
 
 				continue;
 			}
 
 			$where[] = 'm.image_id ' . ( 'not' === $condition['op'] ? 'NOT IN' : 'IN' ) . " ({$subquery})";
-			$args[]  = $condition['value'];
+			$args    = array_merge( $args, $values );
 		}
 
 		if ( array() !== $either ) {
-			$where[] = '(' . implode( ' OR ', array_column( $either, 0 ) ) . ')';
-			$args    = array_merge( $args, array_column( $either, 1 ) );
+			$where[] = '(' . implode( ' OR ', $either ) . ')';
+			$args    = array_merge( $args, $either_args );
 		}
 
 		$from = "FROM ( SELECT image_id FROM {$prefix}agallery_photo_reactions
 		                UNION SELECT image_id FROM {$prefix}agallery_photo_tags
-		                UNION SELECT image_id FROM {$prefix}agallery_photo_places ) m
-		         LEFT JOIN {$prefix}agallery_photo_exif_dates d ON d.image_id = m.image_id
+		                UNION SELECT image_id FROM {$prefix}agallery_photo_places
+		                UNION SELECT image_id FROM {$prefix}agallery_photo_marks ) m
 		         WHERE " . implode( ' AND ', $where ) . "
 		           AND m.image_id NOT IN ( SELECT image_id FROM {$prefix}agallery_photo_exclusions )";
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- plugin tables with fixed names; every value is a placeholder (in $from, one per criterion) filled by prepare().
-		$total = (int) $wpdb->get_var(
-			$wpdb->prepare( "SELECT COUNT(*) {$from}", $args )
-		);
-		$ids   = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT m.image_id {$from}
-				 ORDER BY d.original_datetime IS NULL, d.original_datetime, m.image_id
-				 LIMIT %d OFFSET %d",
-				array_merge(
-					$args,
-					// Page 0: all of them.
-					0 === $page ? array( 1000000, 0 ) : array( self::PAGE_SIZE, ( $page - 1 ) * self::PAGE_SIZE )
-				)
-			)
-		);
+		$all = $wpdb->get_col( $wpdb->prepare( "SELECT m.image_id {$from}", $args ) );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$ids = Photo_Date_Order::sort( array_map( 'strval', $all ) );
+		$ids = $newest_first ? array_reverse( $ids ) : $ids;
 
-		return array( array_map( 'strval', $ids ), $total );
+		return array(
+			0 === $page ? $ids : array_slice( $ids, ( $page - 1 ) * self::PAGE_SIZE, self::PAGE_SIZE ),
+			count( $ids ),
+		);
 	}
 
 	/**
@@ -275,16 +324,41 @@ final class Photo_Filter {
 	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See conditions_from_request().
 	 * @param int                                                       $page       1-based page number.
 	 * @param string                                                    $folder_id  Drive folder ID.
+	 * @param bool                                                      $newest_first Whether the newest come first.
 	 *
 	 * @return array{0: array<string>, 1: int}
 	 */
-	private static function matching_ids_within( array $conditions, $page, $folder_id ) {
-		list( $all ) = self::matching_ids( $conditions, 0 );
+	private static function matching_ids_within( array $conditions, $page, $folder_id, $newest_first = false ) {
+		list( $all ) = self::matching_ids( $conditions, 0, $newest_first );
 		$inside      = Photo_Filter_Scope::within( $all, $folder_id );
 
 		return array(
 			array_slice( $inside, ( $page - 1 ) * self::PAGE_SIZE, self::PAGE_SIZE ),
 			count( $inside ),
+		);
+	}
+
+	/**
+	 * The photos a condition matches, as SQL with placeholders and their
+	 * values.
+	 *
+	 * @param array{kind: string, value: string|int, op: string} $condition A valid condition.
+	 * @param string                                             $prefix    The table prefix.
+	 *
+	 * @return array{0: string, 1: array<string|int>}
+	 */
+	private static function subquery( array $condition, $prefix ) {
+		if ( 'marked' !== $condition['kind'] ) {
+			return array(
+				str_replace( '{prefix}', $prefix, self::SUBQUERIES[ $condition['kind'] ] ),
+				array( $condition['value'] ),
+			);
+		}
+
+		return array(
+			"SELECT image_id FROM {$prefix}agallery_photo_marks
+			 WHERE circle = %s GROUP BY image_id HAVING SUM(level) >= %d",
+			array( Photo_Marks::CIRCLE, (int) $condition['value'] ),
 		);
 	}
 

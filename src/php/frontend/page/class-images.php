@@ -18,6 +18,9 @@ use Avpvh\Exceptions\Unsupported_Value_Exception;
 use Avpvh\Frontend\API_Fields;
 use Avpvh\Frontend\Options_Proxy;
 use Avpvh\Frontend\Pagination_Helper;
+use Avpvh\Frontend\Paging_Pagination_Helper;
+use Avpvh\Frontend\Photo_Date_Order;
+use Avpvh\GET_Helpers;
 use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
 use DateTime;
 
@@ -43,6 +46,14 @@ final class Images {
 	 * @throws Unsupported_Value_Exception A field that is not supported was passed in `$fields`.
 	 */
 	public static function get( $parent_id, $pagination_helper, $options ) {
+		// The viewer chose "Volgorde: Datum", old to new or new to old (see
+		// Shortcode).
+		$sort = GET_Helpers::get_string_variable( 'sort' );
+
+		if ( 'date' === $sort || 'date_desc' === $sort ) {
+			return self::get_by_date( $parent_id, $pagination_helper, $options, 'date_desc' === $sort );
+		}
+
 		if ( 'time' === $options->get_by( 'image_ordering' ) ) {
 			$order_by = 'name';
 			$fields   = new API_Fields(
@@ -138,6 +149,72 @@ final class Images {
 	}
 
 	/**
+	 * Like get(), but in date order (see Photo_Date_Order::sort_records()):
+	 * the whole folder is listed and ordered before the page is taken from
+	 * it, so the order holds across pages.
+	 *
+	 * @param string            $parent_id A directory to list items of.
+	 * @param Pagination_Helper $pagination_helper An initialized pagination helper.
+	 * @param Options_Proxy     $options The configuration of the gallery.
+	 * @param bool              $newest_first Whether to show the newest first.
+	 *
+	 * @return PromiseInterface A promise resolving to a list of images, as get().
+	 *
+	 * @throws Internal_Exception The method was called without an initialized batch.
+	 * @throws Plugin_Not_Authorized_Exception Not authorized.
+	 * @throws Unsupported_Value_Exception A field that is not supported was passed in `$fields`.
+	 */
+	private static function get_by_date( $parent_id, $pagination_helper, $options, $newest_first ) {
+		$fields = new API_Fields(
+			array(
+				'id',
+				'name',
+				'thumbnailLink',
+				'createdTime',
+				'imageMediaMetadata' => array(
+					'time',
+					'width',
+					'height',
+					'rotation',
+					'cameraMake',
+					'cameraModel',
+					'aperture',
+					'exposureTime',
+					'isoSpeed',
+					'focalLength',
+				),
+				'description',
+			)
+		);
+		$all    = ( new Paging_Pagination_Helper() )->withValues( 0, 1000000 );
+
+		return API_Facade::list_images( $parent_id, $fields, $all, 'name' )->then(
+			static function ( $records ) use ( $parent_id, $pagination_helper, $options, $newest_first ) {
+				$sorted = Photo_Date_Order::sort_records( self::filter_excluded( $records ) );
+				$page   = array();
+				$pagination_helper->iterate(
+					$newest_first ? array_reverse( $sorted ) : $sorted,
+					// phpcs:ignore SlevomatCodingStandard.PHP.DisallowReference.DisallowedInheritingVariableByReference
+					static function ( $record ) use ( &$page ) {
+						$page[] = $record;
+					}
+				);
+
+				return self::merge_corrections(
+					array_map(
+						static function ( $image ) use ( $options, $parent_id ) {
+							return self::format_image( $image, $options, $parent_id );
+						},
+						$page
+					),
+					$parent_id,
+					$options
+				);
+			}
+		);
+	}
+
+	/**
 	 * Normalizes a raw Google Drive image record into the gallery's image shape.
 	 *
 	 * @param array<string, mixed> $image The raw Google Drive image record.
@@ -164,7 +241,7 @@ final class Images {
 			// it as plain text in the lightbox caption). Escaping it here as well
 			// showed quotes as "&quot;".
 			'description' => array_key_exists( 'description', $image ) ? (string) $image['description'] : '',
-			'exif'        => self::format_exif( $metadata ),
+			'exif'        => self::format_exif( $metadata, $image ),
 			'folder_id'   => $parent_id,
 			'height'      => $height,
 			'id'          => $image['id'],
@@ -182,33 +259,47 @@ final class Images {
 
 	/**
 	 * Builds the display-ready EXIF summary for an image, dropping any fields that weren't present.
+	 * Without a capture time, the date in the file name stands in (time_source "name"), as it
+	 * does for ordering (see Photo_Date_Order).
 	 *
 	 * @param array<string, mixed> $metadata The image's `imageMediaMetadata` fields (possibly empty).
+	 * @param array<string, mixed> $image    The raw Google Drive image record (for its name).
 	 *
 	 * @return array<string, mixed> The non-null EXIF fields.
 	 */
-	private static function format_exif( $metadata ) {
+	private static function format_exif( $metadata, $image ) {
+		$named = '' === (string) ( $metadata['time'] ?? '' )
+			? Photo_Date_Order::name_date( (string) ( $image['name'] ?? '' ) )
+			: '';
+
+		if ( '' !== $named ) {
+			// Just the date when the name has no time ("IMG-20210804-WA0014").
+			$metadata['time'] = str_replace( '-', ':', substr( $named, 0, 10 ) )
+				. ( str_ends_with( $named, ' 00:00:00' ) ? '' : substr( $named, 10 ) );
+		}
+
 		return array_filter(
 			array(
-				'aperture' => self::numeric_metadata_value(
+				'aperture'    => self::numeric_metadata_value(
 					$metadata,
 					'aperture',
 					static function ( $value ) {
 						return round( floatval( $value ), 1 );
 					}
 				),
-				'exposure' => self::numeric_metadata_value( $metadata, 'exposureTime', 'floatval' ),
-				'focal'    => self::numeric_metadata_value(
+				'exposure'    => self::numeric_metadata_value( $metadata, 'exposureTime', 'floatval' ),
+				'focal'       => self::numeric_metadata_value(
 					$metadata,
 					'focalLength',
 					static function ( $value ) {
 						return round( floatval( $value ) );
 					}
 				),
-				'iso'      => self::numeric_metadata_value( $metadata, 'isoSpeed', 'intval' ),
-				'make'     => array_key_exists( 'cameraMake', $metadata ) ? $metadata['cameraMake'] : null,
-				'model'    => array_key_exists( 'cameraModel', $metadata ) ? $metadata['cameraModel'] : null,
-				'time'     => array_key_exists( 'time', $metadata ) ? $metadata['time'] : null,
+				'iso'         => self::numeric_metadata_value( $metadata, 'isoSpeed', 'intval' ),
+				'make'        => array_key_exists( 'cameraMake', $metadata ) ? $metadata['cameraMake'] : null,
+				'model'       => array_key_exists( 'cameraModel', $metadata ) ? $metadata['cameraModel'] : null,
+				'time'        => array_key_exists( 'time', $metadata ) ? $metadata['time'] : null,
+				'time_source' => '' === $named ? null : 'name',
 			),
 			static function ( $value ) {
 				return null !== $value;

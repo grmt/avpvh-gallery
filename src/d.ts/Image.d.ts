@@ -7,6 +7,8 @@ declare interface ImageExif {
 	model?: string;
 	orientation?: number;
 	time?: string;
+	// 'name' when time is the date in the file name (no capture time known).
+	time_source?: string;
 }
 
 declare interface Image {

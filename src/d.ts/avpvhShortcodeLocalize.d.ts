@@ -27,6 +27,16 @@ declare const avpvhShortcodeLocalize: {
 	exif_orientation_url: string;
 	can_exclude_photos: string;
 	can_remove_tags: string;
+	can_share: string;
+	saved_filter: {
+		conditions: Array<{
+			kind: 'liked_by' | 'marked' | 'person' | 'place' | 'tag';
+			value: string;
+			op: 'and' | 'not' | 'or';
+			label: string;
+		}>;
+		here: boolean;
+	} | null;
 	exclusion_url: string;
 	exif_date_url: string;
 	subject_tags: Record<

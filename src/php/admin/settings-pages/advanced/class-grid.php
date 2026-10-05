@@ -51,6 +51,8 @@ final class Grid {
 		Options::$dir_counts->add_field();
 		Options::$page_size->add_field();
 		Options::$page_autoload->add_field();
+		Options::$mark_votes_per_person->add_field();
+		Options::$mark_votes_per_photo->add_field();
 		Options::$image_ordering->add_field();
 		Options::$dir_ordering->add_field();
 		Options::$dir_prefix->add_field();

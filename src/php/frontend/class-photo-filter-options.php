@@ -27,6 +27,7 @@ final class Photo_Filter_Options {
 	public static function all() {
 		return array(
 			'liked_by' => self::likers(),
+			'marked'   => self::marks(),
 			'persons'  => self::tagged_persons(),
 			'places'   => self::places(),
 			'tags'     => self::used_tags(),
@@ -67,6 +68,43 @@ final class Photo_Filter_Options {
 			},
 			$rows
 		);
+	}
+
+	/**
+	 * Each number of stars in use ("★ 3 of meer"), counting everyone's
+	 * votes together, with how many photos have at least that many.
+	 *
+	 * @return array<array{value: string, label: string, count: int}>
+	 */
+	private static function marks() {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin table, fixed name; the circle is prepared.
+		$totals = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT SUM(level) FROM {$wpdb->prefix}agallery_photo_marks WHERE circle = %s GROUP BY image_id",
+				Photo_Marks::CIRCLE
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$counts = array();
+
+		foreach ( array_map( 'intval', $totals ) as $total ) {
+			for ( $stars = 1; $stars <= $total; ++$stars ) {
+				$counts[ $stars ] = ( $counts[ $stars ] ?? 0 ) + 1;
+			}
+		}
+
+		$options = array();
+
+		foreach ( $counts as $stars => $count ) {
+			$options[] = array(
+				'count' => $count,
+				'label' => '★ ' . $stars . ( isset( $counts[ $stars + 1 ] ) ? ' of meer' : '' ),
+				'value' => (string) $stars,
+			);
+		}
+
+		return $options;
 	}
 
 	/**

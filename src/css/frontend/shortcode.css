@@ -119,6 +119,10 @@ html.pswp-is-open body {
 	}
 }
 
+.avpvh-breadcrumb-sibling[hidden] {
+	display: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
 .avpvh-gallery {
 	margin: 1em auto 0;
 	opacity: 0;
@@ -1402,7 +1406,8 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	padding: 3px 6px;
 }
 
-.avpvh-filter-here {
+.avpvh-filter-here,
+.avpvh-filter-sort {
 	align-items: center;
 	display: flex;
 	font-size: 13px;
@@ -1414,7 +1419,8 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	font-weight: 700;
 }
 
-.avpvh-filter-clear {
+.avpvh-filter-clear,
+.avpvh-filter-share {
 	background: none;
 	border: none;
 	color: #2271b1;
@@ -1422,6 +1428,12 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	font-size: 13px;
 	padding: 0;
 	text-decoration: underline;
+}
+
+.avpvh-filter-share:disabled {
+	color: #8c8f94;
+	cursor: default;
+	text-decoration: none;
 }
 
 .avpvh-filter-add {
@@ -1482,6 +1494,15 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 
 .avpvh-pswp-person-tags-list li.pending {
 	opacity: 0.6;
+}
+
+.avpvh-tag-tagged {
+	color: #ffd54f;
+}
+
+.avpvh-tag-others-only {
+	accent-color: #9e9e9e; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	opacity: 0.7;
 }
 
 .avpvh-tag-votes {
@@ -1570,4 +1591,42 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	margin: 0 8px 2px 2px;
 	transform: rotate(45deg); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	width: 4px;
+}
+
+.avpvh-mark-badge {
+	background: rgb(0, 0, 0, 55%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border-radius: 3px;
+	color: #ffd54f;
+	font-size: 13px;
+	left: 4px;
+	letter-spacing: 1px;
+	line-height: 1;
+	padding: 2px 4px;
+	pointer-events: none;
+	position: absolute;
+	top: 4px;
+	z-index: 2;
+}
+
+.avpvh-mark-mine {
+	color: #ffd54f;
+}
+
+.avpvh-mark-others {
+	color: #bdbdbd;
+}
+
+.avpvh-mark-refusal {
+	background: rgb(0, 0, 0, 75%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	border-radius: 3px;
+	bottom: 4px;
+	color: #fff;
+	font-size: 12px;
+	left: 4px;
+	line-height: 1.3;
+	padding: 3px 6px;
+	pointer-events: none;
+	position: absolute;
+	right: 4px;
+	z-index: 3;
 }

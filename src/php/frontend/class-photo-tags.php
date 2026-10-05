@@ -37,11 +37,14 @@ final class Photo_Tags {
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility, SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- no-modifier matches the convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION); the "multi constant" error is a PHPCSUtils false positive on this single constant's multi-line array value.
 	const REACTIONS = array(
 		'kwaliteit' => array(
-			'blurry' => '🔍 Niet scherp',
-			'dark'   => '🌑 Donker',
-			'dirty'  => '🧽 Vies',
-			'goodq'  => '✅ Goede kwaliteit',
-			'shaky'  => '📸 Bewogen',
+			'blurry'   => '🔍 Niet scherp',
+			'dark'     => '🌑 Donker',
+			'dirty'    => '🧽 Vies',
+			'goodq'    => '✅ Goede kwaliteit',
+			'mirrored' => '↔️ Gespiegeld',
+			'rotated'  => '🔄 Gedraaid',
+			'shaky'    => '📸 Bewogen',
+			'upside'   => '🙃 Op de kop',
 		),
 		'subject'   => array(
 			'like' => '👍 Leuke foto',
