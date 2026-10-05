@@ -956,7 +956,16 @@ export class Shortcode {
 						navigate.addEventListener('click', (e) => {
 							e.stopPropagation();
 							if (direction === 'next') {
-								instance.next();
+								if (
+									instance.currIndex ===
+									instance.getNumItems() - 1
+								) {
+									this.nextBoundary(instance);
+								} else {
+									instance.next();
+								}
+							} else if (instance.currIndex === 0) {
+								this.prevBoundary(instance);
 							} else {
 								instance.prev();
 							}
@@ -2709,7 +2718,7 @@ export class Shortcode {
 				// rotation/flip correction directly so it isn't skipped.
 				Shortcode.applySlideRotation(pswp);
 				// With loop:false PhotoSwipe rubber-bands at boundaries — no 'change'
-				// event fires. Detect backward boundary swipes via touchstart/touchend.
+				// event fires. Detect boundary swipes via touchstart/touchend.
 				const onTouchStart = (e: TouchEvent): void => {
 					if (e.touches.length === 1) {
 						this.lightboxTouchStartX = e.touches[0].clientX;
@@ -2724,6 +2733,12 @@ export class Shortcode {
 						e.changedTouches[0].clientX - this.lightboxTouchStartX;
 					if (dx > 50 && this.lightboxTouchStartIndex === 0) {
 						this.prevBoundary(pswp);
+					} else if (
+						dx < -50 &&
+						this.lightboxTouchStartIndex === pswp.currIndex &&
+						pswp.currIndex === pswp.getNumItems() - 1
+					) {
+						this.nextBoundary(pswp);
 					}
 				};
 				document.addEventListener('touchstart', onTouchStart, {
@@ -3220,8 +3235,22 @@ export class Shortcode {
 		// slideshow would pause itself after a single frame.
 
 		// ── Boundary navigation ───────────────────────────────────────
-		// Capture click on the prev arrow when at the start of the first node.
-		// Forward navigation is handled seamlessly via preloaded items.
+		// PhotoSwipe disables its arrows at the ends of the current data source.
+		// Keep them clickable: at those boundaries we continue in the adjacent
+		// folder instead of wrapping or getting stuck in the current folder.
+		const enableBoundaryButtons = (): void => {
+			setTimeout(() => {
+				el.querySelectorAll<HTMLButtonElement>(
+					'.pswp__button--arrow'
+				).forEach((button) => {
+					button.disabled = false;
+				});
+			}, 0);
+		};
+		pswp.on('change', enableBoundaryButtons);
+		enableBoundaryButtons();
+
+		// Capture clicks before PhotoSwipe's own prev()/next() handlers.
 		el.addEventListener(
 			'click',
 			(e: MouseEvent) => {
@@ -3229,13 +3258,22 @@ export class Shortcode {
 				if (!(target instanceof Element)) {
 					return;
 				}
+				const atFirst = pswp.currIndex === 0;
+				const atLast = pswp.currIndex === pswp.getNumItems() - 1;
 				if (
-					target.closest('.pswp__button--arrow--prev') !== null &&
-					pswp.currIndex === 0
+					(atFirst &&
+						target.closest('.pswp__button--arrow--prev') !==
+							null) ||
+					(atLast &&
+						target.closest('.pswp__button--arrow--next') !== null)
 				) {
 					e.stopImmediatePropagation();
 					e.preventDefault();
-					this.prevBoundary(pswp);
+					if (atFirst) {
+						this.prevBoundary(pswp);
+					} else {
+						this.nextBoundary(pswp);
+					}
 				}
 			},
 			true
@@ -3250,9 +3288,19 @@ export class Shortcode {
 			if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
 				onActivity(null);
 			}
-			if (e.key === 'ArrowLeft' && pswp.currIndex === 0) {
+			const isPrevBoundary =
+				e.key === 'ArrowLeft' && pswp.currIndex === 0;
+			const isNextBoundary =
+				e.key === 'ArrowRight' &&
+				pswp.currIndex === pswp.getNumItems() - 1;
+			if (isPrevBoundary || isNextBoundary) {
 				e.stopImmediatePropagation();
-				this.prevBoundary(pswp);
+				e.preventDefault();
+				if (isPrevBoundary) {
+					this.prevBoundary(pswp);
+				} else {
+					this.nextBoundary(pswp);
+				}
 			}
 		};
 		document.addEventListener('keydown', handleKeydown, true);
@@ -3363,6 +3411,12 @@ export class Shortcode {
 	}
 
 	private nextBoundary(pswp: PhotoSwipe): void {
+		if (this.filter === null && !this.folderNavigating) {
+			this.folderNavigating = true;
+			this.navigateToAdjacentFolder('next', pswp);
+			return;
+		}
+
 		// At the absolute end of all currently loaded items.
 		// If next-folder preloading is in progress, do nothing — items will
 		// be appended soon and appendItemsToDatasource restarts the timer.
