@@ -31,8 +31,10 @@ import {
 	buildFilterBar,
 	conditionsParam,
 	type FilterCondition,
+	type FilterFolder,
 	isActiveFilter,
 	rememberFilter,
+	type SavedFilter,
 	type SortOrder,
 } from './PhotoFilter';
 import { enableMarking, showMarks } from './PhotoMarks';
@@ -97,8 +99,11 @@ export class Shortcode {
 	private draftConditions: Array<FilterCondition> = [];
 	// How many photos the current filter found (null while searching).
 	private filterTotal: number | null = null;
-	// "Alleen deze map": filter only the current folder and below it.
-	private filterHere = false;
+	// Empty means the complete gallery; every chosen folder includes its
+	// descendants, and separate branches can be combined.
+	private filterFolders: Array<FilterFolder> = [];
+	private savedFilters: Array<SavedFilter> =
+		avpvhShortcodeLocalize.saved_filters;
 	// Order chosen by the viewer: by name, or by date (EXIF capture date,
 	// then the date Drive has — see Photo_Date_Order) old to new or new to
 	// old; remembered per browser. Filter results are always by date, in
@@ -5083,7 +5088,18 @@ export class Shortcode {
 			saved !== null &&
 			isActiveFilter(saved.conditions)
 		) {
-			this.filterHere = saved.here || this.path !== '';
+			this.filterFolders = saved.folders ?? [];
+			if (
+				this.filterFolders.length === 0 &&
+				saved.here &&
+				this.path !== ''
+			) {
+				const id = this.path.split('/').pop() ?? '';
+				this.filterFolders = [
+					{ id, name: 'Deze map', path: this.path },
+				];
+			}
+			this.sortOrder = saved.sort ?? this.sortOrder;
 			this.getFiltered(saved.conditions);
 		} else {
 			this.get();
@@ -5097,7 +5113,11 @@ export class Shortcode {
 		}
 		const state =
 			this.filter !== null && isActiveFilter(this.filter)
-				? { conditions: this.filter, here: this.filterHere }
+				? {
+						conditions: this.filter,
+						folders: this.filterFolders,
+						sort: this.sortOrder,
+					}
 				: null;
 		const json = JSON.stringify(state);
 		if (json !== this.rememberedFilter) {
@@ -5108,6 +5128,61 @@ export class Shortcode {
 				state
 			);
 		}
+	}
+
+	private async saveNamedFilter(
+		name: string,
+		id: string
+	): Promise<Array<SavedFilter>> {
+		if (this.filter === null) {
+			return this.savedFilters;
+		}
+		const response = await fetch(avpvhShortcodeLocalize.ajax_url, {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: new URLSearchParams({
+				action: 'gallery_filter_preset_save',
+				id,
+				name,
+				state: JSON.stringify({
+					conditions: this.filter,
+					folders: this.filterFolders,
+					sort: this.sortOrder,
+				}),
+				_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
+			}).toString(),
+		});
+		const result = (await response.json()) as {
+			success?: boolean;
+			data?: { filters?: Array<SavedFilter>; message?: string };
+		};
+		if (result.success !== true) {
+			throw new Error(result.data?.message ?? 'Opslaan mislukt');
+		}
+		this.savedFilters = result.data?.filters ?? this.savedFilters;
+		return this.savedFilters;
+	}
+
+	private async deleteSavedFilter(id: string): Promise<Array<SavedFilter>> {
+		const response = await fetch(avpvhShortcodeLocalize.ajax_url, {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: new URLSearchParams({
+				action: 'gallery_filter_preset_delete',
+				id,
+				_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
+			}).toString(),
+		});
+		const result = (await response.json()) as {
+			success?: boolean;
+			data?: { filters?: Array<SavedFilter> };
+		};
+		if (result.success === true) {
+			this.savedFilters = result.data?.filters ?? this.savedFilters;
+		}
+		return this.savedFilters;
 	}
 
 	private get(): void {
@@ -5280,27 +5355,17 @@ export class Shortcode {
 			this.filter ?? this.draftConditions,
 			this.filterTotal,
 			{
-				available: this.path !== '',
-				here: this.filterHere,
-				onToggle: (here) => {
-					this.filterHere = here;
-					// The whole gallery: go to its top, as a step back can
-					// return from (see init()).
-					if (!here && this.path !== '' && this.filter !== null) {
-						history.pushState(
-							{},
-							'',
-							this.pathQueryParameter.remove()
-						);
-						if ('' !== this.pageQueryParameter.get()) {
-							history.replaceState(
-								{},
-								'',
-								this.pageQueryParameter.remove()
-							);
-						}
-						this.path = '';
-					}
+				selected: this.filterFolders,
+				load: async (path) => {
+					const listing = await this.fetchFolder(path);
+					return (listing?.directories ?? []).map((directory) => ({
+						id: directory.id,
+						name: directory.name,
+						path: `${path === '' ? '' : `${path}/`}${directory.id}`,
+					}));
+				},
+				onChange: (folders) => {
+					this.filterFolders = folders;
 					if (this.filter !== null) {
 						this.getFiltered(this.filter);
 					}
@@ -5324,8 +5389,18 @@ export class Shortcode {
 			},
 			{
 				enabled: avpvhShortcodeLocalize.can_share === 'true',
-				folder: this.filterFolder(),
+				folders: this.filterFolders,
 				nonce: avpvhShortcodeLocalize.tag_nonce,
+			},
+			{
+				filters: this.savedFilters,
+				onApply: (saved) => {
+					this.filterFolders = saved.folders;
+					this.sortOrder = saved.sort;
+					this.getFiltered(saved.conditions);
+				},
+				onDelete: async (id) => this.deleteSavedFilter(id),
+				onSave: async (name, id) => this.saveNamedFilter(name, id),
 			},
 			(conditions) => {
 				if (isActiveFilter(conditions)) {
@@ -5350,7 +5425,6 @@ export class Shortcode {
 		this.lastPage = 1;
 		this.container.html('<div class="avpvh-loading"><div></div></div>');
 		this.mountFilterBar();
-		const folder = this.fetchFolder(this.path);
 		void $.get(
 			avpvhShortcodeLocalize.ajax_url,
 			{
@@ -5359,7 +5433,7 @@ export class Shortcode {
 				hash: this.hash,
 				page: 1,
 				conditions: conditionsParam(conditions),
-				folder: this.filterFolder(),
+				folders: JSON.stringify(this.filterFolderIds()),
 			},
 			(data: PageResponse & { total?: number }) => {
 				if (epoch !== this.getEpoch) {
@@ -5371,23 +5445,12 @@ export class Shortcode {
 					);
 					return;
 				}
-				void folder.then((listing) => {
-					if (epoch !== this.getEpoch) {
-						return;
-					}
-					this.filterTotal = data.total ?? 0;
-					// The folder's breadcrumbs and subfolders stay, so you
-					// can move around with the filter on.
-					this.getSuccess({
-						...(listing?.path !== undefined
-							? { path: listing.path }
-							: {}),
-						...(listing?.directories !== undefined
-							? { directories: listing.directories }
-							: {}),
-						images: data.images ?? [],
-						more: data.more ?? false,
-					});
+				this.filterTotal = data.total ?? 0;
+				// While filtering, folder navigation lives in the compact
+				// checkbox tree rather than taking over the photo grid.
+				this.getSuccess({
+					images: data.images ?? [],
+					more: data.more ?? false,
 				});
 			}
 		).fail(() => {
@@ -5433,7 +5496,12 @@ export class Shortcode {
 	private showFolder(): void {
 		this.path = this.pathQueryParameter.get();
 		if (this.filter !== null && isActiveFilter(this.filter)) {
-			this.filterHere = this.path !== '';
+			if (this.path !== '') {
+				const id = this.path.split('/').pop() ?? '';
+				this.filterFolders = [
+					{ id, name: 'Deze map', path: this.path },
+				];
+			}
 			this.getFiltered(this.filter);
 		} else {
 			this.get();
@@ -5449,7 +5517,7 @@ export class Shortcode {
 					hash: this.hash,
 					page,
 					conditions: conditionsParam(this.filter),
-					folder: this.filterFolder(),
+					folders: JSON.stringify(this.filterFolderIds()),
 				}
 			: {
 					action: 'page',
@@ -5462,10 +5530,8 @@ export class Shortcode {
 
 	// The folder a filter is limited to ("Alleen deze map"), or '' for the
 	// whole gallery.
-	private filterFolder(): string {
-		return this.filterHere && this.path !== ''
-			? (this.path.split('/').pop() ?? '')
-			: '';
+	private filterFolderIds(): Array<string> {
+		return this.filterFolders.map(({ id }) => id);
 	}
 
 	private openLightboxIfPending(): void {
@@ -5557,7 +5623,7 @@ export class Shortcode {
 			);
 		this.container.find('.avpvh-more-button').remove();
 
-		const cacheKey = `page-${this.sortOrder}-${this.hash}-${this.pathQueryParameter.get()}-${JSON.stringify(this.filter)}-${this.filterFolder()}-${this.lastPage.toString()}`;
+		const cacheKey = `page-${this.sortOrder}-${this.hash}-${this.pathQueryParameter.get()}-${JSON.stringify(this.filter)}-${JSON.stringify(this.filterFolderIds())}-${this.lastPage.toString()}`;
 		if (Shortcode.cache.has(cacheKey)) {
 			const cachedData = Shortcode.cache.get(cacheKey) as PageResponse;
 			if (isError(cachedData)) {

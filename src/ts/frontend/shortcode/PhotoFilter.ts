@@ -15,6 +15,23 @@ export interface FilterCondition {
 	label: string;
 }
 
+export interface FilterFolder {
+	id: string;
+	name: string;
+	path: string;
+}
+
+export interface FilterState {
+	conditions: Array<FilterCondition>;
+	folders: Array<FilterFolder>;
+	sort: SortOrder;
+}
+
+export interface SavedFilter extends FilterState {
+	id: string;
+	name: string;
+}
+
 interface FilterOption {
 	value: string;
 	label: string;
@@ -75,7 +92,7 @@ async function fetchFilterOptions(ajaxUrl: string): Promise<FilterOptions> {
 export function rememberFilter(
 	ajaxUrl: string,
 	nonce: string,
-	state: { conditions: Array<FilterCondition>; here: boolean } | null
+	state: FilterState | null
 ): void {
 	void fetch(ajaxUrl, {
 		method: 'POST',
@@ -105,14 +122,20 @@ export function conditionsParam(conditions: Array<FilterCondition>): string {
 }
 
 // The filter in words, e.g. "✓ Overleden, ✗ Kamp (alleen deze map)".
-function describe(conditions: Array<FilterCondition>, here: boolean): string {
+function describe(
+	conditions: Array<FilterCondition>,
+	folders: Array<FilterFolder>
+): string {
 	return (
 		conditions
 			.map((condition) => {
 				const operator = OPERATORS.find(([op]) => op === condition.op);
 				return `${operator?.[2] ?? ''} ${condition.label}`;
 			})
-			.join(', ') + (here ? ' (alleen deze map)' : '')
+			.join(', ') +
+		(folders.length > 0
+			? ` (mappen: ${folders.map(({ name }) => name).join(', ')})`
+			: '')
 	);
 }
 
@@ -132,7 +155,7 @@ async function requestShare(
 			body: new URLSearchParams({
 				action: 'gallery_share_create',
 				conditions: conditionsParam(conditions),
-				folder: share.folder,
+				folders: JSON.stringify(share.folders.map(({ id }) => id)),
 				description,
 				_ajax_nonce: share.nonce,
 			}).toString(),
@@ -164,12 +187,10 @@ function select(
 	return element;
 }
 
-// "Alleen deze map": whether it can be offered (not in the gallery's top
-// folder), whether it's on, and what to do when it's switched.
 export interface FilterScope {
-	available: boolean;
-	here: boolean;
-	onToggle(here: boolean): void;
+	selected: Array<FilterFolder>;
+	load(path: string): Promise<Array<FilterFolder>>;
+	onChange(folders: Array<FilterFolder>): void;
 }
 
 // How photos are ordered: by name (folders only), or by date old to new or
@@ -186,8 +207,15 @@ export interface FilterSort {
 // folder the filter is limited to ('' for the whole gallery) and the nonce.
 export interface FilterShare {
 	enabled: boolean;
-	folder: string;
+	folders: Array<FilterFolder>;
 	nonce: string;
+}
+
+export interface FilterLibrary {
+	filters: Array<SavedFilter>;
+	onApply(filter: SavedFilter): void;
+	onDelete(id: string): Promise<Array<SavedFilter>>;
+	onSave(name: string, id: string): Promise<Array<SavedFilter>>;
 }
 
 // "Delen via Google Drive": after confirming, starts the share and says
@@ -197,7 +225,7 @@ function shareButton(
 	share: FilterShare,
 	conditions: Array<FilterCondition>,
 	total: number,
-	here: boolean,
+	folders: Array<FilterFolder>,
 	status: HTMLElement
 ): HTMLElement {
 	const button = document.createElement('button');
@@ -219,7 +247,7 @@ function shareButton(
 			ajaxUrl,
 			share,
 			conditions,
-			describe(conditions, here)
+			describe(conditions, folders)
 		).then((message) => {
 			status.textContent = message;
 		});
@@ -254,6 +282,209 @@ function sortPicker(sort: FilterSort, filtering: boolean): HTMLElement {
 	return label;
 }
 
+// A compact, lazily loaded folder tree. Selecting a folder includes its
+// complete branch; several separate branches may be selected together.
+function folderPicker(scope: FilterScope): HTMLElement {
+	const details = document.createElement('details');
+	details.className = 'avpvh-filter-folders';
+	const summary = document.createElement('summary');
+	const selectionLabel = (): string =>
+		scope.selected.length === 0
+			? 'Mappen: alles'
+			: `Mappen: ${scope.selected.map(({ name }) => name).join(', ')}`;
+	summary.textContent = selectionLabel();
+	details.appendChild(summary);
+
+	const panel = document.createElement('div');
+	panel.className = 'avpvh-filter-folder-panel';
+	const tree = document.createElement('ul');
+	tree.className = 'avpvh-filter-folder-tree';
+	panel.appendChild(tree);
+	details.appendChild(panel);
+
+	const allRow = document.createElement('li');
+	const allLabel = document.createElement('label');
+	const allBox = document.createElement('input');
+	allBox.type = 'checkbox';
+	allBox.checked = scope.selected.length === 0;
+	allBox.addEventListener('change', () => {
+		if (allBox.checked) {
+			scope.onChange([]);
+		} else {
+			allBox.checked = true;
+		}
+	});
+	allLabel.append(allBox, document.createTextNode(' Alle mappen'));
+	allRow.appendChild(allLabel);
+	tree.appendChild(allRow);
+
+	const selectedById = new Map(
+		scope.selected.map((folder) => [folder.id, folder])
+	);
+	const renderChildren = async (
+		parent: HTMLElement,
+		path: string
+	): Promise<void> => {
+		parent.classList.add('loading');
+		const folders = await scope.load(path);
+		parent.classList.remove('loading');
+		folders.forEach((folder) => {
+			const item = document.createElement('li');
+			item.className = 'avpvh-filter-folder-item closed';
+			const row = document.createElement('div');
+			row.className = 'avpvh-filter-folder-row';
+			const toggle = document.createElement('button');
+			toggle.type = 'button';
+			toggle.className = 'avpvh-filter-folder-toggle';
+			toggle.textContent = '▸';
+			toggle.title = 'Submappen tonen';
+			const label = document.createElement('label');
+			const box = document.createElement('input');
+			box.type = 'checkbox';
+			box.checked = selectedById.has(folder.id);
+			box.addEventListener('change', () => {
+				if (box.checked) {
+					selectedById.set(folder.id, folder);
+					// A chosen branch already contains its chosen descendants.
+					for (const chosen of Array.from(selectedById.values())) {
+						if (
+							chosen.id !== folder.id &&
+							chosen.path.startsWith(`${folder.path}/`)
+						) {
+							selectedById.delete(chosen.id);
+						}
+					}
+				} else {
+					selectedById.delete(folder.id);
+				}
+				scope.onChange(Array.from(selectedById.values()));
+			});
+			label.append(box, document.createTextNode(` ${folder.name}`));
+			row.append(toggle, label);
+			item.appendChild(row);
+			const children = document.createElement('ul');
+			children.className = 'avpvh-filter-folder-tree';
+			item.appendChild(children);
+			let loaded = false;
+			toggle.addEventListener('click', () => {
+				const opening = item.classList.contains('closed');
+				item.classList.toggle('closed', !opening);
+				toggle.textContent = opening ? '▾' : '▸';
+				if (opening && !loaded) {
+					loaded = true;
+					void renderChildren(children, folder.path);
+				}
+			});
+			parent.appendChild(item);
+		});
+	};
+
+	details.addEventListener('toggle', () => {
+		if (details.open && tree.childElementCount === 1) {
+			void renderChildren(tree, '');
+		}
+	});
+	return details;
+}
+
+function savedFilterControls(
+	library: FilterLibrary,
+	canSave: boolean
+): HTMLElement {
+	const controls = document.createElement('div');
+	controls.className = 'avpvh-filter-saved';
+	const picker = select('avpvh-filter-select', [
+		['', 'Opgeslagen filters…'],
+		...library.filters.map(
+			({ id, name }) => [id, name] as [string, string]
+		),
+	]);
+	const apply = document.createElement('button');
+	apply.type = 'button';
+	apply.className = 'avpvh-filter-saved-button';
+	apply.textContent = 'Toepassen';
+	apply.disabled = true;
+	const remove = document.createElement('button');
+	remove.type = 'button';
+	remove.className = 'avpvh-filter-saved-button';
+	remove.textContent = 'Verwijderen';
+	remove.disabled = true;
+	picker.addEventListener('change', () => {
+		apply.disabled = picker.value === '';
+		remove.disabled = picker.value === '';
+	});
+	apply.addEventListener('click', () => {
+		const chosen = library.filters.find(({ id }) => id === picker.value);
+		if (chosen !== undefined) {
+			library.onApply(chosen);
+		}
+	});
+	remove.addEventListener('click', () => {
+		if (picker.value === '') {
+			return;
+		}
+		remove.disabled = true;
+		void library
+			.onDelete(picker.value)
+			.then(() => {
+				picker.selectedOptions.item(0)?.remove();
+				picker.value = '';
+				apply.disabled = true;
+			})
+			.catch(() => {
+				remove.disabled = false;
+			});
+	});
+	const name = document.createElement('input');
+	name.type = 'text';
+	name.maxLength = 80;
+	name.placeholder = 'Naam voor dit filter';
+	const save = document.createElement('button');
+	save.type = 'button';
+	save.className = 'avpvh-filter-saved-button';
+	save.textContent = 'Filter opslaan';
+	const status = document.createElement('span');
+	status.setAttribute('role', 'status');
+	save.addEventListener('click', () => {
+		const filterName = name.value.trim();
+		if (filterName === '') {
+			name.focus();
+			return;
+		}
+		save.disabled = true;
+		void library
+			.onSave(filterName, picker.value)
+			.then((filters) => {
+				const saved = filters.find(
+					({ name: candidate }) => candidate === filterName
+				);
+				status.textContent = 'Opgeslagen';
+				if (saved !== undefined) {
+					const existing = Array.from(picker.options).find(
+						(option) => option.value === saved.id
+					);
+					const option = existing ?? document.createElement('option');
+					option.value = saved.id;
+					option.textContent = saved.name;
+					if (existing === undefined) {
+						picker.appendChild(option);
+					}
+					picker.value = saved.id;
+				}
+				save.disabled = false;
+			})
+			.catch(() => {
+				status.textContent = 'Opslaan mislukt';
+				save.disabled = false;
+			});
+	});
+	controls.append(picker, apply, remove);
+	if (canSave) {
+		controls.append(name, save, status);
+	}
+	return controls;
+}
+
 // The filter bar shown above the gallery: the current conditions as
 // removable chips, a row to add one (how · what kind · which) with the
 // "only this folder" switch, and while filtering the number of photos
@@ -265,6 +496,7 @@ export function buildFilterBar(
 	scope: FilterScope,
 	sort: FilterSort,
 	share: FilterShare,
+	library: FilterLibrary,
 	onChange: (conditions: Array<FilterCondition>) => void
 ): HTMLElement {
 	const bar = document.createElement('div');
@@ -288,21 +520,16 @@ export function buildFilterBar(
 	addButton.textContent = '+ Toevoegen';
 	addButton.hidden = true;
 	adder.append(opSelect, kindSelect, valueSelect, addButton);
-	if (scope.available) {
-		const hereLabel = document.createElement('label');
-		hereLabel.className = 'avpvh-filter-here';
-		const hereBox = document.createElement('input');
-		hereBox.type = 'checkbox';
-		hereBox.checked = scope.here;
-		hereBox.addEventListener('change', () => {
-			scope.onToggle(hereBox.checked);
-		});
-		hereLabel.append(hereBox, document.createTextNode(' Alleen deze map'));
-		hereLabel.title = 'Alleen foto’s in deze map en de mappen eronder';
-		adder.appendChild(hereLabel);
+	if (isActiveFilter(conditions)) {
+		adder.appendChild(folderPicker(scope));
 	}
 	adder.appendChild(sortPicker(sort, isActiveFilter(conditions)));
 	bar.appendChild(adder);
+	if (isActiveFilter(conditions) || library.filters.length > 0) {
+		bar.appendChild(
+			savedFilterControls(library, isActiveFilter(conditions))
+		);
+	}
 
 	kindSelect.addEventListener('change', () => {
 		const kind = kindSelect.value as FilterKind | '';
@@ -403,7 +630,7 @@ export function buildFilterBar(
 					share,
 					conditions,
 					total,
-					scope.here,
+					scope.selected,
 					status
 				)
 			);

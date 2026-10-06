@@ -22,7 +22,7 @@ final class Photo_Tags_DB {
 	 * Schema version stored in wp_options.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility -- matches the no-modifier convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION).
-	const SCHEMA_VERSION = 10;
+	const SCHEMA_VERSION = 11;
 
 	/**
 	 * Runs schema migration if needed; hooked to init.
@@ -161,7 +161,7 @@ final class Photo_Tags_DB {
 			user_id BIGINT UNSIGNED NOT NULL,
 			description VARCHAR(500) NOT NULL DEFAULT '',
 			conditions TEXT NOT NULL,
-			folder_id VARCHAR(255) NOT NULL DEFAULT '',
+			folder_id TEXT NOT NULL,
 			recipient VARCHAR(255) NOT NULL DEFAULT '',
 			status VARCHAR(10) NOT NULL,
 			photo_count INT UNSIGNED NOT NULL DEFAULT 0,
