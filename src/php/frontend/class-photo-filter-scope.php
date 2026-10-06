@@ -35,6 +35,56 @@ final class Photo_Filter_Scope {
 	private const MAX_DEPTH = 10;
 
 	/**
+	 * Sanitizes a JSON list of Drive folder IDs.
+	 *
+	 * @param string $json JSON list.
+	 *
+	 * @return array<string>
+	 */
+	public static function folder_ids( $json ) {
+		$decoded    = json_decode( $json, true );
+		$folder_ids = array();
+
+		foreach ( array_slice( is_array( $decoded ) ? $decoded : array(), 0, 50 ) as $folder_id ) {
+			$clean = sanitize_text_field( (string) $folder_id );
+
+			if ( '' !== $clean ) {
+				$folder_ids[] = $clean;
+			}
+		}
+
+		return array_values( array_unique( $folder_ids ) );
+	}
+
+	/**
+	 * Keeps IDs below at least one folder, preserving order and removing
+	 * overlap between selected branches.
+	 *
+	 * @param array<string> $ids        Photo IDs.
+	 * @param array<string> $folder_ids Selected Drive folder IDs.
+	 *
+	 * @return array<string>
+	 */
+	public static function within_many( array $ids, array $folder_ids ) {
+		$matches = array();
+
+		foreach ( $folder_ids as $folder_id ) {
+			foreach ( self::within( $ids, $folder_id ) as $photo_id ) {
+				$matches[ $photo_id ] = true;
+			}
+		}
+
+		return array_values(
+			array_filter(
+				$ids,
+				static function ( $photo_id ) use ( $matches ) {
+					return isset( $matches[ $photo_id ] );
+				}
+			)
+		);
+	}
+
+	/**
 	 * The photos that are in a folder or anywhere below it, in their
 	 * original order.
 	 *

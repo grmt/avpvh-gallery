@@ -79,8 +79,8 @@ final class Photo_Shares {
 
 	/**
 	 * Starts a share of a filter's photos. POST: conditions (JSON, as for
-	 * gallery_filter), folder ('' or a Drive folder ID: only photos below
-	 * it), description (the filter in words, for the e-mail and profile),
+	 * gallery_filter), folders (JSON Drive folder IDs: only photos below
+	 * those branches), description (the filter in words, for e-mail/profile),
 	 * captions ('1': upright, with dig names written on them; see Share_Image).
 	 *
 	 * @return void
@@ -89,13 +89,14 @@ final class Photo_Shares {
 		check_ajax_referer( 'avpvh_tag_nonce' );
 		// phpcs:disable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- verified above; the conditions are validated by Photo_Filter.
 		$conditions  = wp_unslash( (string) ( $_POST['conditions'] ?? '[]' ) );
-		$folder_id   = sanitize_text_field( wp_unslash( (string) ( $_POST['folder'] ?? '' ) ) );
+		$folder_ids  = Photo_Filter_Scope::folder_ids( wp_unslash( (string) ( $_POST['folders'] ?? '[]' ) ) );
+		$folder_json = (string) wp_json_encode( $folder_ids );
 		$description = sanitize_text_field( wp_unslash( (string) ( $_POST['description'] ?? '' ) ) );
 		$captions    = '1' === wp_unslash( (string) ( $_POST['captions'] ?? '' ) ) && Share_Image::available();
 		// phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
 		$valid = Photo_Filter::valid_conditions( $conditions );
-		$error = self::create_refusal( $valid, $folder_id );
+		$error = self::create_refusal( $valid, $folder_ids );
 
 		if ( null !== $error ) {
 			wp_send_json_error( array( 'message' => $error ), 400 );
@@ -107,7 +108,7 @@ final class Photo_Shares {
 					'captions'    => $captions ? 1 : 0,
 					'conditions'  => (string) wp_json_encode( $valid ),
 					'description' => mb_substr( $description, 0, 500 ),
-					'folder_id'   => $folder_id,
+					'folder_id'   => $folder_json,
 				)
 			)
 		);
@@ -163,7 +164,10 @@ final class Photo_Shares {
 
 		try {
 			$conditions = Photo_Filter::valid_conditions( $share->conditions );
-			$matching   = Photo_Filter::all_matching_ids( $conditions, $share->folder_id );
+			$matching   = Photo_Filter::all_matching_ids(
+				$conditions,
+				self::stored_folders( (string) $share->folder_id )
+			);
 			$ids        = array_slice( $matching, 0, self::MAX_PHOTOS );
 			$folder     = Share_Drive::create_folder( self::folder_name( $share ) );
 			self::copy( $share, $ids, $folder );
@@ -230,11 +234,11 @@ final class Photo_Shares {
 	 * Why a share can't be started, or null if it can.
 	 *
 	 * @param array<array{kind: string, value: string|int, op: string}> $conditions Valid conditions.
-	 * @param string                                                    $folder_id  Folder limit, or ''.
+	 * @param array<string>                                             $folder_ids Folder limits, or none.
 	 *
 	 * @return string|null
 	 */
-	private static function create_refusal( array $conditions, $folder_id ) {
+	private static function create_refusal( array $conditions, array $folder_ids ) {
 		if ( ! Share_Drive::configured() ) {
 			return 'Delen via Google Drive is nog niet ingesteld; vraag een beheerder';
 		}
@@ -244,7 +248,7 @@ final class Photo_Shares {
 		}
 
 		try {
-			$count = count( Photo_Filter::all_matching_ids( $conditions, $folder_id ) );
+			$count = count( Photo_Filter::all_matching_ids( $conditions, $folder_ids ) );
 		} catch ( Throwable $e ) {
 			// @phan-suppress-previous-line PhanUnusedVariableCaughtException -- the user only needs to know it failed.
 			return 'Het filter kon niet worden uitgevoerd';
@@ -283,6 +287,23 @@ final class Photo_Shares {
 				Photo_Shares_DB::update( (int) $share->id, array( 'photo_count' => $done ) );
 			}
 		);
+	}
+
+	/**
+	 * Reads the new JSON folder list and old single-folder share records.
+	 *
+	 * @param string $stored Stored folder_id column.
+	 *
+	 * @return array<string>
+	 */
+	private static function stored_folders( $stored ) {
+		if ( '' === $stored ) {
+			return array();
+		}
+
+		$folders = Photo_Filter_Scope::folder_ids( $stored );
+
+		return array() === $folders ? array( $stored ) : $folders;
 	}
 
 	/**

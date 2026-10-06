@@ -233,21 +233,23 @@ final class Shortcode {
 	 * The frontend data only logged-in members get: whether they can share a
 	 * filter via Google Drive (and with captions), and their remembered filter.
 	 *
-	 * @return array{can_caption: string, can_share: string, saved_filter: array<string, mixed>|null}
+	 * @return array{can_caption: string, can_share: string, saved_filter: array<string, mixed>|null, saved_filters: array<array<string, mixed>>}
 	 */
 	private static function member_data() {
 		if ( ! is_user_logged_in() ) {
 			return array(
-				'can_caption'  => 'false',
-				'can_share'    => 'false',
-				'saved_filter' => null,
+				'can_caption'   => 'false',
+				'can_share'     => 'false',
+				'saved_filter'  => null,
+				'saved_filters' => array(),
 			);
 		}
 
 		return array(
-			'can_caption'  => Share_Image::available() ? 'true' : 'false',
-			'can_share'    => Share_Drive::configured() ? 'true' : 'false',
-			'saved_filter' => Filter_Memory::saved_state(),
+			'can_caption'   => Share_Image::available() ? 'true' : 'false',
+			'can_share'     => Share_Drive::configured() ? 'true' : 'false',
+			'saved_filter'  => Filter_Memory::saved_state(),
+			'saved_filters' => Filter_Memory::saved_filters(),
 		);
 	}
 
