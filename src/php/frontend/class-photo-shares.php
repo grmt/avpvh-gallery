@@ -176,7 +176,6 @@ final class Photo_Shares {
 		wp_set_current_user( (int) $share->user_id );
 		self::lift_time_limit();
 		$folder = '';
-		$count  = 0;
 
 		try {
 			$conditions = Photo_Filter::valid_conditions( $share->conditions );
