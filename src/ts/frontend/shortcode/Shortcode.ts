@@ -27,6 +27,7 @@ import {
 	type ReactionData,
 	type TagContext,
 } from '../photo-tagger/PhotoTagger';
+import { registerDigCaption } from './DigCaption';
 import {
 	buildFilterBar,
 	conditionsParam,
@@ -2635,6 +2636,7 @@ export class Shortcode {
 					update();
 				},
 			});
+			registerDigCaption(pswp, avpvhShortcodeLocalize.ajax_url);
 			// Tagging and liking need a logged-in user (the AJAX handlers are
 			// wp_ajax_-only), so don't offer the buttons to anyone else.
 			if ('' !== avpvhShortcodeLocalize.rest_nonce) {
@@ -4627,6 +4629,7 @@ export class Shortcode {
 			el.dataset['pswpWidth'] = String(pswpW);
 			el.dataset['pswpHeight'] = String(pswpH);
 			el.dataset['avpvhId'] = image.id;
+			el.dataset['avpvhFolderId'] = image.folder_id;
 			el.dataset['avpvhCaption'] = image.description;
 			el.dataset['avpvhFullpath'] = prefix + image.name;
 			el.dataset['avpvhExif'] = Shortcode.formatExifString(image.exif);

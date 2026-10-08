@@ -1769,3 +1769,31 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	right: 4px;
 	z-index: 3;
 }
+
+/* "Jaar en opgraving" on the photo in the lightbox (see DigCaption.ts). */
+.avpvh-pswp-dig {
+	color: #fff;
+	font-family: "DejaVu Sans", Verdana, sans-serif;
+	font-weight: 700;
+	line-height: 1;
+	pointer-events: none;
+	position: absolute;
+	text-shadow:
+		0 0 2px rgba(0, 0, 0, 0.9),
+		1px 1px 2px rgba(0, 0, 0, 0.9),
+		-1px -1px 2px rgba(0, 0, 0, 0.9);
+	white-space: nowrap;
+	z-index: 10;
+}
+
+.avpvh-pswp-dig[hidden] {
+	display: none;
+}
+
+.pswp__button--avpvh-dig-toggle {
+	opacity: 0.55;
+}
+
+.pswp__button--avpvh-dig-toggle.avpvh-pswp-dig-on {
+	opacity: 1;
+}
