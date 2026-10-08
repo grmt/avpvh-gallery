@@ -167,7 +167,8 @@ final class Share_Image {
 	 */
 	private static function write( Imagick $image, $caption ) {
 		$size   = max( 14, (int) round( min( $image->getImageWidth(), $image->getImageHeight() ) * self::TEXT_SIZE ) );
-		$margin = (int) round( $size * 1.2 );
+		$right  = (int) round( $size * 2.4 );
+		$bottom = (int) round( $size * 1.2 );
 		$draw   = new ImagickDraw();
 		$draw->setFont( __DIR__ . '/fonts/DejaVuSans-Bold.ttf' );
 		$draw->setFontSize( $size );
@@ -175,11 +176,11 @@ final class Share_Image {
 		$draw->setFillColor( new ImagickPixel( 'rgba(0, 0, 0, 0.75)' ) );
 		$draw->setStrokeColor( new ImagickPixel( 'rgba(0, 0, 0, 0.75)' ) );
 		$draw->setStrokeWidth( max( 2, $size / 8 ) );
-		$image->annotateImage( $draw, $margin, $margin, 0, $caption );
+		$image->annotateImage( $draw, $right, $bottom, 0, $caption );
 
 		$draw->setFillColor( new ImagickPixel( 'white' ) );
 		$draw->setStrokeColor( new ImagickPixel( 'transparent' ) );
 		$draw->setStrokeWidth( 0 );
-		$image->annotateImage( $draw, $margin, $margin, 0, $caption );
+		$image->annotateImage( $draw, $right, $bottom, 0, $caption );
 	}
 }
