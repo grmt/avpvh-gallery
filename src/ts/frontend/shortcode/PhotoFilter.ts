@@ -162,7 +162,8 @@ async function requestShare(
 	share: FilterShare,
 	conditions: Array<FilterCondition>,
 	description: string,
-	captions: boolean
+	captions: boolean,
+	google: string
 ): Promise<string> {
 	try {
 		const response = await fetch(ajaxUrl, {
@@ -175,6 +176,7 @@ async function requestShare(
 				folders: JSON.stringify(folderIds(share.folders)),
 				description,
 				captions: captions ? '1' : '0',
+				google,
 				_ajax_nonce: share.nonce,
 			}).toString(),
 		});
@@ -227,6 +229,8 @@ export interface FilterSort {
 export interface FilterShare {
 	enabled: boolean;
 	captions: boolean;
+	// The user's Google address, or '' when none is known (then it's asked).
+	google: string;
 	folders: Array<FilterFolder>;
 	nonce: string;
 }
@@ -269,6 +273,12 @@ function shareButton(
 		'Kopieer deze foto’s naar een map in Google Drive die alleen jij een week lang kunt openen; de link komt per e-mail';
 	const captions = document.createElement('input');
 	captions.type = 'checkbox';
+	const google = document.createElement('input');
+	google.type = 'email';
+	google.className = 'avpvh-filter-share-google';
+	google.placeholder = 'Je Google-adres, bijv. naam@gmail.com';
+	google.title =
+		'De map wordt gedeeld met dit Google-account; het adres wordt onthouden';
 	// The first click asks for confirmation in the button itself, the second
 	// one starts the share.
 	button.addEventListener('click', () => {
@@ -278,16 +288,30 @@ function shareButton(
 			if (share.captions) {
 				wrapper.appendChild(captionsOption(captions));
 			}
+			if (share.google === '') {
+				wrapper.appendChild(google);
+			}
+			return;
+		}
+		if (
+			share.google === '' &&
+			(google.value.trim() === '' || !google.checkValidity())
+		) {
+			status.textContent =
+				'Vul het Google-adres in waarmee je de map wilt openen';
+			google.focus();
 			return;
 		}
 		button.disabled = true;
 		captions.disabled = true;
+		google.disabled = true;
 		void requestShare(
 			ajaxUrl,
 			share,
 			conditions,
 			describe(conditions, folders),
-			captions.checked
+			captions.checked,
+			share.google === '' ? google.value.trim() : ''
 		).then((message) => {
 			status.textContent = message;
 		});

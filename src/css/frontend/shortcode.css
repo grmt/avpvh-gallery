@@ -1564,6 +1564,12 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	gap: 8px;
 }
 
+.avpvh-filter-share-google {
+	font-size: 13px;
+	min-width: 16em;
+	padding: 2px 6px;
+}
+
 .avpvh-filter-share-captions {
 	font-size: 13px;
 	white-space: nowrap;

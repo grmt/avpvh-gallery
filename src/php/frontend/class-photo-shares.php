@@ -46,6 +46,11 @@ final class Photo_Shares {
 	private const DAYS = 7;
 
 	/**
+	 * How Drive says the recipient has no Google account.
+	 */
+	private const NO_GOOGLE = '/invalidSharingRequest|no Google account/i';
+
+	/**
 	 * Cron hook that makes one share (argument: share ID).
 	 */
 	private const BUILD_HOOK = 'avpvh_gallery_build_share';
@@ -81,7 +86,8 @@ final class Photo_Shares {
 	 * Starts a share of a filter's photos. POST: conditions (JSON, as for
 	 * gallery_filter), folders (JSON Drive folder IDs: only photos below
 	 * those branches), description (the filter in words, for e-mail/profile),
-	 * captions ('1': upright, with dig names written on them; see Share_Image).
+	 * captions ('1': upright, with dig names written on them; see Share_Image),
+	 * google (the user's Google address, when asked for; see Share_Recipient).
 	 *
 	 * @return void
 	 */
@@ -93,6 +99,7 @@ final class Photo_Shares {
 		$folder_json = (string) wp_json_encode( $folder_ids );
 		$description = sanitize_text_field( wp_unslash( (string) ( $_POST['description'] ?? '' ) ) );
 		$captions    = '1' === wp_unslash( (string) ( $_POST['captions'] ?? '' ) ) && Share_Image::available();
+		$google      = sanitize_email( wp_unslash( (string) ( $_POST['google'] ?? '' ) ) );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
 		$valid = Photo_Filter::valid_conditions( $conditions );
@@ -101,6 +108,8 @@ final class Photo_Shares {
 		if ( null !== $error ) {
 			wp_send_json_error( array( 'message' => $error ), 400 );
 		}
+
+		Share_Recipient::remember( get_current_user_id(), $google );
 
 		self::start(
 			Photo_Shares_DB::insert(
@@ -358,6 +367,10 @@ final class Photo_Shares {
 			}
 		}
 
+		if ( 1 === preg_match( self::NO_GOOGLE, $error->getMessage() ) ) {
+			Share_Recipient::forget( (int) $share->user_id, (string) $share->recipient );
+		}
+
 		Photo_Shares_DB::update(
 			(int) $share->id,
 			array(
@@ -383,9 +396,9 @@ final class Photo_Shares {
 				. 'vraag een beheerder de instellingen te controleren.';
 		}
 
-		if ( 1 === preg_match( '/invalidSharingRequest|no Google account/i', $message ) ) {
+		if ( 1 === preg_match( self::NO_GOOGLE, $message ) ) {
 			return sprintf(
-				'Bij %s hoort geen Google-account. Voeg op je profiel een Google-adres toe en maak de deling opnieuw.',
+				'Bij %s hoort geen Google-account. Deel opnieuw vanuit de galerij en geef daar je Google-adres op.',
 				$recipient
 			);
 		}

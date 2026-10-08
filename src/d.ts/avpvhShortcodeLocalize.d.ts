@@ -28,6 +28,8 @@ declare const avpvhShortcodeLocalize: {
 	can_exclude_photos: string;
 	can_remove_tags: string;
 	can_caption: string;
+	google: string;
+	google_known: string;
 	can_share: string;
 	saved_filter: {
 		conditions: Array<{
