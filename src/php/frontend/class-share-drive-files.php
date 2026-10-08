@@ -68,8 +68,9 @@ final class Share_Drive_Files {
 	 * @throws RuntimeException The upload couldn't be started.
 	 */
 	public static function upload( $folder_id, $name, $mime, $bytes ) {
-		$drive  = Share_Drive::drive();
-		$client = $drive->getClient();
+		$drive   = Share_Drive::drive();
+		$client  = $drive->getClient();
+		$request = null;
 		$client->setDefer( true );
 
 		try {
@@ -93,7 +94,7 @@ final class Share_Drive_Files {
 			throw new RuntimeException( 'Could not start the upload of ' . esc_html( $name ) );
 		}
 
-		$upload = new MediaFileUpload( $client, $request, $mime, null, true, self::CHUNK );
+		$upload = new MediaFileUpload( $client, $request, $mime, '', true, self::CHUNK );
 		$upload->setFileSize( strlen( $bytes ) );
 		$done = false;
 

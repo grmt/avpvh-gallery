@@ -90,16 +90,16 @@ final class Share_Caption {
 		$parents = Photo_Filter_Scope::parents( $current );
 		$found   = array();
 
-		foreach ( $climbing as $folder_id => list( $at, $below ) ) {
-			$name = trim( $names[ $at ] ?? '' );
+		foreach ( $climbing as $folder_id => list( $node, $below ) ) {
+			$name = trim( $names[ $node ] ?? '' );
 
 			if ( 1 === preg_match( self::DIGS, $name ) ) {
 				$found[ $folder_id ] = $below;
 				unset( $climbing[ $folder_id ] );
-			} elseif ( '' === ( $parents[ $at ] ?? '' ) ) {
+			} elseif ( '' === ( $parents[ $node ] ?? '' ) ) {
 				unset( $climbing[ $folder_id ] );
 			} else {
-				$climbing[ $folder_id ] = array( $parents[ $at ], $name );
+				$climbing[ $folder_id ] = array( $parents[ $node ], $name );
 			}
 		}
 

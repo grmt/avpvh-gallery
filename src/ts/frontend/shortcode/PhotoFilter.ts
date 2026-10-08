@@ -194,6 +194,16 @@ export interface FilterShare {
 	nonce: string;
 }
 
+// The "jaar en opgraving erop" checkbox shown while confirming a share.
+function captionsOption(checkbox: HTMLInputElement): HTMLElement {
+	const label = document.createElement('label');
+	label.className = 'avpvh-filter-share-captions';
+	label.title =
+		'De foto’s worden rechtop gezet zoals in de galerij, en foto’s van opgravingen krijgen rechtsonder het jaar en de plaats';
+	label.append(checkbox, document.createTextNode(' jaar en opgraving erop'));
+	return label;
+}
+
 // "Delen via Google Drive": after confirming, starts the share and says
 // where the link will be sent. While confirming, the photos can be chosen
 // to be put upright with the dig's year and name written on them.
@@ -240,16 +250,6 @@ function shareButton(
 	});
 	wrapper.appendChild(button);
 	return wrapper;
-}
-
-// The "jaar en opgraving erop" checkbox shown while confirming a share.
-function captionsOption(checkbox: HTMLInputElement): HTMLElement {
-	const label = document.createElement('label');
-	label.className = 'avpvh-filter-share-captions';
-	label.title =
-		'De foto’s worden rechtop gezet zoals in de galerij, en foto’s van opgravingen krijgen rechtsonder het jaar en de plaats';
-	label.append(checkbox, document.createTextNode(' jaar en opgraving erop'));
-	return label;
 }
 
 // "Volgorde": by name, or by date either way. Filter results are always by
