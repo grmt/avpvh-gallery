@@ -78,6 +78,8 @@ final class Photo_Filter {
 	 * Registers the AJAX endpoints.
 	 */
 	public function __construct() {
+		// Sharing a filter's photos via Google Drive.
+		new Photo_Shares();
 		add_action( 'wp_ajax_gallery_filter', array( self::class, 'handle_filter' ) );
 		add_action( 'wp_ajax_gallery_filter_options', array( self::class, 'handle_options' ) );
 		add_action( 'wp_ajax_gallery_filter_save', array( Filter_Memory::class, 'handle_save' ) );

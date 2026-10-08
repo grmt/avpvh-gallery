@@ -15,7 +15,6 @@ use Avpvh\API_Client;
 use Avpvh\API_Facade;
 use Avpvh\Frontend\API_Fields;
 use Avpvh\Frontend\Paging_Pagination_Helper;
-use Normalizer;
 use RuntimeException;
 
 /**
@@ -184,7 +183,8 @@ final class Drive_Path_Resolver {
 	 * @return string
 	 */
 	private static function normalize( $name ) {
-		$normalized = class_exists( 'Normalizer' ) ? Normalizer::normalize( $name, Normalizer::FORM_C ) : $name;
+		// NFC (the default form); intl is optional.
+		$normalized = function_exists( 'normalizer_normalize' ) ? normalizer_normalize( $name ) : $name;
 
 		return false === $normalized ? $name : $normalized;
 	}
@@ -201,11 +201,11 @@ final class Drive_Path_Resolver {
 		$by_name = array();
 
 		foreach ( $files as $file ) {
-			$id = $is_folders && isset( $file['shortcutDetails']['targetId'] )
+			$file_id = $is_folders && isset( $file['shortcutDetails']['targetId'] )
 				? (string) $file['shortcutDetails']['targetId']
 				: (string) $file['id'];
 
-			$by_name[ self::normalize( (string) $file['name'] ) ][] = $id;
+			$by_name[ self::normalize( (string) $file['name'] ) ][] = $file_id;
 		}
 
 		return $by_name;

@@ -69,7 +69,11 @@ final class Exclusion_Permission {
 
 		$member = avpvh_get_member_by_wp_user( get_current_user_id() );
 
-		return $member && isset( $member->user_id ) && '' !== $member->user_id ? $member : null;
+		if ( ! is_object( $member ) ) {
+			return null;
+		}
+
+		return isset( $member->user_id ) && '' !== $member->user_id ? $member : null;
 	}
 
 	/**

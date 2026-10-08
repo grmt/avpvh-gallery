@@ -47,7 +47,7 @@ final class Tag_Import_Plan {
 			WP_CLI::error( 'Cannot read ' . $file . '.' );
 		}
 
-		$header = fgetcsv( $handle, null, ',', '"', '' );
+		$header = fgetcsv( $handle, 0, ',', '"', '' );
 
 		if ( false === $header || self::COLUMNS !== self::without_bom( $header ) ) {
 			WP_CLI::error( 'The header must be: ' . implode( ',', self::COLUMNS ) );
@@ -55,7 +55,7 @@ final class Tag_Import_Plan {
 
 		$rows   = array();
 		$line   = 1;
-		$values = fgetcsv( $handle, null, ',', '"', '' );
+		$values = fgetcsv( $handle, 0, ',', '"', '' );
 
 		while ( false !== $values ) {
 			++$line;
@@ -64,7 +64,7 @@ final class Tag_Import_Plan {
 				$rows[] = self::row( $values, $line );
 			}
 
-			$values = fgetcsv( $handle, null, ',', '"', '' );
+			$values = fgetcsv( $handle, 0, ',', '"', '' );
 		}
 
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- CLI input file.

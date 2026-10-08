@@ -11,6 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use AVPVH_DB;
+
 /**
  * The Google address a user's shared photo selections go to (see
  * Photo_Shares): both the e-mail with the link and the Drive access.
@@ -30,15 +32,15 @@ final class Share_Recipient {
 	public static function for_user( $user_id ) {
 		$user    = get_userdata( $user_id );
 		$member  = function_exists( 'avpvh_get_member_by_wp_user' ) ? avpvh_get_member_by_wp_user( $user_id ) : null;
-		$primary = is_object( $member ) && '' !== (string) ( $member->email ?? '' )
-			? (string) $member->email
-			: ( false === $user ? '' : (string) $user->user_email );
+		$fields  = is_object( $member ) ? get_object_vars( $member ) : array();
+		$primary = (string) ( $fields['email'] ?? '' );
+		$primary = '' !== $primary || false === $user ? $primary : (string) $user->user_email;
 
-		if ( 1 === preg_match( '/@(gmail|googlemail)\.com$/i', $primary ) || ! is_object( $member ) ) {
+		if ( 1 === preg_match( '/@(gmail|googlemail)\.com$/i', $primary ) || ! isset( $fields['id'] ) ) {
 			return $primary;
 		}
 
-		return self::google_identities( (int) $member->id )[0] ?? $primary;
+		return self::google_identities( (int) $fields['id'] )[0] ?? $primary;
 	}
 
 	/**
@@ -49,16 +51,20 @@ final class Share_Recipient {
 	 * @return array<string>
 	 */
 	private static function google_identities( $member_id ) {
-		if ( ! class_exists( '\\AVPVH_DB' ) || ! method_exists( '\\AVPVH_DB', 'get_member_identities' ) ) {
+		if ( ! class_exists( AVPVH_DB::class ) ) {
 			return array();
 		}
 
-		$google = array_filter(
-			(array) call_user_func( array( '\\AVPVH_DB', 'get_member_identities' ), $member_id ),
-			static function ( $identity ) {
-				return is_object( $identity ) && 'google' === ( $identity->provider ?? '' );
+		$google = array();
+
+		foreach ( AVPVH_DB::get_member_identities( $member_id ) as $identity ) {
+			$fields = get_object_vars( $identity );
+
+			if ( 'google' === ( $fields['provider'] ?? '' ) ) {
+				$google[] = $fields;
 			}
-		);
+		}
+
 		usort(
 			$google,
 			static function ( $first, $second ) {
@@ -68,7 +74,7 @@ final class Share_Recipient {
 
 		return array_map(
 			static function ( $identity ) {
-				return (string) $identity->email;
+				return (string) ( $identity['email'] ?? '' );
 			},
 			$google
 		);
@@ -77,11 +83,11 @@ final class Share_Recipient {
 	/**
 	 * 1 for an identity that hasn't been verified, else 0.
 	 *
-	 * @param object $identity An avpvh-members identity.
+	 * @param array<string, mixed> $identity An avpvh-members identity's fields.
 	 *
 	 * @return int
 	 */
-	private static function unverified( $identity ) {
-		return '' === (string) ( $identity->verified_at ?? '' ) ? 1 : 0;
+	private static function unverified( array $identity ) {
+		return '' === (string) ( $identity['verified_at'] ?? '' ) ? 1 : 0;
 	}
 }

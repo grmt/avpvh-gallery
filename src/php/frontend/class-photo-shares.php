@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use stdClass;
 use Throwable;
 
 /**
@@ -55,9 +56,10 @@ final class Photo_Shares {
 	private const EXPIRE_HOOK = 'avpvh_gallery_expire_shares';
 
 	/**
-	 * Registers the AJAX endpoint and the cron jobs.
+	 * Registers the AJAX endpoint, the cron jobs and the profile list.
 	 */
 	public function __construct() {
+		new Photo_Shares_Page();
 		add_action( 'wp_ajax_gallery_share_create', array( self::class, 'ajax_create' ) );
 		add_action( self::BUILD_HOOK, array( self::class, 'build' ) );
 		add_action( self::EXPIRE_HOOK, array( self::class, 'expire' ) );
@@ -113,7 +115,7 @@ final class Photo_Shares {
 	/**
 	 * Makes a share again with its saved filter (see Photo_Shares_Page).
 	 *
-	 * @param object $share The share.
+	 * @param stdClass $share The share.
 	 *
 	 * @return void
 	 */
@@ -145,7 +147,11 @@ final class Photo_Shares {
 	public static function build( $share_id ) {
 		$share = Photo_Shares_DB::get( (int) $share_id );
 
-		if ( null === $share || 'pending' !== $share->status ) {
+		if ( ! $share instanceof stdClass ) {
+			return;
+		}
+
+		if ( 'pending' !== $share->status ) {
 			return;
 		}
 
@@ -187,7 +193,7 @@ final class Photo_Shares {
 			try {
 				Share_Drive::remove( (string) $share->drive_folder_id );
 			} catch ( Throwable $e ) {
-				// Already gone (or Drive unreachable): the share is over either way.
+				// @phan-suppress-previous-line PhanUnusedVariableCaughtException -- already gone (or Drive unreachable): the share is over either way.
 				unset( $e );
 			}
 
@@ -237,6 +243,7 @@ final class Photo_Shares {
 		try {
 			$count = count( Photo_Filter::all_matching_ids( $conditions, $folder_id ) );
 		} catch ( Throwable $e ) {
+			// @phan-suppress-previous-line PhanUnusedVariableCaughtException -- the user only needs to know it failed.
 			return 'Het filter kon niet worden uitgevoerd';
 		}
 
@@ -264,7 +271,7 @@ final class Photo_Shares {
 	/**
 	 * Marks a share failed and removes its half-made folder.
 	 *
-	 * @param object    $share     The share.
+	 * @param stdClass  $share     The share.
 	 * @param string    $folder_id Its folder, if made.
 	 * @param Throwable $error     What went wrong.
 	 *
@@ -274,9 +281,9 @@ final class Photo_Shares {
 		if ( '' !== $folder_id ) {
 			try {
 				Share_Drive::remove( $folder_id );
-			} catch ( Throwable $ignored ) {
-				// Left for whoever looks in the selections folder.
-				unset( $ignored );
+			} catch ( Throwable $e ) {
+				// @phan-suppress-previous-line PhanUnusedVariableCaughtException -- left for whoever looks in the selections folder.
+				unset( $e );
 			}
 		}
 
@@ -318,7 +325,7 @@ final class Photo_Shares {
 	/**
 	 * Mails a ready share's link to its recipient.
 	 *
-	 * @param object|null $share The share.
+	 * @param stdClass|null $share The share.
 	 *
 	 * @return void
 	 */
@@ -348,7 +355,7 @@ final class Photo_Shares {
 	/**
 	 * The folder's name: the date and the filter.
 	 *
-	 * @param object $share The share.
+	 * @param stdClass $share The share.
 	 *
 	 * @return string
 	 */
