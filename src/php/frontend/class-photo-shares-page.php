@@ -51,20 +51,27 @@ final class Photo_Shares_Page {
 
 		Photo_Shares_Limit::sync( get_current_user_id() );
 		$shares = Photo_Shares_DB::for_user( get_current_user_id() );
-		$html   = '<div class="avpvh-gallery-shares"><h3>Gedeelde fotoselecties</h3>';
+		$html   = '<div class="avpvh-gallery-shares"><h3>Shared Google Drive - foto selecties</h3>';
 
 		if ( array() === $shares ) {
 			return $html . '<p>Je hebt nog geen foto’s gedeeld. '
 				. 'Filter in de galerie en kies "Delen via Google Drive".</p></div>';
 		}
 
-		$html .= '<table><thead><tr><th>Selectie</th><th>Foto’s</th><th>Status</th>'
+		$html .= sprintf(
+			'<p>%d van de %d open%s.</p>',
+			Photo_Shares_DB::open_count( get_current_user_id() ),
+			Photo_Shares::MAX_OPEN,
+			20 <= count( $shares ) ? '; alleen de laatste 20 staan hieronder' : ''
+		);
+		$html .= '<table><thead><tr><th>Selectie</th><th>Gemaakt</th><th>Foto’s</th><th>Status</th>'
 			. '<th>Beschikbaar tot</th></tr></thead><tbody>';
 
 		foreach ( $shares as $share ) {
 			$html .= sprintf(
-				'<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
+				'<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
 				esc_html( '' === $share->description ? '–' : $share->description ),
+				esc_html( Photo_Shares::date( (string) $share->created_at ) ),
 				esc_html( 0 < (int) $share->photo_count ? (string) $share->photo_count : '' ),
 				self::status_html( $share ),
 				esc_html( 'ready' === $share->status ? Photo_Shares::date( (string) $share->expires_at ) : '' )
