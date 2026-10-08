@@ -1163,6 +1163,12 @@ function wp_timezone() {
 }
 
 /**
+ * @return string
+ */
+function get_temp_dir() {
+}
+
+/**
  * @param string                                    $content
  * @param array<string, array<string, bool>>|string $allowed_html
  * @param array<string>                             $allowed_protocols

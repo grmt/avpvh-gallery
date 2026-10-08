@@ -117,42 +117,52 @@ final class Share_Drive_Files {
 	 * @param string $bytes     Its contents.
 	 *
 	 * @return void
-	 *
-	 * @throws RuntimeException The upload couldn't be started.
 	 */
 	public static function upload( $folder_id, $name, $mime, $bytes ) {
-		$drive   = Share_Drive::drive();
-		$client  = $drive->getClient();
-		$request = null;
-		$client->setDefer( true );
+		self::send(
+			$folder_id,
+			array( $name, $mime, strlen( $bytes ) ),
+			static function ( $offset ) use ( $bytes ) {
+				return substr( $bytes, $offset, self::CHUNK );
+			}
+		);
+	}
+
+	/**
+	 * Uploads a file from disk as a new file in a folder, read a chunk at
+	 * a time (for the share's PDF, which can be hundreds of megabytes).
+	 *
+	 * @param string $folder_id Target folder.
+	 * @param string $name      The file's name.
+	 * @param string $mime      Its media type.
+	 * @param string $path      The file on disk.
+	 *
+	 * @return void
+	 *
+	 * @throws RuntimeException The file can't be read.
+	 */
+	public static function upload_file( $folder_id, $name, $mime, $path ) {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- read in chunks: too big for memory.
+		$handle = fopen( $path, 'rb' );
+
+		if ( false === $handle ) {
+			throw new RuntimeException( 'Could not read ' . esc_html( $name ) );
+		}
 
 		try {
-			$request = $drive->files->create(
-				new DriveFile(
-					array(
-						'name'    => $name,
-						'parents' => array( $folder_id ),
-					)
-				),
-				array(
-					'fields'            => 'id',
-					'supportsAllDrives' => true,
-				)
+			self::send(
+				$folder_id,
+				array( $name, $mime, (int) filesize( $path ) ),
+				static function ( $offset ) use ( $handle ) {
+					fseek( $handle, $offset );
+
+					// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- see above.
+					return (string) fread( $handle, self::CHUNK );
+				}
 			);
 		} finally {
-			$client->setDefer( false );
-		}
-
-		if ( ! $request instanceof RequestInterface ) {
-			throw new RuntimeException( 'Could not start the upload of ' . esc_html( $name ) );
-		}
-
-		$upload = new MediaFileUpload( $client, $request, $mime, '', true, self::CHUNK );
-		$upload->setFileSize( strlen( $bytes ) );
-		$done = false;
-
-		for ( $offset = 0; false === $done; $offset += self::CHUNK ) {
-			$done = $upload->nextChunk( substr( $bytes, $offset, self::CHUNK ) );
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- see above.
+			fclose( $handle );
 		}
 	}
 
@@ -179,5 +189,53 @@ final class Share_Drive_Files {
 				'supportsAllDrives' => true,
 			)
 		);
+	}
+
+	/**
+	 * A resumable upload, a chunk at a time.
+	 *
+	 * @param string                              $folder_id Target folder.
+	 * @param array{0: string, 1: string, 2: int} $file Name, media type and size.
+	 * @param callable(int): string               $chunk     The chunk at an offset.
+	 *
+	 * @return void
+	 *
+	 * @throws RuntimeException The upload couldn't be started.
+	 */
+	private static function send( $folder_id, array $file, callable $chunk ) {
+		list( $name, $mime, $size ) = $file;
+		$drive                      = Share_Drive::drive();
+		$client                     = $drive->getClient();
+		$request                    = null;
+		$client->setDefer( true );
+
+		try {
+			$request = $drive->files->create(
+				new DriveFile(
+					array(
+						'name'    => $name,
+						'parents' => array( $folder_id ),
+					)
+				),
+				array(
+					'fields'            => 'id',
+					'supportsAllDrives' => true,
+				)
+			);
+		} finally {
+			$client->setDefer( false );
+		}
+
+		if ( ! $request instanceof RequestInterface ) {
+			throw new RuntimeException( 'Could not start the upload of ' . esc_html( $name ) );
+		}
+
+		$upload = new MediaFileUpload( $client, $request, $mime, '', true, self::CHUNK );
+		$upload->setFileSize( $size );
+		$done = false;
+
+		for ( $offset = 0; false === $done; $offset += self::CHUNK ) {
+			$done = $upload->nextChunk( $chunk( $offset ) );
+		}
 	}
 }

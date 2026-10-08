@@ -126,6 +126,7 @@ require_once __DIR__ . '/frontend/class-share-drive.php';
 require_once __DIR__ . '/frontend/class-share-drive-files.php';
 require_once __DIR__ . '/frontend/class-share-caption.php';
 require_once __DIR__ . '/frontend/class-share-orientation.php';
+require_once __DIR__ . '/frontend/class-share-pdf.php';
 require_once __DIR__ . '/frontend/class-share-image.php';
 require_once __DIR__ . '/frontend/class-share-recipient.php';
 require_once __DIR__ . '/frontend/class-photo-shares-db.php';

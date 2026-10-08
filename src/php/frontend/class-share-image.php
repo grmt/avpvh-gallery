@@ -71,6 +71,7 @@ final class Share_Image {
 		$details     = Share_Drive::details( $ids );
 		$texts       = $captions ? Share_Caption::for_photos( $ids ) : array();
 		$corrections = Share_Orientation::for_photos( $ids );
+		$pdf         = $options['a4'] ? new Share_Pdf() : null;
 		$done        = 0;
 
 		foreach ( $ids as $file_id ) {
@@ -92,7 +93,8 @@ final class Share_Image {
 				$file,
 				sprintf( '%03d %s', $done + 1, self::jpeg_name( $file['name'] ) ),
 				$folder_id,
-				$edit
+				$edit,
+				$pdf
 			) ) {
 				++$done;
 			}
@@ -102,22 +104,52 @@ final class Share_Image {
 			}
 		}
 
+		self::upload_pdf( $pdf, $folder_id );
+
 		return $done;
 	}
 
 	/**
+	 * Uploads the share's PDF (one A4 page per photo) and removes the
+	 * temporary file.
+	 *
+	 * @param Share_Pdf|null $pdf       The PDF, if any.
+	 * @param string         $folder_id Target folder.
+	 *
+	 * @return void
+	 */
+	private static function upload_pdf( $pdf, $folder_id ) {
+		if ( null === $pdf ) {
+			return;
+		}
+
+		$pages = $pdf->count();
+		$path  = $pdf->finish();
+
+		try {
+			if ( 0 < $pages ) {
+				Share_Drive_Files::upload_file( $folder_id, '000 Alle foto’s (A4).pdf', 'application/pdf', $path );
+			}
+		} finally {
+			wp_delete_file( $path );
+		}
+	}
+
+	/**
 	 * Puts one photo in the folder: copied when it's a JPEG needing no
-	 * change, else converted. False when it couldn't be read at all.
+	 * change, else converted (and then also added to the PDF, if any).
+	 * False when it couldn't be read at all.
 	 *
 	 * @param string                                                                                                        $file_id   Drive file ID.
 	 * @param array{name: string, mime: string, size: int, thumb: string}                                                   $file      Its details.
 	 * @param string                                                                                                        $name      The copy's name.
 	 * @param string                                                                                                        $folder_id Target folder.
 	 * @param array{caption: string, correction: array{h_flip: bool, rotation: int, v_flip: bool}, upright: bool, a4: bool} $edit      What to do.
+	 * @param Share_Pdf|null                                                                                                $pdf The share's PDF, if any.
 	 *
 	 * @return bool
 	 */
-	private static function put( $file_id, array $file, $name, $folder_id, array $edit ) {
+	private static function put( $file_id, array $file, $name, $folder_id, array $edit, $pdf ) {
 		$jpeg = 'image/jpeg' === $file['mime'];
 
 		if ( $jpeg && ! $edit['upright'] && ! $edit['a4'] ) {
@@ -140,7 +172,12 @@ final class Share_Image {
 			return true;
 		}
 
-		Share_Drive_Files::upload( $folder_id, $name, 'image/jpeg', self::jpeg( $image, $edit ) );
+		$jpeg_bytes = self::jpeg( $image, $edit );
+		Share_Drive_Files::upload( $folder_id, $name, 'image/jpeg', $jpeg_bytes );
+
+		if ( null !== $pdf ) {
+			$pdf->add( $jpeg_bytes );
+		}
 
 		return true;
 	}
