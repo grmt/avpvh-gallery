@@ -379,16 +379,36 @@ function folderPicker(scope: FilterScope): HTMLElement {
 	const allBox = document.createElement('input');
 	allBox.type = 'checkbox';
 	allBox.checked = scope.selected.length === 0;
+	const updateTreeState = (): void => {
+		const currentSelected = Array.from(selectedById.values());
+		allBox.checked = currentSelected.length === 0;
+
+		tree.querySelectorAll<HTMLInputElement>(
+			'input[data-folder-id]'
+		).forEach((b) => {
+			const folderId = b.dataset['folderId'];
+			const folderPath = b.dataset['folderPath'];
+			if (
+				folderId === undefined ||
+				folderId === '' ||
+				folderPath === undefined ||
+				folderPath === ''
+			) {
+				return;
+			}
+			const isChecked = selectedById.has(folderId);
+			b.checked = isChecked;
+			const hasDescendant = currentSelected.some(
+				(f) => f.id !== folderId && f.path.startsWith(`${folderPath}/`)
+			);
+			b.indeterminate = !isChecked && hasDescendant;
+		});
+	};
+
 	allBox.addEventListener('change', () => {
 		if (allBox.checked) {
 			selectedById.clear();
-			tree.querySelectorAll<HTMLInputElement>(
-				'input[type="checkbox"]'
-			).forEach((input) => {
-				if (input !== allBox) {
-					input.checked = false;
-				}
-			});
+			updateTreeState();
 			updateSummary();
 			scheduleChange();
 		} else {
@@ -419,8 +439,21 @@ function folderPicker(scope: FilterScope): HTMLElement {
 			const label = document.createElement('label');
 			const box = document.createElement('input');
 			box.type = 'checkbox';
+			box.dataset['folderId'] = folder.id;
+			box.dataset['folderPath'] = folder.path;
+			box.checked = selectedById.has(folder.id);
+
 			const children = document.createElement('ul');
 			children.className = 'avpvh-filter-folder-tree';
+
+			const hasSelectedDescendant = Array.from(
+				selectedById.values()
+			).some(
+				(f) =>
+					f.id !== folder.id && f.path.startsWith(`${folder.path}/`)
+			);
+			box.indeterminate = !box.checked && hasSelectedDescendant;
+
 			box.addEventListener('change', () => {
 				if (box.checked) {
 					allBox.checked = false;
@@ -434,19 +467,10 @@ function folderPicker(scope: FilterScope): HTMLElement {
 							selectedById.delete(chosen.id);
 						}
 					}
-					children
-						.querySelectorAll<HTMLInputElement>(
-							'input[type="checkbox"]'
-						)
-						.forEach((childBox) => {
-							childBox.checked = false;
-						});
 				} else {
 					selectedById.delete(folder.id);
-					if (selectedById.size === 0) {
-						allBox.checked = true;
-					}
 				}
+				updateTreeState();
 				updateSummary();
 				scheduleChange();
 			});
@@ -455,6 +479,12 @@ function folderPicker(scope: FilterScope): HTMLElement {
 			item.appendChild(row);
 			item.appendChild(children);
 			let loaded = false;
+			if (hasSelectedDescendant) {
+				item.classList.remove('closed');
+				toggle.textContent = '▾';
+				loaded = true;
+				void renderChildren(children, folder.path);
+			}
 			toggle.addEventListener('click', () => {
 				const opening = item.classList.contains('closed');
 				item.classList.toggle('closed', !opening);
