@@ -146,6 +146,58 @@ final class Photo_Filter_Scope {
 	}
 
 	/**
+	 * Folder display paths below the gallery root, using the same prefix
+	 * trimming as breadcrumbs. Shared ancestors are fetched once per level;
+	 * names and parents use the existing caches across result pages.
+	 *
+	 * @param array<string> $folder_ids Photo folder IDs.
+	 * @param string        $root_id    Gallery root folder ID.
+	 * @param Options_Proxy $options    Gallery options.
+	 *
+	 * @return array<string, string> Folder ID => display path.
+	 */
+	public static function paths( array $folder_ids, $root_id, $options ) {
+		$parts    = array_fill_keys( $folder_ids, array() );
+		$climbing = array_combine( $folder_ids, $folder_ids );
+		$prefix   = (string) $options->get( 'dir_prefix' );
+
+		// Stop at the gallery root, including for photos directly in it.
+		$below_root = static function ( $folder_id ) use ( $root_id ) {
+			return '' !== $folder_id && $root_id !== $folder_id;
+		};
+		$climbing   = array_filter( $climbing, $below_root );
+
+		// Bound malformed/cyclic parent chains without limiting normal paths
+		// to the shallower depth used for filter membership checks.
+		for ( $level = 0; $level < 50 && array() !== $climbing; ++$level ) {
+			$current = array_values( array_unique( $climbing ) );
+			$names   = array_map(
+				static function ( $name ) use ( $prefix ) {
+					$position = '' === $prefix ? false : mb_strpos( $name, $prefix );
+
+					return mb_substr( $name, false === $position ? 0 : $position + 1 );
+				},
+				Photo_Date_Order::folder_names( $current )
+			);
+			$parents = self::parents( $current );
+
+			foreach ( $climbing as $folder_id => $ancestor_id ) {
+				$parts[ $folder_id ][]  = $names[ $ancestor_id ] ?? '';
+				$climbing[ $folder_id ] = $parents[ $ancestor_id ] ?? '';
+			}
+
+			$climbing = array_filter( $climbing, $below_root );
+		}
+
+		return array_map(
+			static function ( $segments ) {
+				return implode( '/', array_reverse( $segments ) );
+			},
+			$parts
+		);
+	}
+
+	/**
 	 * Moves every photo one folder up: the photos whose next folder is the
 	 * one asked for have arrived; those at the top are dropped.
 	 *

@@ -111,8 +111,8 @@ final class Photo_Filter {
 	 * @return void
 	 */
 	public static function filter_body() {
-		list( , $options ) = Gallery_Context::get();
-		$conditions        = self::conditions_from_request();
+		list( $root_id, $options ) = Gallery_Context::get();
+		$conditions                = self::conditions_from_request();
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
 		$page = max( 1, intval( $_GET['page'] ?? 1 ) );
 
@@ -150,7 +150,7 @@ final class Photo_Filter {
 
 		wp_send_json(
 			array(
-				'images' => self::images_for( $ids, $options ),
+				'images' => self::images_for( $ids, $options, $root_id ),
 				'more'   => $page * self::PAGE_SIZE < $total,
 				'total'  => $total,
 			)
@@ -384,20 +384,24 @@ final class Photo_Filter {
 	 *
 	 * @param array<string> $ids     Drive file IDs, in display order.
 	 * @param Options_Proxy $options The configuration of the gallery.
+	 * @param string        $root_id Gallery root folder ID.
 	 *
 	 * @return array<array<string, mixed>>
 	 */
-	private static function images_for( array $ids, $options ) {
+	private static function images_for( array $ids, $options, $root_id ) {
 		$by_folder = array();
 
 		foreach ( self::fetch_records( $ids ) as $record ) {
 			$by_folder[ $record['parents'][0] ?? '' ][] = $record;
 		}
 
+		$paths  = Photo_Filter_Scope::paths( array_map( 'strval', array_keys( $by_folder ) ), $root_id, $options );
 		$images = array();
 
 		foreach ( $by_folder as $folder_id => $records ) {
 			foreach ( Images::from_records( $records, (string) $folder_id, $options ) as $image ) {
+				$prefix                 = $paths[ $folder_id ] ?? '';
+				$image['full_path']     = ( '' === $prefix ? '' : $prefix . '/' ) . $image['name'];
 				$images[ $image['id'] ] = $image;
 			}
 		}

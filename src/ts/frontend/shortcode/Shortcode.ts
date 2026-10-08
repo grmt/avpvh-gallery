@@ -4632,7 +4632,8 @@ export class Shortcode {
 			el.dataset['avpvhId'] = image.id;
 			el.dataset['avpvhFolderId'] = image.folder_id;
 			el.dataset['avpvhCaption'] = image.description;
-			el.dataset['avpvhFullpath'] = prefix + image.name;
+			el.dataset['avpvhFullpath'] =
+				image.full_path ?? prefix + image.name;
 			el.dataset['avpvhExif'] = Shortcode.formatExifString(image.exif);
 			const driveRot = image.rotation ?? 0;
 			el.dataset['avpvhRotation'] = String(lightRot);
@@ -6471,6 +6472,10 @@ export class Shortcode {
 	}
 
 	private renderImage(page: number, image: Image): string {
+		const fullPath =
+			image.full_path ??
+			('' !== this.currentPathNames ? this.currentPathNames + '/' : '') +
+				image.name;
 		const thumbRotation = image.thumb_rotation ?? 0;
 		// Never fall back to Drive's metadata rotation for the broken 1920px
 		// derivative; its WordPress lightbox correction is authoritative.
@@ -6576,8 +6581,7 @@ export class Shortcode {
 			' href="' +
 			image.image +
 			'" data-avpvh-fullpath="' +
-			('' !== this.currentPathNames ? this.currentPathNames + '/' : '') +
-			image.name +
+			escapeHtml(fullPath) +
 			'"' +
 			exifAttr +
 			'>' +
@@ -6585,12 +6589,7 @@ export class Shortcode {
 			image.thumbnail +
 			'">' +
 			exifIconHtml +
-			Shortcode.renderExifOverlay(
-				('' !== this.currentPathNames
-					? this.currentPathNames + '/'
-					: '') + image.name,
-				image.exif
-			) +
+			Shortcode.renderExifOverlay(escapeHtml(fullPath), image.exif) +
 			'</a>'
 		);
 	}
