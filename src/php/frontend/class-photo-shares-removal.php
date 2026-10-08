@@ -117,17 +117,22 @@ final class Photo_Shares_Removal {
 		}
 
 		if ( ! in_array( $share->status, array( 'pending', 'ready' ), true ) ) {
-			wp_die( 'Deze deling is al verwijderd of verlopen.', 'Deling verwijderen' );
+			wp_die( 'Deze deling is al verwijderd of verlopen.', 'Deling verwijderen', array( 'response' => 200 ) );
 		}
 
 		if ( ! $sure ) {
-			wp_die( wp_kses( self::confirmation( $share, $token ), self::FORM_HTML ), 'Deling verwijderen' );
+			wp_die(
+				wp_kses( self::confirmation( $share, $token ), self::FORM_HTML ),
+				'Deling verwijderen',
+				array( 'response' => 200 )
+			);
 		}
 
 		self::close( $share );
 		wp_die(
 			'De deling is verwijderd. Op je profiel kun je hem later opnieuw laten maken.',
-			'Deling verwijderd'
+			'Deling verwijderd',
+			array( 'response' => 200 )
 		);
 	}
 

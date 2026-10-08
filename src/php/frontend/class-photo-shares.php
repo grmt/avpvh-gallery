@@ -340,9 +340,11 @@ final class Photo_Shares {
 			return array();
 		}
 
-		$folders = Photo_Filter_Scope::folder_ids( $stored );
-
-		return array() === $folders ? array( $stored ) : $folders;
+		// A JSON list (possibly empty: the whole gallery); anything else is
+		// an older record's single folder ID.
+		return is_array( json_decode( $stored, true ) )
+			? Photo_Filter_Scope::folder_ids( $stored )
+			: array( $stored );
 	}
 
 	/**
