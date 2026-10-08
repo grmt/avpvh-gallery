@@ -14,11 +14,36 @@ if ( ! defined( 'ABSPATH' ) ) {
 use stdClass;
 
 /**
- * The limit on open shares per user (Photo_Shares::MAX_OPEN): whether the
+ * The limit on open shares per user (Photo_Shares::MAX_OPEN): shares whose
+ * folder was thrown away in Drive stop counting (sync()), whether the
  * current user has reached it, what to tell them, and — when they choose
  * to — closing their oldest share to make room.
  */
 final class Photo_Shares_Limit {
+
+	/**
+	 * Marks a user's ready shares whose folder is gone from Drive (thrown
+	 * away by hand) as removed, so they no longer count as open.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 *
+	 * @return void
+	 */
+	public static function sync( $user_id ) {
+		if ( ! Share_Drive::configured() ) {
+			return;
+		}
+
+		foreach ( Photo_Shares_DB::for_user( $user_id ) as $share ) {
+			if (
+				'ready' === $share->status
+				&& '' !== (string) $share->drive_folder_id
+				&& Share_Drive_Files::folder_gone( (string) $share->drive_folder_id )
+			) {
+				Photo_Shares_DB::update( (int) $share->id, array( 'status' => 'removed' ) );
+			}
+		}
+	}
 
 	/**
 	 * Whether the current user has the maximum number of shares open.

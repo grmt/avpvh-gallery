@@ -49,6 +49,7 @@ final class Photo_Shares_Page {
 			return '';
 		}
 
+		Photo_Shares_Limit::sync( get_current_user_id() );
 		$shares = Photo_Shares_DB::for_user( get_current_user_id() );
 		$html   = '<div class="avpvh-gallery-shares"><h3>Gedeelde fotoselecties</h3>';
 

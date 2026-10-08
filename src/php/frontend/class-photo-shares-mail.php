@@ -72,6 +72,7 @@ final class Photo_Shares_Mail {
 	 * @return array<string>
 	 */
 	private static function others( $share ) {
+		Photo_Shares_Limit::sync( (int) $share->user_id );
 		$others = array_filter(
 			Photo_Shares_DB::for_user( (int) $share->user_id ),
 			static function ( $other ) use ( $share ) {

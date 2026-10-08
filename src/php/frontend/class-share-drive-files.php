@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Avpvh\Vendor\Google\Http\MediaFileUpload;
 use Avpvh\Vendor\Google\Service\Drive\DriveFile;
+use Avpvh\Vendor\Google\Service\Exception as Drive_Exception;
 use Avpvh\Vendor\Psr\Http\Message\RequestInterface;
 use Avpvh\Vendor\Psr\Http\Message\ResponseInterface;
 use RuntimeException;
@@ -29,6 +30,30 @@ final class Share_Drive_Files {
 	 * Upload chunk size (a multiple of 256 KiB, as Drive requires).
 	 */
 	private const CHUNK = 8 * 1024 * 1024;
+
+	/**
+	 * Whether a folder is gone: in the bin, or deleted. False when Drive
+	 * can't be asked (then nothing is concluded).
+	 *
+	 * @param string $folder_id Drive folder ID.
+	 *
+	 * @return bool
+	 */
+	public static function folder_gone( $folder_id ) {
+		try {
+			$folder = Share_Drive::drive()->files->get(
+				$folder_id,
+				array(
+					'fields'            => 'trashed',
+					'supportsAllDrives' => true,
+				)
+			);
+		} catch ( Drive_Exception $e ) {
+			return 404 === $e->getCode();
+		}
+
+		return true === $folder->getTrashed();
+	}
 
 	/**
 	 * A file's contents.

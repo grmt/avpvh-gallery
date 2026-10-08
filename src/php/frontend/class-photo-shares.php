@@ -109,6 +109,8 @@ final class Photo_Shares {
 		$replace     = '1' === wp_unslash( (string) ( $_POST['replace_oldest'] ?? '' ) );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
+		Photo_Shares_Limit::sync( get_current_user_id() );
+
 		if ( $replace && Photo_Shares_Limit::reached() ) {
 			Photo_Shares_Limit::close_oldest();
 		}
