@@ -17,13 +17,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Filter_Memory {
 
+	/** User meta holding at most 30 named filters (also read by Filter_Sharing). */
+	public const PRESETS_KEY = 'avpvh_gallery_filter_presets';
+
 	/**
 	 * User meta holding the remembered filter.
 	 */
 	private const MEMORY_KEY = 'avpvh_gallery_filter';
-
-	/** User meta holding at most 30 named filters. */
-	private const PRESETS_KEY = 'avpvh_gallery_filter_presets';
 
 	/**
 	 * The "gallery_filter_save" endpoint: remembers the user's current filter
@@ -95,7 +95,8 @@ final class Filter_Memory {
 				continue;
 			}
 
-			$presets[ $index ] = $preset;
+			// Saving it again keeps whom it is shared with (Filter_Sharing).
+			$presets[ $index ] = array_merge( $preset, Filter_Sharing::audience( $existing ) );
 			$found             = true;
 		}
 
@@ -140,7 +141,19 @@ final class Filter_Memory {
 	 * @return array<array<string, mixed>>
 	 */
 	public static function saved_filters() {
-		$stored  = get_user_meta( get_current_user_id(), self::PRESETS_KEY, true );
+		return self::presets_of( get_current_user_id() );
+	}
+
+	/**
+	 * A user's sanitized named filters, each with whom it is shared with
+	 * (see Filter_Sharing).
+	 *
+	 * @param int $user_id WordPress user ID.
+	 *
+	 * @return array<array<string, mixed>>
+	 */
+	public static function presets_of( $user_id ) {
+		$stored  = get_user_meta( $user_id, self::PRESETS_KEY, true );
 		$presets = array();
 
 		foreach ( array_slice( is_array( $stored ) ? $stored : array(), 0, 30 ) as $candidate ) {
@@ -157,7 +170,8 @@ final class Filter_Memory {
 					'id'   => $filter_id,
 					'name' => $name,
 				),
-				$state
+				$state,
+				Filter_Sharing::audience( $candidate )
 			);
 		}
 

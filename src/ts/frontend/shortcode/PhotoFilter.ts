@@ -48,6 +48,17 @@ export interface FilterState {
 export interface SavedFilter extends FilterState {
 	id: string;
 	name: string;
+	// Whom the owner shares it with (own filters only; see Filter_Sharing).
+	users?: Array<number>;
+	groups?: Array<string>;
+	// Whose it is, for filters shared with the user.
+	owner?: string;
+}
+
+// Whom a filter can be shared with.
+export interface FilterRecipients {
+	users: Array<{ id: number; name: string }>;
+	groups: Array<string>;
 }
 
 interface FilterOption {
@@ -261,6 +272,14 @@ export interface FilterShare {
 
 export interface FilterLibrary {
 	filters: Array<SavedFilter>;
+	// Other members' filters shared with the user: apply only.
+	shared: Array<SavedFilter>;
+	recipients(): Promise<FilterRecipients>;
+	onShare(
+		id: string,
+		users: Array<number>,
+		groups: Array<string>
+	): Promise<Array<SavedFilter>>;
 	onApply(filter: SavedFilter): void;
 	onDelete(id: string): Promise<Array<SavedFilter>>;
 	onSave(name: string, id: string): Promise<Array<SavedFilter>>;
@@ -577,6 +596,110 @@ function folderPicker(scope: FilterScope): HTMLElement {
 	return details;
 }
 
+// The rows of the share panel: groups first, then members, each with a
+// checkbox; returns the rows with what they stand for.
+function recipientRows(
+	recipients: FilterRecipients,
+	filter: SavedFilter
+): Array<{ row: HTMLLabelElement; box: HTMLInputElement; key: string }> {
+	const entries: Array<[string, string, boolean]> = [
+		...recipients.groups.map((group): [string, string, boolean] => [
+			`g:${group}`,
+			`👥 ${group}`,
+			(filter.groups ?? []).includes(group),
+		]),
+		...recipients.users.map(({ id, name }): [string, string, boolean] => [
+			`u:${String(id)}`,
+			name,
+			(filter.users ?? []).includes(id),
+		]),
+	];
+	return entries.map(([key, text, checked]) => {
+		const row = document.createElement('label');
+		row.className = 'avpvh-filter-share-row';
+		const box = document.createElement('input');
+		box.type = 'checkbox';
+		box.checked = checked;
+		row.append(box, document.createTextNode(` ${text}`));
+		return { row, box, key };
+	});
+}
+
+// "Delen…": whom a named filter is shared with — groups and members, with
+// a search field that narrows the list as you type.
+function sharePanel(library: FilterLibrary, filter: SavedFilter): HTMLElement {
+	const panel = document.createElement('div');
+	panel.className = 'avpvh-filter-share-panel';
+	const search = document.createElement('input');
+	search.type = 'search';
+	search.placeholder = 'Zoek een naam of groep';
+	const list = document.createElement('div');
+	list.className = 'avpvh-filter-share-list';
+	list.textContent = 'Laden…';
+	const save = document.createElement('button');
+	save.type = 'button';
+	save.className = 'avpvh-filter-saved-button';
+	save.textContent = 'Delen opslaan';
+	save.disabled = true;
+	const status = document.createElement('span');
+	status.setAttribute('role', 'status');
+	panel.append(search, list, save, status);
+
+	void library.recipients().then((recipients) => {
+		const rows = recipientRows(recipients, filter);
+		const summary = (): void => {
+			const chosen = rows.filter(({ box }) => box.checked);
+			const groups = chosen.filter(({ key }) => key.startsWith('g:'));
+			status.textContent =
+				chosen.length === 0
+					? 'Niet gedeeld'
+					: `Gedeeld met ${String(chosen.length - groups.length)} leden en ${String(groups.length)} groepen`;
+		};
+		list.textContent = '';
+		rows.forEach(({ row, box }) => {
+			box.addEventListener('change', summary);
+			list.appendChild(row);
+		});
+		summary();
+		save.disabled = false;
+		search.addEventListener('input', () => {
+			const query = search.value.trim().toLowerCase();
+			rows.forEach(({ row }) => {
+				row.hidden =
+					query !== '' &&
+					!row.textContent.toLowerCase().includes(query);
+			});
+		});
+		save.addEventListener('click', () => {
+			const keys = rows
+				.filter(({ box }) => box.checked)
+				.map(({ key }) => key);
+			const users = keys
+				.filter((key) => key.startsWith('u:'))
+				.map((key) => Number(key.slice(2)));
+			const groups = keys
+				.filter((key) => key.startsWith('g:'))
+				.map((key) => key.slice(2));
+			save.disabled = true;
+			void library
+				.onShare(filter.id, users, groups)
+				.then(() => {
+					// So the panel shows it when opened again.
+					filter.users = users;
+					filter.groups = groups;
+					status.textContent = `${status.textContent} — opgeslagen`;
+				})
+				.catch(() => {
+					status.textContent = 'Opslaan mislukt';
+				})
+				.finally(() => {
+					save.disabled = false;
+				});
+		});
+	});
+	return panel;
+}
+
 function savedFilterControls(
 	library: FilterLibrary,
 	canSave: boolean
@@ -589,6 +712,23 @@ function savedFilterControls(
 			({ id, name }) => [id, name] as [string, string]
 		),
 	]);
+	if (library.shared.length > 0) {
+		const group = document.createElement('optgroup');
+		group.label = 'Gedeeld met mij';
+		library.shared.forEach(({ id, name, owner }) => {
+			const option = document.createElement('option');
+			option.value = id;
+			option.textContent = `${name} (van ${owner ?? '?'})`;
+			group.appendChild(option);
+		});
+		picker.appendChild(group);
+	}
+	const findChosen = (): SavedFilter | undefined =>
+		[...library.filters, ...library.shared].find(
+			({ id }) => id === picker.value
+		);
+	const isOwn = (): boolean =>
+		library.filters.some(({ id }) => id === picker.value);
 	const apply = document.createElement('button');
 	apply.type = 'button';
 	apply.className = 'avpvh-filter-saved-button';
@@ -599,14 +739,34 @@ function savedFilterControls(
 	remove.className = 'avpvh-filter-saved-button';
 	remove.textContent = 'Verwijderen';
 	remove.disabled = true;
+	const share = document.createElement('button');
+	share.type = 'button';
+	share.className = 'avpvh-filter-saved-button';
+	share.textContent = 'Delen…';
+	share.title = 'Dit filter delen met andere leden of groepen';
+	share.disabled = true;
+	let panel: HTMLElement | null = null;
 	picker.addEventListener('change', () => {
 		apply.disabled = picker.value === '';
-		remove.disabled = picker.value === '';
+		remove.disabled = !isOwn();
+		share.disabled = !isOwn();
+		panel?.remove();
+		panel = null;
 	});
 	apply.addEventListener('click', () => {
-		const chosen = library.filters.find(({ id }) => id === picker.value);
+		const chosen = findChosen();
 		if (chosen !== undefined) {
 			library.onApply(chosen);
+		}
+	});
+	share.addEventListener('click', () => {
+		const chosen = library.filters.find(({ id }) => id === picker.value);
+		if (panel !== null) {
+			panel.remove();
+			panel = null;
+		} else if (chosen !== undefined) {
+			panel = sharePanel(library, chosen);
+			controls.appendChild(panel);
 		}
 	});
 	remove.addEventListener('click', () => {
@@ -668,7 +828,7 @@ function savedFilterControls(
 				save.disabled = false;
 			});
 	});
-	controls.append(picker, apply, remove);
+	controls.append(picker, apply, remove, share);
 	if (canSave) {
 		controls.append(name, save, status);
 	}

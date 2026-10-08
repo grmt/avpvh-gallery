@@ -121,6 +121,7 @@ require_once __DIR__ . '/frontend/class-like-visibility.php';
 require_once __DIR__ . '/frontend/class-photo-marks.php';
 require_once __DIR__ . '/frontend/class-photo-date-order.php';
 require_once __DIR__ . '/frontend/class-filter-memory.php';
+require_once __DIR__ . '/frontend/class-filter-sharing.php';
 require_once __DIR__ . '/frontend/class-share-drive.php';
 require_once __DIR__ . '/frontend/class-share-drive-files.php';
 require_once __DIR__ . '/frontend/class-share-caption.php';

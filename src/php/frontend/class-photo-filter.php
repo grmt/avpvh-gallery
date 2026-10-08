@@ -85,6 +85,7 @@ final class Photo_Filter {
 		add_action( 'wp_ajax_gallery_filter_save', array( Filter_Memory::class, 'handle_save' ) );
 		add_action( 'wp_ajax_gallery_filter_preset_save', array( Filter_Memory::class, 'handle_preset_save' ) );
 		add_action( 'wp_ajax_gallery_filter_preset_delete', array( Filter_Memory::class, 'handle_preset_delete' ) );
+		new Filter_Sharing();
 	}
 
 	/**

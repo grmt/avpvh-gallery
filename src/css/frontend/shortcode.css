@@ -1797,3 +1797,35 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 .avpvh-pswp-dig-toggle.avpvh-pswp-dig-on {
 	opacity: 1;
 }
+
+/* "Delen…" for a named filter (see sharePanel in PhotoFilter.ts). */
+.avpvh-filter-share-panel {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	display: flex;
+	flex-basis: 100%;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 6px;
+	max-width: 420px;
+	padding: 8px;
+}
+
+.avpvh-filter-share-list {
+	display: flex;
+	flex-direction: column;
+	max-height: 220px;
+	overflow-y: auto;
+}
+
+.avpvh-filter-share-row {
+	cursor: pointer;
+	font-size: 13px;
+	padding: 2px 0;
+	white-space: nowrap;
+}
+
+.avpvh-filter-share-row[hidden] {
+	display: none;
+}
