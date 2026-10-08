@@ -129,6 +129,8 @@ require_once __DIR__ . '/frontend/class-share-image.php';
 require_once __DIR__ . '/frontend/class-share-recipient.php';
 require_once __DIR__ . '/frontend/class-photo-shares-db.php';
 require_once __DIR__ . '/frontend/class-photo-shares-limit.php';
+require_once __DIR__ . '/frontend/class-photo-shares-mail.php';
+require_once __DIR__ . '/frontend/class-photo-shares-removal.php';
 require_once __DIR__ . '/frontend/class-photo-shares.php';
 require_once __DIR__ . '/frontend/class-photo-shares-page.php';
 require_once __DIR__ . '/frontend/class-photo-filter-options.php';

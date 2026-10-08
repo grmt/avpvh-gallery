@@ -1157,6 +1157,30 @@ function sanitize_email( $email ) {
 }
 
 /**
+ * @return \DateTimeZone
+ */
+function wp_timezone() {
+}
+
+/**
+ * @param string                                    $content
+ * @param array<string, array<string, bool>>|string $allowed_html
+ * @param array<string>                             $allowed_protocols
+ *
+ * @return string
+ */
+function wp_kses( $content, $allowed_html, $allowed_protocols = array() ) {
+}
+
+/**
+ * @param string $scheme
+ *
+ * @return string
+ */
+function wp_salt( $scheme = 'auth' ) {
+}
+
+/**
  * @param string $email
  * @param bool   $deprecated
  *

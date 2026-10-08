@@ -65,6 +65,7 @@ final class Photo_Shares {
 	 */
 	public function __construct() {
 		new Photo_Shares_Page();
+		new Photo_Shares_Removal();
 		add_action( 'wp_ajax_gallery_share_create', array( self::class, 'ajax_create' ) );
 		add_action( 'wp_ajax_gallery_dig_captions', array( Share_Caption::class, 'ajax_folders' ) );
 		add_action( 'wp_ajax_nopriv_gallery_dig_captions', array( Share_Caption::class, 'ajax_folders' ) );
@@ -218,7 +219,7 @@ final class Photo_Shares {
 				'status'          => 'ready',
 			)
 		);
-		self::mail_link( Photo_Shares_DB::get( (int) $share->id ) );
+		Photo_Shares_Mail::send( Photo_Shares_DB::get( (int) $share->id ) );
 	}
 
 	/**
@@ -428,36 +429,6 @@ final class Photo_Shares {
 		}
 
 		return 'Delen mislukt: ' . $message;
-	}
-
-	/**
-	 * Mails a ready share's link to its recipient.
-	 *
-	 * @param stdClass|null $share The share.
-	 *
-	 * @return void
-	 */
-	private static function mail_link( $share ) {
-		if ( null === $share ) {
-			return;
-		}
-
-		$lines = array(
-			'Hallo,',
-			'',
-			sprintf( 'Je fotoselectie (%d foto’s) staat klaar in Google Drive:', (int) $share->photo_count ),
-			self::folder_url( (string) $share->drive_folder_id ),
-			'',
-			'Filter: ' . ( '' === $share->description ? '–' : $share->description ),
-			sprintf(
-				'Alleen te openen met het Google-account %s, tot %s.',
-				$share->recipient,
-				self::date( (string) $share->expires_at )
-			),
-			'Daarna wordt de map verwijderd; op je profiel kun je de selectie dan opnieuw laten maken.',
-		);
-
-		wp_mail( (string) $share->recipient, 'Je fotoselectie staat klaar', implode( "\n", $lines ) );
 	}
 
 	/**

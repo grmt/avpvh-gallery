@@ -12,7 +12,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use stdClass;
-use Throwable;
 
 /**
  * The limit on open shares per user (Photo_Shares::MAX_OPEN): whether the
@@ -68,15 +67,6 @@ final class Photo_Shares_Limit {
 			return;
 		}
 
-		if ( '' !== (string) $oldest->drive_folder_id ) {
-			try {
-				Share_Drive::remove( (string) $oldest->drive_folder_id );
-			} catch ( Throwable $e ) {
-				// @phan-suppress-previous-line PhanUnusedVariableCaughtException -- already gone: the share is over either way.
-				unset( $e );
-			}
-		}
-
-		Photo_Shares_DB::update( (int) $oldest->id, array( 'status' => 'removed' ) );
+		Photo_Shares_Removal::close( $oldest );
 	}
 }
