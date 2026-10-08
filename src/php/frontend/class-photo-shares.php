@@ -91,7 +91,8 @@ final class Photo_Shares {
 	 * those branches), description (the filter in words, for e-mail/profile),
 	 * captions ('1': upright, with dig names written on them; see Share_Image),
 	 * a4 ('1': cropped to A4 proportions for printing), replace_oldest ('1':
-	 * when the user has MAX_OPEN shares open, close the oldest first),
+	 * when the user has MAX_OPEN shares open, close the oldest first), state
+	 * (the filter as the gallery shows it) and page (the gallery's address),
 	 * google (the user's Google address, when asked for; see Share_Recipient).
 	 *
 	 * @return void
@@ -107,6 +108,10 @@ final class Photo_Shares {
 		$crop_a4     = '1' === wp_unslash( (string) ( $_POST['a4'] ?? '' ) ) && Share_Image::available();
 		$google      = sanitize_email( wp_unslash( (string) ( $_POST['google'] ?? '' ) ) );
 		$replace     = '1' === wp_unslash( (string) ( $_POST['replace_oldest'] ?? '' ) );
+		$state       = Filter_Memory::sanitize_state(
+			json_decode( wp_unslash( (string) ( $_POST['state'] ?? 'null' ) ), true )
+		);
+		$page_url    = esc_url_raw( wp_unslash( (string) ( $_POST['page'] ?? '' ) ) );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
 		Photo_Shares_Limit::sync( get_current_user_id() );
@@ -138,6 +143,8 @@ final class Photo_Shares {
 					'conditions'  => (string) wp_json_encode( $valid ),
 					'description' => mb_substr( $description, 0, 500 ),
 					'folder_id'   => $folder_json,
+					'page_url'    => mb_substr( $page_url, 0, 500 ),
+					'state'       => null === $state ? null : (string) wp_json_encode( $state ),
 				)
 			)
 		);

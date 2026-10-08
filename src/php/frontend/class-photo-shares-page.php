@@ -23,6 +23,11 @@ use stdClass;
 final class Photo_Shares_Page {
 
 	/**
+	 * The gallery URL parameter that opens a share's filter.
+	 */
+	private const LINK_PARAM = 'avpvh_share';
+
+	/**
 	 * How shares that ended without an error are shown.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- PHPCSUtils false positive on an array value.
@@ -92,7 +97,7 @@ final class Photo_Shares_Page {
 		foreach ( $shares as $share ) {
 			$html .= sprintf(
 				'<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
-				esc_html( '' === $share->description ? '–' : $share->description ),
+				self::name_html( $share ),
 				esc_html( Photo_Shares::date( (string) $share->created_at ) ),
 				esc_html( 0 < (int) $share->photo_count ? (string) $share->photo_count : '' ),
 				self::status_html( $share ),
@@ -127,6 +132,29 @@ final class Photo_Shares_Page {
 
 		wp_safe_redirect( false === $back ? home_url() : $back );
 		exit;
+	}
+
+	/**
+	 * The filter a gallery link from the profile opens (?avpvh_share=ID):
+	 * that share's filter as the gallery showed it, if it's the user's own;
+	 * else null.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	public static function linked_state() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: only opens the user's own filter.
+		$share_id = absint( $_GET[ self::LINK_PARAM ] ?? 0 );
+		$share    = 0 === $share_id ? null : Photo_Shares_DB::get( $share_id );
+
+		if ( ! $share instanceof stdClass ) {
+			return null;
+		}
+
+		if ( get_current_user_id() !== (int) $share->user_id ) {
+			return null;
+		}
+
+		return Filter_Memory::sanitize_state( json_decode( (string) $share->state, true ) );
 	}
 
 	/**
@@ -175,6 +203,28 @@ final class Photo_Shares_Page {
 		$text = self::ENDED[ $share->status ] ?? esc_html( (string) $share->error );
 
 		return $text . self::recreate_form( $share );
+	}
+
+	/**
+	 * The share's name, linked to the gallery with its filter open when
+	 * the share knows both (older ones don't).
+	 *
+	 * @param stdClass $share The share.
+	 *
+	 * @return string
+	 */
+	private static function name_html( $share ) {
+		$name = esc_html( '' === $share->description ? '–' : $share->description );
+
+		if ( '' === (string) $share->page_url || '' === (string) $share->state ) {
+			return $name;
+		}
+
+		return sprintf(
+			'<a href="%s" title="Openen in de galerij">%s</a>',
+			esc_url( add_query_arg( self::LINK_PARAM, (int) $share->id, (string) $share->page_url ) ),
+			$name
+		);
 	}
 
 	/**

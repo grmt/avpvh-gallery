@@ -179,6 +179,18 @@ final class Filter_Memory {
 	}
 
 	/**
+	 * A filter state sanitized as for remembering, or null for none (also
+	 * used for the state a share keeps; see Photo_Shares_Page).
+	 *
+	 * @param mixed $state Decoded state.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	public static function sanitize_state( $state ) {
+		return self::remembered( $state );
+	}
+
+	/**
 	 * A filter state to remember, sanitized, or null for none.
 	 *
 	 * @param mixed $state Decoded state.

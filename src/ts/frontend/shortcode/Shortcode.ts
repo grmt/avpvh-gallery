@@ -5447,6 +5447,7 @@ export class Shortcode {
 						? avpvhShortcodeLocalize.google
 						: '',
 				folders: this.filterFolders,
+				sort: this.sortOrder,
 				nonce: avpvhShortcodeLocalize.tag_nonce,
 			},
 			{

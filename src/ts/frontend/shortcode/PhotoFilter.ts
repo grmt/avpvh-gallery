@@ -206,6 +206,12 @@ async function requestShare(
 				a4: options.a4 ? '1' : '0',
 				google: options.google,
 				replace_oldest: options.replaceOldest ? '1' : '0',
+				state: JSON.stringify({
+					conditions,
+					folders: share.folders,
+					sort: share.sort,
+				}),
+				page: window.location.origin + window.location.pathname,
 				_ajax_nonce: share.nonce,
 			}).toString(),
 		});
@@ -267,6 +273,8 @@ export interface FilterShare {
 	// The user's Google address, or '' when none is known (then it's asked).
 	google: string;
 	folders: Array<FilterFolder>;
+	// The gallery's order, kept with the share so the profile can open it.
+	sort: SortOrder;
 	nonce: string;
 }
 
