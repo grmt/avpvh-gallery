@@ -32,6 +32,7 @@ import {
 	conditionsParam,
 	type FilterCondition,
 	type FilterFolder,
+	folderIds,
 	isActiveFilter,
 	rememberFilter,
 	type SavedFilter,
@@ -5532,7 +5533,7 @@ export class Shortcode {
 	// The folder a filter is limited to ("Alleen deze map"), or '' for the
 	// whole gallery.
 	private filterFolderIds(): Array<string> {
-		return this.filterFolders.map(({ id }) => id);
+		return folderIds(this.filterFolders);
 	}
 
 	private openLightboxIfPending(): void {

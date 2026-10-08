@@ -15,10 +15,28 @@ export interface FilterCondition {
 	label: string;
 }
 
+// A folder chosen in the folder tree: its whole branch is taken in, or
+// left out when exclude is set (a choice deeper down overrules one above).
 export interface FilterFolder {
 	id: string;
 	name: string;
 	path: string;
+	exclude?: boolean;
+}
+
+// The chosen folders as the server wants them (see Photo_Filter_Scope::
+// within_many): top down, left-out ones marked with "!".
+export function folderIds(folders: Array<FilterFolder>): Array<string> {
+	return [...folders]
+		.sort((a, b) => a.path.split('/').length - b.path.split('/').length)
+		.map(({ id, exclude }) => (exclude === true ? `!${id}` : id));
+}
+
+// "✓ 03-Weekenden, ✗ 2024 Meerveld".
+function folderNames(folders: Array<FilterFolder>): string {
+	return folders
+		.map(({ name, exclude }) => `${exclude === true ? '✗' : '✓'} ${name}`)
+		.join(', ');
 }
 
 export interface FilterState {
@@ -133,9 +151,7 @@ function describe(
 				return `${operator?.[2] ?? ''} ${condition.label}`;
 			})
 			.join(', ') +
-		(folders.length > 0
-			? ` (mappen: ${folders.map(({ name }) => name).join(', ')})`
-			: '')
+		(folders.length > 0 ? ` (mappen: ${folderNames(folders)})` : '')
 	);
 }
 
@@ -156,7 +172,7 @@ async function requestShare(
 			body: new URLSearchParams({
 				action: 'gallery_share_create',
 				conditions: conditionsParam(conditions),
-				folders: JSON.stringify(share.folders.map(({ id }) => id)),
+				folders: JSON.stringify(folderIds(share.folders)),
 				description,
 				captions: captions ? '1' : '0',
 				_ajax_nonce: share.nonce,
@@ -307,8 +323,52 @@ function sortPicker(sort: FilterSort, filtering: boolean): HTMLElement {
 	return label;
 }
 
-// A compact, lazily loaded folder tree. Selecting a folder includes its
-// complete branch; several separate branches may be selected together.
+type FolderState = 'in' | 'none' | 'out';
+
+const FOLDER_STATES: Array<[FolderState, string, string]> = [
+	['none', '', 'Maakt niet uit (klik: wel)'],
+	['in', '✓', 'Wel (klik: niet)'],
+	['out', '✗', 'Niet (klik: maakt niet uit)'],
+];
+
+function showFolderState(box: HTMLButtonElement, state: FolderState): void {
+	const [, mark, title] =
+		FOLDER_STATES.find(([value]) => value === state) ?? FOLDER_STATES[0];
+	box.dataset['state'] = state;
+	box.textContent = mark;
+	box.title = title;
+	const checked: Record<FolderState, string> = {
+		in: 'true',
+		none: 'false',
+		out: 'mixed',
+	};
+	box.setAttribute('aria-checked', checked[state]);
+}
+
+// A three-way box for a folder: maakt niet uit → wel → niet.
+function folderBox(state: FolderState): HTMLButtonElement {
+	const box = document.createElement('button');
+	box.type = 'button';
+	box.className = 'avpvh-filter-folder-box';
+	showFolderState(box, state);
+	return box;
+}
+
+// Moves a box on to its next state and returns that.
+function nextFolderState(box: HTMLButtonElement): FolderState {
+	const index = FOLDER_STATES.findIndex(
+		([value]) => value === box.dataset['state']
+	);
+	const [next] = FOLDER_STATES[(index + 1) % FOLDER_STATES.length] ?? [
+		'none',
+	];
+	showFolderState(box, next);
+	return next;
+}
+
+// A compact, lazily loaded folder tree. Each folder can be taken in (✓),
+// left out (✗) or left alone; a choice covers the folder's whole branch,
+// and a choice deeper down overrules one above it.
 function folderPicker(scope: FilterScope): HTMLElement {
 	const details = document.createElement('details');
 	details.className = 'avpvh-filter-folders';
@@ -316,7 +376,7 @@ function folderPicker(scope: FilterScope): HTMLElement {
 	const selectionLabel = (): string =>
 		scope.selected.length === 0
 			? 'Mappen: alles'
-			: `Mappen: ${scope.selected.map(({ name }) => name).join(', ')}`;
+			: `Mappen: ${folderNames(scope.selected)}`;
 	summary.textContent = selectionLabel();
 	details.appendChild(summary);
 
@@ -364,23 +424,31 @@ function folderPicker(scope: FilterScope): HTMLElement {
 			toggle.textContent = '▸';
 			toggle.title = 'Submappen tonen';
 			const label = document.createElement('label');
-			const box = document.createElement('input');
-			box.type = 'checkbox';
-			box.checked = selectedById.has(folder.id);
-			box.addEventListener('change', () => {
-				if (box.checked) {
-					selectedById.set(folder.id, folder);
-					// A chosen branch already contains its chosen descendants.
+			const current = selectedById.get(folder.id);
+			let state: FolderState = 'none';
+			if (current !== undefined) {
+				state = current.exclude === true ? 'out' : 'in';
+			}
+			const box = folderBox(state);
+			box.addEventListener('click', () => {
+				const next = nextFolderState(box);
+				if (next === 'none') {
+					selectedById.delete(folder.id);
+				} else {
+					const exclude = next === 'out';
+					selectedById.set(
+						folder.id,
+						exclude ? { ...folder, exclude } : folder
+					);
+					// Below a branch, the same choice again adds nothing.
 					for (const chosen of Array.from(selectedById.values())) {
 						if (
-							chosen.id !== folder.id &&
-							chosen.path.startsWith(`${folder.path}/`)
+							chosen.path.startsWith(`${folder.path}/`) &&
+							(chosen.exclude === true) === exclude
 						) {
 							selectedById.delete(chosen.id);
 						}
 					}
-				} else {
-					selectedById.delete(folder.id);
 				}
 				scope.onChange(Array.from(selectedById.values()));
 			});

@@ -221,7 +221,7 @@ final class Filter_Memory {
 	 *
 	 * @param mixed $raw Raw folders.
 	 *
-	 * @return array<array{id: string, name: string, path: string}>
+	 * @return array<array{id: string, name: string, path: string, exclude?: true}>
 	 */
 	private static function folders( $raw ) {
 
@@ -238,11 +238,17 @@ final class Filter_Memory {
 				continue;
 			}
 
-			$folders[] = array(
+			$clean = array(
 				'id'   => $folder_id,
 				'name' => mb_substr( sanitize_text_field( (string) ( $folder['name'] ?? '' ) ), 0, 200 ),
 				'path' => mb_substr( sanitize_text_field( (string) ( $folder['path'] ?? '' ) ), 0, 2000 ),
 			);
+
+			if ( true === ( $folder['exclude'] ?? false ) ) {
+				$clean['exclude'] = true;
+			}
+
+			$folders[] = $clean;
 		}
 
 		return $folders;

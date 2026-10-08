@@ -1484,6 +1484,34 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	width: 18px;
 }
 
+.avpvh-filter-folder-box {
+	align-items: center;
+	background: #fff;
+	border: 1px solid #8c8f94;
+	border-radius: 3px;
+	color: #fff;
+	cursor: pointer;
+	display: inline-flex;
+	font-size: 12px;
+	font-weight: 700;
+	height: 16px;
+	justify-content: center;
+	line-height: 1;
+	padding: 0;
+	vertical-align: middle;
+	width: 16px;
+}
+
+.avpvh-filter-folder-box[data-state="in"] {
+	background: #2271b1;
+	border-color: #2271b1;
+}
+
+.avpvh-filter-folder-box[data-state="out"] {
+	background: #d63638;
+	border-color: #d63638;
+}
+
 .avpvh-filter-folder-item.closed > .avpvh-filter-folder-tree {
 	display: none;
 }
