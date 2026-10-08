@@ -37,6 +37,28 @@ final class Photo_Shares_Page {
 	public function __construct() {
 		add_shortcode( 'avpvh_gallery_shares', array( self::class, 'shortcode' ) );
 		add_action( 'admin_post_avpvh_gallery_share_recreate', array( self::class, 'handle_recreate' ) );
+		add_action( 'admin_post_avpvh_gallery_share_delete', array( self::class, 'handle_delete' ) );
+	}
+
+	/**
+	 * The "Verwijderen" button's handler: removes one of the user's open
+	 * shares (its folder goes; see Photo_Shares_Removal) and goes back.
+	 *
+	 * @return void
+	 *
+	 * @SuppressWarnings("PHPMD.ExitExpression")
+	 */
+	public static function handle_delete() {
+		check_admin_referer( 'avpvh_gallery_share_delete' );
+		$share = Photo_Shares_DB::get( absint( $_POST['share'] ?? 0 ) );
+		$back  = wp_get_referer();
+
+		if ( null !== $share && get_current_user_id() === (int) $share->user_id && 'ready' === $share->status ) {
+			Photo_Shares_Removal::close( $share );
+		}
+
+		wp_safe_redirect( false === $back ? home_url() : $back );
+		exit;
 	}
 
 	/**
@@ -139,7 +161,7 @@ final class Photo_Shares_Page {
 			return sprintf(
 				'<a href="%s" target="_blank" rel="noopener">Openen in Google Drive</a>',
 				esc_url( Photo_Shares::folder_url( (string) $share->drive_folder_id ) )
-			) . self::recreate_form( $share );
+			) . self::recreate_form( $share ) . self::form( $share, 'delete', 'Verwijderen' );
 		}
 
 		if ( 'pending' === $share->status ) {
@@ -164,14 +186,29 @@ final class Photo_Shares_Page {
 	 * @return string
 	 */
 	private static function recreate_form( $share ) {
+		return self::form( $share, 'recreate', 'Opnieuw maken' );
+	}
+
+	/**
+	 * A button that posts one action for a share.
+	 *
+	 * @param stdClass $share  The share.
+	 * @param string   $action "recreate" or "delete".
+	 * @param string   $label  The button's text.
+	 *
+	 * @return string
+	 */
+	private static function form( $share, $action, $label ) {
 		return sprintf(
 			' <form method="post" action="%s" style="display:inline">%s'
-				. '<input type="hidden" name="action" value="avpvh_gallery_share_recreate">'
+				. '<input type="hidden" name="action" value="avpvh_gallery_share_%s">'
 				. '<input type="hidden" name="share" value="%d">'
-				. '<button type="submit">Opnieuw maken</button></form>',
+				. '<button type="submit">%s</button></form>',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			wp_nonce_field( 'avpvh_gallery_share_recreate', '_wpnonce', true, false ),
-			(int) $share->id
+			wp_nonce_field( 'avpvh_gallery_share_' . $action, '_wpnonce', true, false ),
+			esc_attr( $action ),
+			(int) $share->id,
+			esc_html( $label )
 		);
 	}
 }
