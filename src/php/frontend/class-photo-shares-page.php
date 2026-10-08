@@ -88,6 +88,11 @@ final class Photo_Shares_Page {
 		$back  = wp_get_referer();
 
 		if ( null !== $share && self::may_recreate( $share ) ) {
+			if ( 'ready' === $share->status ) {
+				// Made again in place of the open one: its folder goes.
+				Photo_Shares_Removal::close( $share );
+			}
+
 			Photo_Shares::restart( $share );
 		}
 
@@ -104,9 +109,14 @@ final class Photo_Shares_Page {
 	 * @return bool
 	 */
 	private static function may_recreate( $share ) {
-		return get_current_user_id() === (int) $share->user_id
-			&& in_array( $share->status, array( 'expired', 'failed', 'removed' ), true )
-			&& Photo_Shares::MAX_OPEN > Photo_Shares_DB::open_count( get_current_user_id() );
+		if ( get_current_user_id() !== (int) $share->user_id ) {
+			return false;
+		}
+
+		// An open one is replaced, so it needs no room of its own.
+		return 'ready' === $share->status
+			|| ( in_array( $share->status, array( 'expired', 'failed', 'removed' ), true )
+				&& Photo_Shares::MAX_OPEN > Photo_Shares_DB::open_count( get_current_user_id() ) );
 	}
 
 	/**
@@ -122,7 +132,7 @@ final class Photo_Shares_Page {
 			return sprintf(
 				'<a href="%s" target="_blank" rel="noopener">Openen in Google Drive</a>',
 				esc_url( Photo_Shares::folder_url( (string) $share->drive_folder_id ) )
-			);
+			) . self::recreate_form( $share );
 		}
 
 		if ( 'pending' === $share->status ) {
@@ -135,7 +145,19 @@ final class Photo_Shares_Page {
 
 		$text = self::ENDED[ $share->status ] ?? esc_html( (string) $share->error );
 
-		return $text . sprintf(
+		return $text . self::recreate_form( $share );
+	}
+
+	/**
+	 * The "Opnieuw maken" button: makes the share again with its saved
+	 * filter and choices (for an open one, in place of it).
+	 *
+	 * @param stdClass $share The share.
+	 *
+	 * @return string
+	 */
+	private static function recreate_form( $share ) {
+		return sprintf(
 			' <form method="post" action="%s" style="display:inline">%s'
 				. '<input type="hidden" name="action" value="avpvh_gallery_share_recreate">'
 				. '<input type="hidden" name="share" value="%d">'
