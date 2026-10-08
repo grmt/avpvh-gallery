@@ -167,7 +167,7 @@ final class Share_Image {
 	 */
 	private static function write( Imagick $image, $caption ) {
 		$size   = max( 14, (int) round( min( $image->getImageWidth(), $image->getImageHeight() ) * self::TEXT_SIZE ) );
-		$margin = (int) round( $size * 0.6 );
+		$margin = (int) round( $size * 1.2 );
 		$draw   = new ImagickDraw();
 		$draw->setFont( __DIR__ . '/fonts/DejaVuSans-Bold.ttf' );
 		$draw->setFontSize( $size );
