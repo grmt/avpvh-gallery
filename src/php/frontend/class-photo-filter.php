@@ -400,7 +400,10 @@ final class Photo_Filter {
 
 		foreach ( $by_folder as $folder_id => $records ) {
 			foreach ( Images::from_records( $records, (string) $folder_id, $options ) as $image ) {
-				$image['full_path']     = implode( '/', array_filter( array( $paths[ $folder_id ] ?? '', $image['name'] ), 'strlen' ) );
+				$image['full_path']     = implode(
+					'/',
+					array_filter( array( $paths[ $folder_id ] ?? '', $image['name'] ), 'strlen' )
+				);
 				$images[ $image['id'] ] = $image;
 			}
 		}
