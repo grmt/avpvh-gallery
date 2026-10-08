@@ -22,7 +22,7 @@ final class Photo_Tags_DB {
 	 * Schema version stored in wp_options.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility -- matches the no-modifier convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION).
-	const SCHEMA_VERSION = 10;
+	const SCHEMA_VERSION = 12;
 
 	/**
 	 * Runs schema migration if needed; hooked to init.
@@ -240,7 +240,8 @@ final class Photo_Tags_DB {
 	 * Creates the table of shared photo selections: a filter's photos copied
 	 * into a Drive folder shared with the user's Google address for a while
 	 * (see Photo_Shares). The filter is kept, so an expired share can be made
-	 * again.
+	 * again. captions: the photos are turned upright and dig photos get the
+	 * year and name of the dig written on them (see Share_Image).
 	 *
 	 * @param string $charset_collate The table charset/collation clause.
 	 *
@@ -258,6 +259,7 @@ final class Photo_Tags_DB {
 			recipient VARCHAR(255) NOT NULL DEFAULT '',
 			status VARCHAR(10) NOT NULL,
 			photo_count INT UNSIGNED NOT NULL DEFAULT 0,
+			captions TINYINT(1) NOT NULL DEFAULT 0,
 			drive_folder_id VARCHAR(255) NOT NULL DEFAULT '',
 			error VARCHAR(500) NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,

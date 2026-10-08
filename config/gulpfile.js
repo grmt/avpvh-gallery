@@ -188,6 +188,12 @@ gulp.task('build:svg', () =>
 	gulp.src(['src/svg/*.svg']).pipe(gulp.dest('dist/frontend/images/'))
 );
 
+gulp.task('build:fonts', () =>
+	gulp
+		.src(['src/fonts/*'], { encoding: false })
+		.pipe(gulp.dest('dist/frontend/fonts/'))
+);
+
 gulp.task('build:txt', () =>
 	gulp.src(['src/txt/*.txt']).pipe(gulp.dest('dist/'))
 );
@@ -197,6 +203,7 @@ gulp.task(
 	gulp.parallel(
 		'build:css',
 		'build:deps',
+		'build:fonts',
 		'build:php',
 		'build:png',
 		'build:svg',

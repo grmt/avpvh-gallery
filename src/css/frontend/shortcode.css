@@ -1436,6 +1436,18 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	text-decoration: none;
 }
 
+.avpvh-filter-share-wrapper {
+	align-items: center;
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.avpvh-filter-share-captions {
+	font-size: 13px;
+	white-space: nowrap;
+}
+
 .avpvh-filter-add {
 	display: flex;
 	flex-wrap: wrap;

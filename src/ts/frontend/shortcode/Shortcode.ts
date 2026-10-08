@@ -5324,6 +5324,7 @@ export class Shortcode {
 			},
 			{
 				enabled: avpvhShortcodeLocalize.can_share === 'true',
+				captions: avpvhShortcodeLocalize.can_caption === 'true',
 				folder: this.filterFolder(),
 				nonce: avpvhShortcodeLocalize.tag_nonce,
 			},

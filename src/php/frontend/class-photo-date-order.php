@@ -144,6 +144,39 @@ final class Photo_Date_Order {
 	}
 
 	/**
+	 * Folder names (cached; one batch for those not known yet). Also used
+	 * by Share_Caption.
+	 *
+	 * @param array<string> $folder_ids Drive folder IDs.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function folder_names( array $folder_ids ) {
+		$cached   = get_transient( self::NAMES_KEY );
+		$known    = is_array( $cached ) ? $cached : array();
+		$promises = array();
+
+		foreach ( array_diff( $folder_ids, array_keys( $known ) ) as $folder_id ) {
+			$promises[ $folder_id ] = API_Facade::get_file_name( $folder_id )->then(
+				null,
+				static function () {
+					return '';
+				}
+			);
+		}
+
+		if ( array() !== $promises ) {
+			foreach ( API_Client::execute( $promises ) as $folder_id => $name ) {
+				$known[ (string) $folder_id ] = is_string( $name ) ? $name : '';
+			}
+
+			set_transient( self::NAMES_KEY, $known, WEEK_IN_SECONDS );
+		}
+
+		return array_intersect_key( $known, array_flip( $folder_ids ) );
+	}
+
+	/**
 	 * Each photo's folder year (0 when unknown).
 	 *
 	 * @param array<string> $ids Drive file IDs.
@@ -201,38 +234,6 @@ final class Photo_Date_Order {
 		}
 
 		return $years;
-	}
-
-	/**
-	 * Folder names (cached; one batch for those not known yet).
-	 *
-	 * @param array<string> $folder_ids Drive folder IDs.
-	 *
-	 * @return array<string, string>
-	 */
-	private static function folder_names( array $folder_ids ) {
-		$cached   = get_transient( self::NAMES_KEY );
-		$known    = is_array( $cached ) ? $cached : array();
-		$promises = array();
-
-		foreach ( array_diff( $folder_ids, array_keys( $known ) ) as $folder_id ) {
-			$promises[ $folder_id ] = API_Facade::get_file_name( $folder_id )->then(
-				null,
-				static function () {
-					return '';
-				}
-			);
-		}
-
-		if ( array() !== $promises ) {
-			foreach ( API_Client::execute( $promises ) as $folder_id => $name ) {
-				$known[ (string) $folder_id ] = is_string( $name ) ? $name : '';
-			}
-
-			set_transient( self::NAMES_KEY, $known, WEEK_IN_SECONDS );
-		}
-
-		return array_intersect_key( $known, array_flip( $folder_ids ) );
 	}
 
 	/**

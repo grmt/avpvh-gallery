@@ -27,6 +27,7 @@ declare const avpvhShortcodeLocalize: {
 	exif_orientation_url: string;
 	can_exclude_photos: string;
 	can_remove_tags: string;
+	can_caption: string;
 	can_share: string;
 	saved_filter: {
 		conditions: Array<{
