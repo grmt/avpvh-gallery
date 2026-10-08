@@ -29,7 +29,13 @@ final class Photo_Shares_Mail {
 	private const DAY = 86400;
 
 	/**
-	 * Mails a ready share's link to its recipient.
+	 * Style of a table cell in the e-mail.
+	 */
+	private const CELL = 'padding: 4px 12px 4px 0; border-bottom: 1px solid #ddd;';
+
+	/**
+	 * Mails a ready share's link to its recipient (as HTML, so the links
+	 * read as words rather than long addresses).
 	 *
 	 * @param stdClass|null $share The share.
 	 *
@@ -40,36 +46,34 @@ final class Photo_Shares_Mail {
 			return;
 		}
 
-		$lines = array(
-			'Hallo,',
-			'',
-			sprintf( 'Je fotoselectie (%d foto’s) staat klaar in Google Drive:', (int) $share->photo_count ),
-			Photo_Shares::folder_url( (string) $share->drive_folder_id ),
-			'',
-			'Filter: ' . ( '' === $share->description ? '–' : $share->description ),
-			sprintf(
-				'Alleen te openen met het Google-account %s, tot %s.',
-				$share->recipient,
-				Photo_Shares::date( (string) $share->expires_at )
-			),
-			'Daarna wordt de map verwijderd; op je profiel kun je de selectie dan opnieuw laten maken.',
-			'Eerder weg mag ook: ' . Photo_Shares_Removal::url( $share ),
+		$html = sprintf(
+			'<p>Hallo,</p><p>Je fotoselectie <strong>%s</strong> (%d foto’s) staat klaar in Google Drive: %s</p>'
+				. '<p>Alleen te openen met het Google-account %s, tot %s. Daarna wordt de map verwijderd; '
+				. 'op je profiel kun je de selectie dan opnieuw laten maken. Eerder weg mag ook: %s.</p>',
+			esc_html( '' === $share->description ? 'Fotoselectie' : $share->description ),
+			(int) $share->photo_count,
+			self::link( Photo_Shares::folder_url( (string) $share->drive_folder_id ), 'openen' ),
+			esc_html( (string) $share->recipient ),
+			esc_html( Photo_Shares::date( (string) $share->expires_at ) ),
+			self::link( Photo_Shares_Removal::url( $share ), 'verwijderen' )
 		);
 
 		wp_mail(
 			(string) $share->recipient,
 			'Je fotoselectie staat klaar',
-			implode( "\n", array_merge( $lines, self::others( $share ) ) )
+			'<html><body style="font-family: Arial, sans-serif; font-size: 14px;">' . $html . self::others( $share )
+				. '</body></html>',
+			array( 'Content-Type: text/html; charset=UTF-8' )
 		);
 	}
 
 	/**
-	 * The lines about the user's other open shares (none when there are
-	 * none).
+	 * The user's other open shares as a table (none when there are none):
+	 * name, when made, how long still available, and links.
 	 *
 	 * @param stdClass $share The share the mail is about.
 	 *
-	 * @return array<string>
+	 * @return string
 	 */
 	private static function others( $share ) {
 		Photo_Shares_Limit::sync( (int) $share->user_id );
@@ -81,27 +85,44 @@ final class Photo_Shares_Mail {
 		);
 
 		if ( array() === $others ) {
-			return array();
+			return '';
 		}
 
-		$lines = array(
-			'',
-			sprintf( 'Je andere delingen die nog open staan (je kunt er %d tegelijk hebben):', Photo_Shares::MAX_OPEN ),
-		);
+		$rows = '';
 
 		foreach ( $others as $other ) {
-			$lines[] = '';
-			$lines[] = '- ' . ( '' === $other->description ? 'Fotoselectie' : $other->description );
-			$lines[] = sprintf(
-				'  gemaakt %s, nog %s beschikbaar',
-				Photo_Shares::date( (string) $other->created_at ),
-				self::remaining( (string) $other->expires_at )
+			$rows .= sprintf(
+				'<tr><td style="%1$s">%2$s</td><td style="%1$s">%3$s</td><td style="%1$s">%4$s</td>'
+					. '<td style="%1$s">%5$s · %6$s</td></tr>',
+				self::CELL,
+				esc_html( '' === $other->description ? 'Fotoselectie' : $other->description ),
+				esc_html( Photo_Shares::date( (string) $other->created_at ) ),
+				esc_html( self::remaining( (string) $other->expires_at ) ),
+				self::link( Photo_Shares::folder_url( (string) $other->drive_folder_id ), 'openen' ),
+				self::link( Photo_Shares_Removal::url( $other ), 'verwijderen' )
 			);
-			$lines[] = '  ' . Photo_Shares::folder_url( (string) $other->drive_folder_id );
-			$lines[] = '  verwijderen: ' . Photo_Shares_Removal::url( $other );
 		}
 
-		return $lines;
+		return sprintf(
+			'<p>Je andere selecties die nog open staan (je kunt er %d tegelijk hebben):</p>'
+				. '<table style="border-collapse: collapse;"><tr><th style="%2$s">Selectie</th>'
+				. '<th style="%2$s">Gemaakt</th><th style="%2$s">Nog</th><th style="%2$s"></th></tr>%3$s</table>',
+			Photo_Shares::MAX_OPEN,
+			self::CELL . ' text-align: left;',
+			$rows
+		);
+	}
+
+	/**
+	 * A link.
+	 *
+	 * @param string $url  Where to.
+	 * @param string $text Its text.
+	 *
+	 * @return string
+	 */
+	private static function link( $url, $text ) {
+		return sprintf( '<a href="%s">%s</a>', esc_url( $url ), esc_html( $text ) );
 	}
 
 	/**
