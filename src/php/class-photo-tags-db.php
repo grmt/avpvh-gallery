@@ -251,7 +251,7 @@ final class Photo_Tags_DB {
 		global $wpdb;
 		$table_shares = $wpdb->prefix . 'agallery_photo_shares';
 		$sql_shares   = "CREATE TABLE {$table_shares} (
-			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			user_id BIGINT UNSIGNED NOT NULL,
 			description VARCHAR(500) NOT NULL DEFAULT '',
 			conditions TEXT NOT NULL,
@@ -264,6 +264,7 @@ final class Photo_Tags_DB {
 			error VARCHAR(500) NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,
 			expires_at DATETIME NULL,
+			PRIMARY KEY  (id),
 			INDEX idx_user (user_id),
 			INDEX idx_status_expires (status, expires_at)
 		) {$charset_collate};";

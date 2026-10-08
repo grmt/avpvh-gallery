@@ -160,6 +160,7 @@ final class Photo_Shares {
 		}
 
 		wp_set_current_user( (int) $share->user_id );
+		self::lift_time_limit();
 		$folder = '';
 
 		try {
@@ -170,8 +171,12 @@ final class Photo_Shares {
 			);
 			$ids        = array_slice( $matching, 0, self::MAX_PHOTOS );
 			$folder     = Share_Drive::create_folder( self::folder_name( $share ) );
-			self::copy( $share, $ids, $folder );
+			// Known right away, so the folder can be found if the build dies.
+			Photo_Shares_DB::update( (int) $share->id, array( 'drive_folder_id' => $folder ) );
+			// Shared before filling it, so an address without a Google
+			// account fails at once rather than after all the photos.
 			Share_Drive::share_with( $folder, $share->recipient );
+			self::copy( $share, $ids, $folder );
 		} catch ( Throwable $e ) {
 			self::fail( $share, $folder, $e );
 
@@ -304,6 +309,22 @@ final class Photo_Shares {
 		$folders = Photo_Filter_Scope::folder_ids( $stored );
 
 		return array() === $folders ? array( $stored ) : $folders;
+	}
+
+	/**
+	 * Lets a build run as long as it needs: cron runs as a web request,
+	 * whose time limit (30 s here) is far too short for editing hundreds of
+	 * photos.
+	 *
+	 * @return void
+	 */
+	private static function lift_time_limit() {
+		if ( ! function_exists( 'set_time_limit' ) ) {
+			return;
+		}
+
+		// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- a background job, not a page.
+		set_time_limit( 0 );
 	}
 
 	/**
