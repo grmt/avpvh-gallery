@@ -155,6 +155,14 @@ function describe(
 	);
 }
 
+// What the user chose while confirming a share: captions ("jaar en
+// opgraving erop"), cropping to A4, and their Google address if asked.
+interface ShareOptions {
+	captions: boolean;
+	a4: boolean;
+	google: string;
+}
+
 // Asks the server to share the filter's photos via Google Drive (see
 // Photo_Shares); resolves to what to tell the user.
 async function requestShare(
@@ -162,8 +170,7 @@ async function requestShare(
 	share: FilterShare,
 	conditions: Array<FilterCondition>,
 	description: string,
-	captions: boolean,
-	google: string
+	options: ShareOptions
 ): Promise<string> {
 	try {
 		const response = await fetch(ajaxUrl, {
@@ -175,8 +182,9 @@ async function requestShare(
 				conditions: conditionsParam(conditions),
 				folders: JSON.stringify(folderIds(share.folders)),
 				description,
-				captions: captions ? '1' : '0',
-				google,
+				captions: options.captions ? '1' : '0',
+				a4: options.a4 ? '1' : '0',
+				google: options.google,
 				_ajax_nonce: share.nonce,
 			}).toString(),
 		});
@@ -242,19 +250,23 @@ export interface FilterLibrary {
 	onSave(name: string, id: string): Promise<Array<SavedFilter>>;
 }
 
-// The "jaar en opgraving erop" checkbox shown while confirming a share.
-function captionsOption(checkbox: HTMLInputElement): HTMLElement {
+// A checkbox with its label, shown while confirming a share.
+function shareOption(
+	checkbox: HTMLInputElement,
+	text: string,
+	title: string
+): HTMLElement {
 	const label = document.createElement('label');
 	label.className = 'avpvh-filter-share-captions';
-	label.title =
-		'De foto’s worden rechtop gezet zoals in de galerij, en foto’s van opgravingen krijgen rechtsonder het jaar en de plaats';
-	label.append(checkbox, document.createTextNode(' jaar en opgraving erop'));
+	label.title = title;
+	label.append(checkbox, document.createTextNode(` ${text}`));
 	return label;
 }
 
 // "Delen via Google Drive": after confirming, starts the share and says
 // where the link will be sent. While confirming, the photos can be chosen
-// to be put upright with the dig's year and name written on them.
+// to be put upright with the dig's year and name written on them, and to
+// be cropped to A4 for printing.
 function shareButton(
 	ajaxUrl: string,
 	share: FilterShare,
@@ -273,6 +285,8 @@ function shareButton(
 		'Kopieer deze foto’s naar een map in Google Drive die alleen jij een week lang kunt openen; de link komt per e-mail';
 	const captions = document.createElement('input');
 	captions.type = 'checkbox';
+	const a4 = document.createElement('input');
+	a4.type = 'checkbox';
 	const google = document.createElement('input');
 	google.type = 'email';
 	google.className = 'avpvh-filter-share-google';
@@ -286,7 +300,18 @@ function shareButton(
 			button.dataset['confirm'] = '1';
 			button.textContent = `Ja, ${String(total)} foto${total === 1 ? '' : "'s"} delen (link per e-mail, een week geldig)`;
 			if (share.captions) {
-				wrapper.appendChild(captionsOption(captions));
+				wrapper.append(
+					shareOption(
+						captions,
+						'jaar en opgraving erop',
+						'De foto’s worden rechtop gezet zoals in de galerij, en foto’s van opgravingen krijgen rechtsonder het jaar en de plaats'
+					),
+					shareOption(
+						a4,
+						'bijsnijden op A4',
+						'Elke foto wordt vanuit het midden bijgesneden tot A4-verhouding, zodat de printshop niets meer hoeft af te snijden; de tekst komt binnen het beeld'
+					)
+				);
 			}
 			if (share.google === '') {
 				wrapper.appendChild(google);
@@ -304,14 +329,18 @@ function shareButton(
 		}
 		button.disabled = true;
 		captions.disabled = true;
+		a4.disabled = true;
 		google.disabled = true;
 		void requestShare(
 			ajaxUrl,
 			share,
 			conditions,
 			describe(conditions, folders),
-			captions.checked,
-			share.google === '' ? google.value.trim() : ''
+			{
+				captions: captions.checked,
+				a4: a4.checked,
+				google: share.google === '' ? google.value.trim() : '',
+			}
 		).then((message) => {
 			status.textContent = message;
 		});

@@ -57,14 +57,16 @@ final class Share_Image {
 	 * Puts the photos into a folder as JPEG files, numbered in the given
 	 * order ("001 PICT1346.JPG").
 	 *
-	 * @param array<string>      $ids       Drive file IDs.
-	 * @param string             $folder_id Target folder.
-	 * @param bool               $captions  Whether to turn them upright and caption them.
-	 * @param callable(int):void $progress  Called now and then with the number done.
+	 * @param array<string>                   $ids       Drive file IDs.
+	 * @param string                          $folder_id Target folder.
+	 * @param array{captions: bool, a4: bool} $options   Captions: turn them upright and caption them; a4: crop
+	 *                                                  them to A4 proportions (before the caption is written).
+	 * @param callable(int):void              $progress  Called now and then with the number done.
 	 *
 	 * @return int How many photos were put in.
 	 */
-	public static function copy_into( array $ids, $folder_id, $captions, callable $progress ) {
+	public static function copy_into( array $ids, $folder_id, array $options, callable $progress ) {
+		$captions    = $options['captions'];
 		$ids         = array_values( $ids );
 		$details     = Share_Drive::details( $ids );
 		$texts       = $captions ? Share_Caption::for_photos( $ids ) : array();
@@ -79,6 +81,7 @@ final class Share_Image {
 			}
 
 			$edit = array(
+				'a4'         => $options['a4'],
 				'caption'    => $texts[ $file_id ] ?? '',
 				'correction' => $corrections[ $file_id ] ?? Share_Orientation::NONE,
 				'upright'    => $captions,
@@ -106,18 +109,18 @@ final class Share_Image {
 	 * Puts one photo in the folder: copied when it's a JPEG needing no
 	 * change, else converted. False when it couldn't be read at all.
 	 *
-	 * @param string                                                                                              $file_id   Drive file ID.
-	 * @param array{name: string, mime: string, size: int, thumb: string}                                         $file      Its details.
-	 * @param string                                                                                              $name      The copy's name.
-	 * @param string                                                                                              $folder_id Target folder.
-	 * @param array{caption: string, correction: array{h_flip: bool, rotation: int, v_flip: bool}, upright: bool} $edit      What to do.
+	 * @param string                                                                                                        $file_id   Drive file ID.
+	 * @param array{name: string, mime: string, size: int, thumb: string}                                                   $file      Its details.
+	 * @param string                                                                                                        $name      The copy's name.
+	 * @param string                                                                                                        $folder_id Target folder.
+	 * @param array{caption: string, correction: array{h_flip: bool, rotation: int, v_flip: bool}, upright: bool, a4: bool} $edit      What to do.
 	 *
 	 * @return bool
 	 */
 	private static function put( $file_id, array $file, $name, $folder_id, array $edit ) {
 		$jpeg = 'image/jpeg' === $file['mime'];
 
-		if ( $jpeg && ! $edit['upright'] ) {
+		if ( $jpeg && ! $edit['upright'] && ! $edit['a4'] ) {
 			Share_Drive_Files::copy( $file_id, $name, $folder_id );
 
 			return true;
@@ -187,8 +190,8 @@ final class Share_Image {
 	 * Whether a JPEG must be redone: lying on its side by EXIF, with a
 	 * correction or a caption.
 	 *
-	 * @param Imagick                                                                                             $image The photo.
-	 * @param array{caption: string, correction: array{h_flip: bool, rotation: int, v_flip: bool}, upright: bool} $edit  What to do.
+	 * @param Imagick                                                                                                       $image The photo.
+	 * @param array{caption: string, correction: array{h_flip: bool, rotation: int, v_flip: bool}, upright: bool, a4: bool} $edit  What to do.
 	 *
 	 * @return bool
 	 */
@@ -197,15 +200,16 @@ final class Share_Image {
 
 		return ( Imagick::ORIENTATION_UNDEFINED !== $orientation && Imagick::ORIENTATION_TOPLEFT !== $orientation )
 			|| Share_Orientation::NONE !== $edit['correction']
-			|| '' !== $edit['caption'];
+			|| '' !== $edit['caption']
+			|| $edit['a4'];
 	}
 
 	/**
 	 * The photo as a JPEG: flattened onto white (transparency), in sRGB,
 	 * upright, with its caption.
 	 *
-	 * @param Imagick                                                                                             $image The photo.
-	 * @param array{caption: string, correction: array{h_flip: bool, rotation: int, v_flip: bool}, upright: bool} $edit  What to do.
+	 * @param Imagick                                                                                                       $image The photo.
+	 * @param array{caption: string, correction: array{h_flip: bool, rotation: int, v_flip: bool}, upright: bool, a4: bool} $edit  What to do.
 	 *
 	 * @return string
 	 */
@@ -220,6 +224,10 @@ final class Share_Image {
 		self::correct( $image, $edit['correction'] );
 		$image->setImageOrientation( Imagick::ORIENTATION_TOPLEFT );
 
+		if ( $edit['a4'] ) {
+			self::crop_a4( $image );
+		}
+
 		if ( '' !== $edit['caption'] ) {
 			self::write( $image, $edit['caption'] );
 		}
@@ -231,6 +239,43 @@ final class Share_Image {
 		$image->clear();
 
 		return $jpeg;
+	}
+
+	/**
+	 * Crops the photo from its middle to A4 proportions (√2 : 1), upright or
+	 * lying as the photo is, and marks it 300 dpi or more at A4 size — so a
+	 * print shop can print it on A4 without cutting anything off.
+	 *
+	 * @param Imagick $image The photo, upright.
+	 *
+	 * @return void
+	 */
+	private static function crop_a4( Imagick $image ) {
+		$width  = $image->getImageWidth();
+		$height = $image->getImageHeight();
+		$long   = max( $width, $height );
+		$short  = min( $width, $height );
+		$ratio  = sqrt( 2 );
+
+		if ( $long / $short > $ratio ) {
+			$long = (int) round( $short * $ratio );
+		} else {
+			$short = (int) round( $long / $ratio );
+		}
+
+		$new_width  = $width >= $height ? $long : $short;
+		$new_height = $width >= $height ? $short : $long;
+		$image->cropImage(
+			$new_width,
+			$new_height,
+			intdiv( $width - $new_width, 2 ),
+			intdiv( $height - $new_height, 2 )
+		);
+		$image->setImagePage( 0, 0, 0, 0 );
+		// A4's long side is 297 mm = 11.69 inch.
+		$dpi = $long / 11.69;
+		$image->setImageUnits( Imagick::RESOLUTION_PIXELSPERINCH );
+		$image->setImageResolution( $dpi, $dpi );
 	}
 
 	/**

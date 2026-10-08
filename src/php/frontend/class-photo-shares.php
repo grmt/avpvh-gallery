@@ -89,6 +89,7 @@ final class Photo_Shares {
 	 * gallery_filter), folders (JSON Drive folder IDs: only photos below
 	 * those branches), description (the filter in words, for e-mail/profile),
 	 * captions ('1': upright, with dig names written on them; see Share_Image),
+	 * a4 ('1': cropped to A4 proportions for printing),
 	 * google (the user's Google address, when asked for; see Share_Recipient).
 	 *
 	 * @return void
@@ -101,6 +102,7 @@ final class Photo_Shares {
 		$folder_json = (string) wp_json_encode( $folder_ids );
 		$description = sanitize_text_field( wp_unslash( (string) ( $_POST['description'] ?? '' ) ) );
 		$captions    = '1' === wp_unslash( (string) ( $_POST['captions'] ?? '' ) ) && Share_Image::available();
+		$crop_a4     = '1' === wp_unslash( (string) ( $_POST['a4'] ?? '' ) ) && Share_Image::available();
 		$google      = sanitize_email( wp_unslash( (string) ( $_POST['google'] ?? '' ) ) );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
@@ -116,6 +118,7 @@ final class Photo_Shares {
 		self::start(
 			Photo_Shares_DB::insert(
 				array(
+					'a4'          => $crop_a4 ? 1 : 0,
 					'captions'    => $captions ? 1 : 0,
 					'conditions'  => (string) wp_json_encode( $valid ),
 					'description' => mb_substr( $description, 0, 500 ),
@@ -298,12 +301,15 @@ final class Photo_Shares {
 			return count( $ids );
 		}
 
-		$captions = 1 === (int) ( $share->captions ?? 0 );
+		$options = array(
+			'a4'       => 1 === (int) ( $share->a4 ?? 0 ),
+			'captions' => 1 === (int) ( $share->captions ?? 0 ),
+		);
 
 		return Share_Image::copy_into(
 			$ids,
 			$folder_id,
-			$captions,
+			$options,
 			static function ( $done ) use ( $share ) {
 				Photo_Shares_DB::update( (int) $share->id, array( 'photo_count' => $done ) );
 			}
