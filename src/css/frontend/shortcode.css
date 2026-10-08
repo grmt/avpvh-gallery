@@ -1779,9 +1779,9 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	pointer-events: none;
 	position: absolute;
 	text-shadow:
-		0 0 2px rgba(0, 0, 0, 0.9),
-		1px 1px 2px rgba(0, 0, 0, 0.9),
-		-1px -1px 2px rgba(0, 0, 0, 0.9);
+		0 0 2px rgb(0, 0, 0, 90%),
+		1px 1px 2px rgb(0, 0, 0, 90%),
+		-1px -1px 2px rgb(0, 0, 0, 90%);
 	white-space: nowrap;
 	z-index: 10;
 }
@@ -1790,10 +1790,10 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	display: none;
 }
 
-.pswp__button--avpvh-dig-toggle {
+.avpvh-pswp-dig-toggle {
 	opacity: 0.55;
 }
 
-.pswp__button--avpvh-dig-toggle.avpvh-pswp-dig-on {
+.avpvh-pswp-dig-toggle.avpvh-pswp-dig-on {
 	opacity: 1;
 }

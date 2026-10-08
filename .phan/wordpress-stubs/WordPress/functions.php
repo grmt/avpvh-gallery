@@ -1149,6 +1149,23 @@ function sanitize_meta( $meta_key, $meta_value, $object_type, $object_subtype = 
 }
 
 /**
+ * @param string $email
+ *
+ * @return string
+ */
+function sanitize_email( $email ) {
+}
+
+/**
+ * @param string $email
+ * @param bool   $deprecated
+ *
+ * @return string|false
+ */
+function is_email( $email, $deprecated = false ) {
+}
+
+/**
  * @param string $str
  *
  * @return string

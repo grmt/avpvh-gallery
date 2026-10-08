@@ -133,6 +133,7 @@ export function registerDigCaption(pswp: PhotoSwipe, ajaxUrl: string): void {
 		html: ICON,
 		onInit: (el) => {
 			button = el;
+			el.classList.add('avpvh-pswp-dig-toggle');
 			showState();
 		},
 		onClick: () => {
