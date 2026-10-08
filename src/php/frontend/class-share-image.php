@@ -17,24 +17,26 @@ use ImagickException;
 use ImagickPixel;
 
 /**
- * Shared copies with captions (see Photo_Shares): each photo is downloaded,
- * turned upright the way the lightbox shows it (its EXIF orientation, then
- * the gallery's correction, see Share_Orientation), given its caption in
- * the lower right corner (see Share_Caption) and uploaded into the share's
- * folder. Photos that need neither, or that Imagick can't edit (videos,
- * HEIC, RAW …), are copied as they are.
+ * The photos of a share (see Photo_Shares), always as JPEG files: JPEGs
+ * that need no change are copied as they are; other photos are downloaded,
+ * turned upright the way the lightbox shows them (EXIF orientation, then the
+ * gallery's correction, see Share_Orientation), with captions on also given
+ * their caption in the lower right corner (see Share_Caption), and uploaded
+ * as JPEG. Images Imagick can't read here (HEIF) or that are too big to edit
+ * in memory are taken from Google's own large rendering instead. Videos
+ * and other files are left out. Only the copies change, never the originals.
  */
 final class Share_Image {
 
 	/**
-	 * Media types that are edited, with Imagick's format for them.
+	 * Files bigger than this (bytes) are taken from Google's rendering.
 	 */
-	// phpcs:ignore SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- PHPCSUtils false positive on an array value.
-	private const FORMATS = array(
-		'image/jpeg' => 'jpeg',
-		'image/png'  => 'png',
-		'image/webp' => 'webp',
-	);
+	private const MAX_BYTES = 40 * 1024 * 1024;
+
+	/**
+	 * Longest side of Google's rendering, in pixels.
+	 */
+	private const RENDERING_SIZE = 4000;
 
 	/**
 	 * Caption height as a share of the photo's short side.
@@ -52,71 +54,168 @@ final class Share_Image {
 	}
 
 	/**
-	 * Puts the photos into a folder, numbered in the given order
-	 * ("001 PICT1346.JPG"), edited where needed.
+	 * Puts the photos into a folder as JPEG files, numbered in the given
+	 * order ("001 PICT1346.JPG").
 	 *
 	 * @param array<string>      $ids       Drive file IDs.
 	 * @param string             $folder_id Target folder.
+	 * @param bool               $captions  Whether to turn them upright and caption them.
 	 * @param callable(int):void $progress  Called now and then with the number done.
 	 *
-	 * @return void
+	 * @return int How many photos were put in.
 	 */
-	public static function copy_into( array $ids, $folder_id, callable $progress ) {
+	public static function copy_into( array $ids, $folder_id, $captions, callable $progress ) {
 		$ids         = array_values( $ids );
 		$details     = Share_Drive::details( $ids );
-		$captions    = Share_Caption::for_photos( $ids );
+		$texts       = $captions ? Share_Caption::for_photos( $ids ) : array();
 		$corrections = Share_Orientation::for_photos( $ids );
+		$done        = 0;
 
-		foreach ( $ids as $index => $file_id ) {
-			$file  = $details[ $file_id ] ?? array(
-				'mime' => '',
-				'name' => $file_id,
-			);
-			$name  = sprintf( '%03d %s', $index + 1, $file['name'] );
-			$edit  = array(
-				'caption'    => $captions[ $file_id ] ?? '',
-				'correction' => $corrections[ $file_id ] ?? Share_Orientation::NONE,
-				'format'     => self::FORMATS[ $file['mime'] ] ?? '',
-			);
-			$bytes = '' === $edit['format'] ? null : self::edited( Share_Drive_Files::download( $file_id ), $edit );
+		foreach ( $ids as $file_id ) {
+			$file = $details[ $file_id ] ?? null;
 
-			if ( null === $bytes ) {
-				Share_Drive_Files::copy( $file_id, $name, $folder_id );
-			} else {
-				Share_Drive_Files::upload( $folder_id, $name, $file['mime'], $bytes );
+			if ( null === $file || 0 !== strpos( $file['mime'], 'image/' ) ) {
+				continue;
 			}
 
-			if ( 0 === ( $index + 1 ) % 10 ) {
-				$progress( $index + 1 );
+			$edit = array(
+				'caption'    => $texts[ $file_id ] ?? '',
+				'correction' => $corrections[ $file_id ] ?? Share_Orientation::NONE,
+				'upright'    => $captions,
+			);
+
+			if ( self::put(
+				$file_id,
+				$file,
+				sprintf( '%03d %s', $done + 1, self::jpeg_name( $file['name'] ) ),
+				$folder_id,
+				$edit
+			) ) {
+				++$done;
+			}
+
+			if ( 0 === $done % 10 ) {
+				$progress( $done );
 			}
 		}
+
+		return $done;
 	}
 
 	/**
-	 * A photo upright and captioned, or null when it needs no change or
-	 * can't be read.
+	 * Puts one photo in the folder: copied when it's a JPEG needing no
+	 * change, else converted. False when it couldn't be read at all.
 	 *
-	 * @param string                                                                                               $bytes The photo.
-	 * @param array{caption: string, correction: array{h_flip: bool, rotation: int, v_flip: bool}, format: string} $edit  What to do.
+	 * @param string                                                                                              $file_id   Drive file ID.
+	 * @param array{name: string, mime: string, size: int, thumb: string}                                         $file      Its details.
+	 * @param string                                                                                              $name      The copy's name.
+	 * @param string                                                                                              $folder_id Target folder.
+	 * @param array{caption: string, correction: array{h_flip: bool, rotation: int, v_flip: bool}, upright: bool} $edit      What to do.
 	 *
-	 * @return string|null
+	 * @return bool
 	 */
-	private static function edited( $bytes, array $edit ) {
+	private static function put( $file_id, array $file, $name, $folder_id, array $edit ) {
+		$jpeg = 'image/jpeg' === $file['mime'];
+
+		if ( $jpeg && ! $edit['upright'] ) {
+			Share_Drive_Files::copy( $file_id, $name, $folder_id );
+
+			return true;
+		}
+
+		$image   = $file['size'] > self::MAX_BYTES ? null : self::read( Share_Drive_Files::download( $file_id ) );
+		$image ??= self::read( Share_Drive_Files::rendering( $file['thumb'], self::RENDERING_SIZE ) );
+
+		if ( null === $image ) {
+			return false;
+		}
+
+		if ( $jpeg && ! self::needs_change( $image, $edit ) ) {
+			$image->clear();
+			Share_Drive_Files::copy( $file_id, $name, $folder_id );
+
+			return true;
+		}
+
+		Share_Drive_Files::upload( $folder_id, $name, 'image/jpeg', self::jpeg( $image, $edit ) );
+
+		return true;
+	}
+
+	/**
+	 * A file name with a .jpg extension (kept when it is one already).
+	 *
+	 * @param string $name The original name.
+	 *
+	 * @return string
+	 */
+	private static function jpeg_name( $name ) {
+		if ( 1 === preg_match( '/\.jpe?g$/i', $name ) ) {
+			return $name;
+		}
+
+		return (string) preg_replace( '/\.[^.\/]{1,5}$/', '', $name ) . '.jpg';
+	}
+
+	/**
+	 * An image's first frame, or null when it can't be read.
+	 *
+	 * @param string $bytes The file's contents.
+	 *
+	 * @return Imagick|null
+	 */
+	private static function read( $bytes ) {
+		if ( '' === $bytes ) {
+			return null;
+		}
+
 		try {
-			$image = new Imagick();
-			$image->readImageBlob( $bytes );
+			$all = new Imagick();
+			$all->readImageBlob( $bytes );
+			$all->setIteratorIndex( 0 );
+			$image = $all->getImage();
+			$all->clear();
 		} catch ( ImagickException $e ) {
-			// @phan-suppress-previous-line PhanUnusedVariableCaughtException -- unreadable: copied as it is.
+			// @phan-suppress-previous-line PhanUnusedVariableCaughtException -- unreadable: Google's rendering is tried instead.
 			return null;
 		}
 
-		$sideways = Imagick::ORIENTATION_UNDEFINED !== $image->getImageOrientation()
-			&& Imagick::ORIENTATION_TOPLEFT !== $image->getImageOrientation();
+		return $image;
+	}
 
-		if ( ! $sideways && Share_Orientation::NONE === $edit['correction'] && '' === $edit['caption'] ) {
-			return null;
+	/**
+	 * Whether a JPEG must be redone: lying on its side by EXIF, with a
+	 * correction or a caption.
+	 *
+	 * @param Imagick                                                                                             $image The photo.
+	 * @param array{caption: string, correction: array{h_flip: bool, rotation: int, v_flip: bool}, upright: bool} $edit  What to do.
+	 *
+	 * @return bool
+	 */
+	private static function needs_change( Imagick $image, array $edit ) {
+		$orientation = $image->getImageOrientation();
+
+		return ( Imagick::ORIENTATION_UNDEFINED !== $orientation && Imagick::ORIENTATION_TOPLEFT !== $orientation )
+			|| Share_Orientation::NONE !== $edit['correction']
+			|| '' !== $edit['caption'];
+	}
+
+	/**
+	 * The photo as a JPEG: flattened onto white (transparency), in sRGB,
+	 * upright, with its caption.
+	 *
+	 * @param Imagick                                                                                             $image The photo.
+	 * @param array{caption: string, correction: array{h_flip: bool, rotation: int, v_flip: bool}, upright: bool} $edit  What to do.
+	 *
+	 * @return string
+	 */
+	private static function jpeg( Imagick $image, array $edit ) {
+		if ( Imagick::COLORSPACE_CMYK === $image->getImageColorspace() ) {
+			$image->transformImageColorspace( Imagick::COLORSPACE_SRGB );
 		}
 
+		$image->setImageBackgroundColor( new ImagickPixel( 'white' ) );
+		$image->setImageAlphaChannel( Imagick::ALPHACHANNEL_REMOVE );
 		$image->autoOrient();
 		self::correct( $image, $edit['correction'] );
 		$image->setImageOrientation( Imagick::ORIENTATION_TOPLEFT );
@@ -125,12 +224,13 @@ final class Share_Image {
 			self::write( $image, $edit['caption'] );
 		}
 
-		$image->setImageFormat( $edit['format'] );
+		$image->setImageDepth( 8 );
+		$image->setImageFormat( 'jpeg' );
 		$image->setImageCompressionQuality( 92 );
-		$edited = $image->getImageBlob();
+		$jpeg = $image->getImageBlob();
 		$image->clear();
 
-		return $edited;
+		return $jpeg;
 	}
 
 	/**

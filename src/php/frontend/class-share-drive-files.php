@@ -16,6 +16,7 @@ use Avpvh\Vendor\Google\Service\Drive\DriveFile;
 use Avpvh\Vendor\Psr\Http\Message\RequestInterface;
 use Avpvh\Vendor\Psr\Http\Message\ResponseInterface;
 use RuntimeException;
+use Throwable;
 
 /**
  * Single-file Drive transfers as the service account (see Share_Drive):
@@ -52,6 +53,33 @@ final class Share_Drive_Files {
 		}
 
 		return (string) $response->getBody();
+	}
+
+	/**
+	 * A large JPEG rendering Google made of an image (from its thumbnail
+	 * link, asked for at the given size): for formats Imagick here can't
+	 * read (HEIF) and for scans too big to edit in memory.
+	 *
+	 * @param string $thumbnail_link The file's thumbnailLink.
+	 * @param int    $size           Longest side wanted, in pixels.
+	 *
+	 * @return string '' when there is none.
+	 */
+	public static function rendering( $thumbnail_link, $size ) {
+		if ( '' === $thumbnail_link ) {
+			return '';
+		}
+
+		$url = (string) preg_replace( '/=s\d+$/', '', $thumbnail_link ) . '=s' . $size;
+
+		try {
+			$response = Share_Drive::drive()->getClient()->authorize()->request( 'GET', $url );
+		} catch ( Throwable $e ) {
+			// @phan-suppress-previous-line PhanUnusedVariableCaughtException -- no rendering: the photo is left out.
+			return '';
+		}
+
+		return 200 === $response->getStatusCode() ? (string) $response->getBody() : '';
 	}
 
 	/**

@@ -173,6 +173,7 @@ final class Photo_Shares {
 		wp_set_current_user( (int) $share->user_id );
 		self::lift_time_limit();
 		$folder = '';
+		$count  = 0;
 
 		try {
 			$conditions = Photo_Filter::valid_conditions( $share->conditions );
@@ -187,7 +188,7 @@ final class Photo_Shares {
 			// Shared before filling it, so an address without a Google
 			// account fails at once rather than after all the photos.
 			Share_Drive::share_with( $folder, $share->recipient );
-			self::copy( $share, $ids, $folder );
+			$count = self::copy( $share, $ids, $folder );
 		} catch ( Throwable $e ) {
 			self::fail( $share, $folder, $e );
 
@@ -199,7 +200,7 @@ final class Photo_Shares {
 			array(
 				'drive_folder_id' => $folder,
 				'expires_at'      => wp_date( 'Y-m-d H:i:s', time() + self::DAYS * DAY_IN_SECONDS ),
-				'photo_count'     => count( $ids ),
+				'photo_count'     => $count,
 				'status'          => 'ready',
 			)
 		);
@@ -280,25 +281,29 @@ final class Photo_Shares {
 	}
 
 	/**
-	 * Puts a share's photos in its folder: plain copies, or edited ones
-	 * (see Share_Image) with progress kept in photo_count.
+	 * Puts a share's photos in its folder, as JPEG files (see Share_Image),
+	 * with progress kept in photo_count; plain copies where Imagick is
+	 * missing.
 	 *
 	 * @param stdClass      $share     The share.
 	 * @param array<string> $ids       Drive file IDs.
 	 * @param string        $folder_id The share's folder.
 	 *
-	 * @return void
+	 * @return int How many photos were put in.
 	 */
 	private static function copy( $share, array $ids, $folder_id ) {
-		if ( 1 !== (int) ( $share->captions ?? 0 ) || ! Share_Image::available() ) {
+		if ( ! Share_Image::available() ) {
 			Share_Drive::copy_into( $ids, $folder_id );
 
-			return;
+			return count( $ids );
 		}
 
-		Share_Image::copy_into(
+		$captions = 1 === (int) ( $share->captions ?? 0 );
+
+		return Share_Image::copy_into(
 			$ids,
 			$folder_id,
+			$captions,
 			static function ( $done ) use ( $share ) {
 				Photo_Shares_DB::update( (int) $share->id, array( 'photo_count' => $done ) );
 			}
