@@ -282,21 +282,93 @@ function sortPicker(sort: FilterSort, filtering: boolean): HTMLElement {
 	return label;
 }
 
+const FOLDER_DEBOUNCE_MS = 5000;
+
+function isSameFolderSelection(
+	a: Array<FilterFolder>,
+	b: Array<FilterFolder>
+): boolean {
+	if (a.length !== b.length) {
+		return false;
+	}
+	const aIds = new Set(a.map((f) => f.id));
+	return b.every((f) => aIds.has(f.id));
+}
+
 // A compact, lazily loaded folder tree. Selecting a folder includes its
 // complete branch; several separate branches may be selected together.
 function folderPicker(scope: FilterScope): HTMLElement {
 	const details = document.createElement('details');
 	details.className = 'avpvh-filter-folders';
 	const summary = document.createElement('summary');
-	const selectionLabel = (): string =>
-		scope.selected.length === 0
-			? 'Mappen: alles'
-			: `Mappen: ${scope.selected.map(({ name }) => name).join(', ')}`;
-	summary.textContent = selectionLabel();
+	const selectedById = new Map(
+		scope.selected.map((folder) => [folder.id, folder])
+	);
+	const updateSummary = (): void => {
+		const selected = Array.from(selectedById.values());
+		summary.textContent =
+			selected.length === 0
+				? 'Mappen: alles'
+				: `Mappen: ${selected.map(({ name }) => name).join(', ')}`;
+	};
+	updateSummary();
 	details.appendChild(summary);
 
 	const panel = document.createElement('div');
 	panel.className = 'avpvh-filter-folder-panel';
+
+	let timer: number | null = null;
+	let hasPendingChanges = false;
+
+	const actions = document.createElement('div');
+	actions.className = 'avpvh-filter-folder-actions';
+
+	const applyBtn = document.createElement('button');
+	applyBtn.type = 'button';
+	applyBtn.className = 'avpvh-filter-folder-apply';
+	applyBtn.textContent = 'Toepassen';
+	applyBtn.disabled = true;
+
+	const cancelTimer = (): void => {
+		if (timer !== null) {
+			window.clearTimeout(timer);
+			timer = null;
+		}
+	};
+
+	const flush = (): void => {
+		cancelTimer();
+		if (hasPendingChanges) {
+			hasPendingChanges = false;
+			applyBtn.disabled = true;
+			scope.onChange(Array.from(selectedById.values()));
+		}
+	};
+
+	const scheduleChange = (): void => {
+		cancelTimer();
+		const current = Array.from(selectedById.values());
+		if (isSameFolderSelection(current, scope.selected)) {
+			hasPendingChanges = false;
+			applyBtn.disabled = true;
+			return;
+		}
+		hasPendingChanges = true;
+		applyBtn.disabled = false;
+		timer = window.setTimeout(() => {
+			flush();
+		}, FOLDER_DEBOUNCE_MS);
+	};
+
+	applyBtn.addEventListener('click', (event) => {
+		event.stopPropagation();
+		details.open = false;
+		flush();
+	});
+
+	actions.appendChild(applyBtn);
+	panel.appendChild(actions);
+
 	const tree = document.createElement('ul');
 	tree.className = 'avpvh-filter-folder-tree';
 	panel.appendChild(tree);
@@ -309,7 +381,16 @@ function folderPicker(scope: FilterScope): HTMLElement {
 	allBox.checked = scope.selected.length === 0;
 	allBox.addEventListener('change', () => {
 		if (allBox.checked) {
-			scope.onChange([]);
+			selectedById.clear();
+			tree.querySelectorAll<HTMLInputElement>(
+				'input[type="checkbox"]'
+			).forEach((input) => {
+				if (input !== allBox) {
+					input.checked = false;
+				}
+			});
+			updateSummary();
+			scheduleChange();
 		} else {
 			allBox.checked = true;
 		}
@@ -318,9 +399,6 @@ function folderPicker(scope: FilterScope): HTMLElement {
 	allRow.appendChild(allLabel);
 	tree.appendChild(allRow);
 
-	const selectedById = new Map(
-		scope.selected.map((folder) => [folder.id, folder])
-	);
 	const renderChildren = async (
 		parent: HTMLElement,
 		path: string
@@ -341,9 +419,11 @@ function folderPicker(scope: FilterScope): HTMLElement {
 			const label = document.createElement('label');
 			const box = document.createElement('input');
 			box.type = 'checkbox';
-			box.checked = selectedById.has(folder.id);
+			const children = document.createElement('ul');
+			children.className = 'avpvh-filter-folder-tree';
 			box.addEventListener('change', () => {
 				if (box.checked) {
+					allBox.checked = false;
 					selectedById.set(folder.id, folder);
 					// A chosen branch already contains its chosen descendants.
 					for (const chosen of Array.from(selectedById.values())) {
@@ -354,22 +434,34 @@ function folderPicker(scope: FilterScope): HTMLElement {
 							selectedById.delete(chosen.id);
 						}
 					}
+					children
+						.querySelectorAll<HTMLInputElement>(
+							'input[type="checkbox"]'
+						)
+						.forEach((childBox) => {
+							childBox.checked = false;
+						});
 				} else {
 					selectedById.delete(folder.id);
+					if (selectedById.size === 0) {
+						allBox.checked = true;
+					}
 				}
-				scope.onChange(Array.from(selectedById.values()));
+				updateSummary();
+				scheduleChange();
 			});
 			label.append(box, document.createTextNode(` ${folder.name}`));
 			row.append(toggle, label);
 			item.appendChild(row);
-			const children = document.createElement('ul');
-			children.className = 'avpvh-filter-folder-tree';
 			item.appendChild(children);
 			let loaded = false;
 			toggle.addEventListener('click', () => {
 				const opening = item.classList.contains('closed');
 				item.classList.toggle('closed', !opening);
 				toggle.textContent = opening ? '▾' : '▸';
+				if (hasPendingChanges) {
+					scheduleChange();
+				}
 				if (opening && !loaded) {
 					loaded = true;
 					void renderChildren(children, folder.path);
@@ -380,10 +472,29 @@ function folderPicker(scope: FilterScope): HTMLElement {
 	};
 
 	details.addEventListener('toggle', () => {
-		if (details.open && tree.childElementCount === 1) {
-			void renderChildren(tree, '');
+		if (details.open) {
+			if (tree.childElementCount === 1) {
+				void renderChildren(tree, '');
+			}
+		} else if (hasPendingChanges) {
+			flush();
 		}
 	});
+
+	const onDocumentClick = (event: MouseEvent): void => {
+		if (!details.isConnected) {
+			document.removeEventListener('click', onDocumentClick);
+			return;
+		}
+		if (details.open && !details.contains(event.target as Node)) {
+			details.open = false;
+			if (hasPendingChanges) {
+				flush();
+			}
+		}
+	};
+	document.addEventListener('click', onDocumentClick);
+
 	return details;
 }
 

@@ -1444,6 +1444,30 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	z-index: 20;
 }
 
+.avpvh-filter-folder-actions {
+	border-bottom: 1px solid #dcdcde;
+	display: flex;
+	justify-content: flex-end;
+	margin-bottom: 8px;
+	padding-bottom: 6px;
+}
+
+.avpvh-filter-folder-apply {
+	background: #2271b1;
+	border: none;
+	border-radius: 3px;
+	color: #fff;
+	cursor: pointer;
+	font-size: 12px;
+	line-height: 1;
+	padding: 4px 8px;
+}
+
+.avpvh-filter-folder-apply:disabled {
+	background: #c3c4c7;
+	cursor: default;
+}
+
 .avpvh-filter-folder-tree {
 	list-style: none;
 	margin: 0;
