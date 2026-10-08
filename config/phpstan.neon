@@ -52,7 +52,9 @@ parameters:
     -
       # avpvh-members is an optional sibling plugin whose deployed version may
       # predate the methods its stub declares (e.g. the IT administrator
-      # role), so Like_Visibility checks them at runtime; PHPStan only sees
-      # the stub and considers those checks always true.
+      # role or member identities), so Like_Visibility and Share_Recipient check
+      # them at runtime; PHPStan only sees the stub and considers those checks always true.
       identifier: function.alreadyNarrowedType
-      path: ../src/php/frontend/class-like-visibility.php
+      paths:
+        - ../src/php/frontend/class-like-visibility.php
+        - ../src/php/frontend/class-share-recipient.php

@@ -115,15 +115,15 @@ final class Photo_Marks {
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-		$rows    = is_array( $rows ) ? $rows : array();
-		$names   = self::short_names();
-		$me      = get_current_user_id();
-		$tallies = array();
+		$rows            = is_array( $rows ) ? $rows : array();
+		$names           = self::short_names();
+		$current_user_id = get_current_user_id();
+		$tallies         = array();
 
 		foreach ( $rows as $row ) {
 			$image_id               = (string) $row->image_id;
 			$tallies[ $image_id ] ??= self::empty_tally();
-			$key                    = (int) $row->owner === $me ? 'mine' : 'others';
+			$key                    = (int) $row->owner === $current_user_id ? 'mine' : 'others';
 
 			$tallies[ $image_id ][ $key ]   += (int) $row->level;
 			$tallies[ $image_id ]['voters'] .= ( '' === $tallies[ $image_id ]['voters'] ? '' : ', ' )

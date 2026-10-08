@@ -9,17 +9,19 @@
  */
 return [
     // # Issue statistics:
-    // PhanPluginPossiblyStaticPublicMethod : 25+ occurrences
+    // PhanPluginPossiblyStaticPublicMethod : 30+ occurrences
     // PhanUnusedVariableCaughtException : 15+ occurrences
     // PhanPluginNonBoolInLogicalArith : 10+ occurrences
-    // PhanPluginNonBoolBranch : 6 occurrences
+    // PhanPluginNonBoolBranch : 8 occurrences
+    // PhanUnusedPublicFinalMethodParameter : 7 occurrences
     // PhanTypeInvalidDimOffset : 4 occurrences
     // PhanVariableDefinitionCouldBeConstant : 4 occurrences
     // PhanVariableDefinitionCouldBeConstantString : 4 occurrences
     // PhanNoopNew : 3 occurrences
     // PhanPossiblyNonClassMethodCall : 3 occurrences
-    // PhanUnusedPublicFinalMethodParameter : 3 occurrences
+    // PhanPartialTypeMismatchReturn : 2 occurrences
     // PhanPluginPossiblyStaticPrivateMethod : 2 occurrences
+    // PhanPossiblyUndeclaredProperty : 2 occurrences
     // PhanRedundantArrayValuesCall : 2 occurrences
     // PhanTypeMismatchArgumentInternalProbablyReal : 2 occurrences
     // PhanPluginDuplicateCatchStatementBody : 1 occurrence
@@ -27,10 +29,14 @@ return [
     // PhanTypeArraySuspiciousNullable : 1 occurrence
     // PhanTypeInvalidLeftOperandOfAdd : 1 occurrence
     // PhanTypeInvalidLeftOperandOfNumericOp : 1 occurrence
+    // PhanUndeclaredClassMethod : 1 occurrence
+    // PhanUndeclaredClassReference : 1 occurrence
+    // UnusedPluginSuppression : 1 occurrence
 
     // Currently, file_suppressions and directory_suppressions are the only supported suppressions
     'file_suppressions' => [
         '.phan/stubs/class-avpvh-db.php' => ['PhanUnusedPublicFinalMethodParameter'],
+        'src/php/admin/class-tag-import-cli.php' => ['PhanPartialTypeMismatchReturn'],
         'src/php/admin/exif-inspector/class-browse-rest.php' => ['PhanPluginDuplicateCatchStatementBody', 'PhanPluginPossiblyStaticPublicMethod', 'PhanThrowTypeAbsent', 'PhanUnusedVariableCaughtException'],
         'src/php/admin/exif-inspector/class-camera-model-index-rest.php' => ['PhanPluginPossiblyStaticPublicMethod', 'PhanRedundantArrayValuesCall', 'PhanUnusedVariableCaughtException'],
         'src/php/admin/exif-inspector/class-corrections-rest.php' => ['PhanPluginNonBoolInLogicalArith', 'PhanPluginPossiblyStaticPublicMethod', 'PhanTypeArraySuspiciousNullable', 'PhanVariableDefinitionCouldBeConstant'],
@@ -41,10 +47,13 @@ return [
         'src/php/admin/settings-pages/class-basic-settings.php' => ['PhanVariableDefinitionCouldBeConstantString'],
         'src/php/admin/settings-pages/class-exif-inspector.php' => ['PhanPluginPossiblyStaticPublicMethod'],
         'src/php/class-main.php' => ['PhanUnusedPublicFinalMethodParameter', 'PhanVariableDefinitionCouldBeConstant', 'PhanVariableDefinitionCouldBeConstantString'],
-        'src/php/frontend/class-exclusion-permission.php' => ['PhanPluginNonBoolInLogicalArith', 'PhanUndeclaredClassMethod', 'PhanUndeclaredClassReference', 'PhanUndeclaredFunction'],
+        'src/php/frontend/class-exclusion-permission.php' => ['PhanPluginNonBoolInLogicalArith', 'PhanPossiblyUndeclaredProperty', 'PhanUndeclaredClassMethod', 'PhanUndeclaredClassReference'],
         'src/php/frontend/class-exif-date-rest.php' => ['PhanPluginPossiblyStaticPublicMethod'],
         'src/php/frontend/class-members-api.php' => ['PhanPluginPossiblyStaticPublicMethod'],
-        'src/php/frontend/class-photo-tags.php' => ['PhanPluginNonBoolBranch', 'PhanPluginNonBoolInLogicalArith', 'PhanPluginPossiblyStaticPrivateMethod', 'PhanPluginPossiblyStaticPublicMethod', 'PhanUnusedVariableCaughtException'],
+        'src/php/frontend/class-photo-marks.php' => ['PhanPartialTypeMismatchReturn'],
+        'src/php/frontend/class-photo-shares.php' => ['PhanPossiblyUndeclaredProperty'],
+        'src/php/frontend/class-photo-tags.php' => ['PhanPluginNonBoolBranch', 'PhanPluginNonBoolInLogicalArith', 'PhanPluginPossiblyStaticPrivateMethod', 'PhanPluginPossiblyStaticPublicMethod'],
+        'src/php/frontend/class-share-drive.php' => ['UnusedPluginSuppression'],
         'src/php/frontend/class-subject-tags.php' => ['PhanPluginPossiblyStaticPublicMethod'],
         'src/php/frontend/page/class-directories.php' => ['PhanTypeInvalidDimOffset', 'PhanTypeInvalidLeftOperandOfAdd', 'PhanTypeInvalidLeftOperandOfNumericOp'],
     ],

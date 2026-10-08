@@ -114,7 +114,7 @@ final class Photo_Shares {
 	/**
 	 * Makes a share again with its saved filter (see Photo_Shares_Page).
 	 *
-	 * @param object $share The share.
+	 * @param object{id: int|string, user_id: int|string, description: string, conditions: string, folder_id: string, recipient: string, status: string, photo_count: int|string, drive_folder_id: string, error: string, created_at: string, expires_at: string|null} $share The share.
 	 *
 	 * @return void
 	 */
@@ -190,9 +190,9 @@ final class Photo_Shares {
 		foreach ( Photo_Shares_DB::expired() as $share ) {
 			try {
 				Share_Drive::remove( (string) $share->drive_folder_id );
-			} catch ( Throwable $e ) {
+			// phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
+			} catch ( Throwable ) {
 				// Already gone (or Drive unreachable): the share is over either way.
-				unset( $e );
 			}
 
 			Photo_Shares_DB::update( (int) $share->id, array( 'status' => 'expired' ) );
@@ -240,7 +240,7 @@ final class Photo_Shares {
 
 		try {
 			$count = count( Photo_Filter::all_matching_ids( $conditions, $folder_ids ) );
-		} catch ( Throwable $e ) {
+		} catch ( Throwable ) {
 			return 'Het filter kon niet worden uitgevoerd';
 		}
 
@@ -285,9 +285,9 @@ final class Photo_Shares {
 	/**
 	 * Marks a share failed and removes its half-made folder.
 	 *
-	 * @param object    $share     The share.
-	 * @param string    $folder_id Its folder, if made.
-	 * @param Throwable $error     What went wrong.
+	 * @param object{id: int|string, recipient: string} $share     The share.
+	 * @param string                                    $folder_id Its folder, if made.
+	 * @param Throwable                                 $error     What went wrong.
 	 *
 	 * @return void
 	 */
@@ -295,9 +295,9 @@ final class Photo_Shares {
 		if ( '' !== $folder_id ) {
 			try {
 				Share_Drive::remove( $folder_id );
-			} catch ( Throwable $ignored ) {
+			// phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
+			} catch ( Throwable ) {
 				// Left for whoever looks in the selections folder.
-				unset( $ignored );
 			}
 		}
 
@@ -339,7 +339,7 @@ final class Photo_Shares {
 	/**
 	 * Mails a ready share's link to its recipient.
 	 *
-	 * @param object|null $share The share.
+	 * @param object{description: string, drive_folder_id: string, expires_at: string|null, photo_count: int|string, recipient: string}|null $share The share.
 	 *
 	 * @return void
 	 */
@@ -369,7 +369,7 @@ final class Photo_Shares {
 	/**
 	 * The folder's name: the date and the filter.
 	 *
-	 * @param object $share The share.
+	 * @param object{description: string} $share The share.
 	 *
 	 * @return string
 	 */

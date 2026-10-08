@@ -201,11 +201,11 @@ final class Drive_Path_Resolver {
 		$by_name = array();
 
 		foreach ( $files as $file ) {
-			$id = $is_folders && isset( $file['shortcutDetails']['targetId'] )
+			$file_id = $is_folders && isset( $file['shortcutDetails']['targetId'] )
 				? (string) $file['shortcutDetails']['targetId']
 				: (string) $file['id'];
 
-			$by_name[ self::normalize( (string) $file['name'] ) ][] = $id;
+			$by_name[ self::normalize( (string) $file['name'] ) ][] = $file_id;
 		}
 
 		return $by_name;

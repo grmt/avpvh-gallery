@@ -13,12 +13,22 @@ const ABSPATH = '';
 /**
  * @var int
  */
-const DAY_IN_SECONDS = 0;
+const DAY_IN_SECONDS = 86400;
 
 /**
  * @var int
  */
-const MINUTE_IN_SECONDS = 0;
+const HOUR_IN_SECONDS = 3600;
+
+/**
+ * @var int
+ */
+const MINUTE_IN_SECONDS = 60;
+
+/**
+ * @var int
+ */
+const WEEK_IN_SECONDS = 604800;
 
 /**
  * @var bool
@@ -1981,4 +1991,109 @@ function wp_send_json_success( $data = null, $status_code = null, $flags = 0 ) {
  * @return string|false
  */
 function wp_tempnam( $filename = '', $dir = '' ) {
+}
+
+/**
+ * @param string             $format
+ * @param int|null           $timestamp
+ * @param DateTimeZone|null  $timezone
+ *
+ * @return string
+ */
+function wp_date( $format, $timestamp = null, $timezone = null ) {
+}
+
+/**
+ * @param string|array<string> $to
+ * @param string               $subject
+ * @param string               $message
+ * @param string|array<string> $headers
+ * @param array<string>        $attachments
+ *
+ * @return bool
+ */
+function wp_mail( $to, $subject, $message, $headers = '', $attachments = array() ) {
+}
+
+/**
+ * @param array<string, mixed> $args
+ *
+ * @return array<int, WP_User>|array<int, object{ID: int, display_name: string}>
+ */
+function get_users( $args = array() ) {
+}
+
+/**
+ * @return string|false
+ */
+function wp_get_referer() {
+}
+
+/**
+ * @param string       $hook
+ * @param array<mixed> $args
+ *
+ * @return int|false
+ */
+function wp_next_scheduled( $hook, $args = array() ) {
+}
+
+/**
+ * @param int          $timestamp
+ * @param string       $recurrence
+ * @param string       $hook
+ * @param array<mixed> $args
+ * @param bool         $wp_error
+ *
+ * @return bool|WP_Error
+ */
+function wp_schedule_event( $timestamp, $recurrence, $hook, $args = array(), $wp_error = false ) {
+}
+
+/**
+ * @param int          $timestamp
+ * @param string       $hook
+ * @param array<mixed> $args
+ * @param bool         $wp_error
+ *
+ * @return bool|WP_Error
+ */
+function wp_schedule_single_event( $timestamp, $hook, $args = array(), $wp_error = false ) {
+}
+
+/**
+ * @param int $time
+ *
+ * @return bool
+ */
+function spawn_cron( $time = 0 ) {
+}
+
+/**
+ * @param int  $length
+ * @param bool $special_chars
+ * @param bool $extra_special_chars
+ *
+ * @return string
+ */
+function wp_generate_password( $length = 12, $special_chars = true, $extra_special_chars = false ) {
+}
+
+/**
+ * @param array<mixed>         $list
+ * @param array<string, mixed> $args
+ * @param string               $operator
+ *
+ * @return array<mixed>
+ */
+function wp_list_filter( $list, $args = array(), $operator = 'AND' ) {
+}
+
+/**
+ * @param string $string
+ * @param string $locale
+ *
+ * @return string
+ */
+function remove_accents( $string, $locale = '' ) {
 }

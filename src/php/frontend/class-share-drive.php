@@ -256,7 +256,7 @@ final class Share_Drive {
 	public static function remove( $folder_id ) {
 		try {
 			self::drive()->files->delete( $folder_id, array( 'supportsAllDrives' => true ) );
-		} catch ( Throwable $e ) {
+		} catch ( Throwable ) {
 			self::drive()->files->update(
 				$folder_id,
 				new DriveFile( array( 'trashed' => true ) ),
@@ -352,7 +352,8 @@ final class Share_Drive {
 	 * @throws RuntimeException One of them failed.
 	 */
 	private static function batch( array $items, callable $make ) {
-		$client = self::drive()->getClient();
+		$client   = self::drive()->getClient();
+		$requests = array();
 		$client->setUseBatch( true );
 
 		try {
@@ -409,6 +410,7 @@ final class Share_Drive {
 			self::$drive = new Drive( $client );
 		}
 
+		// @phan-suppress-next-line PhanPossiblyNullTypeReturn
 		return self::$drive;
 	}
 }

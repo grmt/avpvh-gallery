@@ -65,6 +65,17 @@ final class AVPVH_DB {
 	public static function get_extended_household( int $member_id ) {
 		return array();
 	}
+
+	/**
+	 * A member's linked identities (e.g. Google).
+	 *
+	 * @param int $member_id Member ID.
+	 *
+	 * @return array<int, object{id: int, provider: string, email: string, verified_at: string|null}>
+	 */
+	public static function get_member_identities( int $member_id ) {
+		return array();
+	}
 	// phpcs:enable SlevomatCodingStandard.Functions.UnusedParameter.UnusedParameter, Generic.CodeAnalysis.UnusedFunctionParameter.Found
 }
 

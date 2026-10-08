@@ -185,8 +185,11 @@ final class Tag_Import_CLI {
 	 */
 	private static function report( array $rows, array $votes, $format ) {
 		if ( 'none' !== $format ) {
-			$columns = array( 'line', 'source', 'user_id', 'tag_key', 'tag_label', 'path', 'image_id', 'status' );
-			format_items( $format, $rows, $columns );
+			format_items(
+				$format,
+				$rows,
+				array( 'line', 'source', 'user_id', 'tag_key', 'tag_label', 'path', 'image_id', 'status' )
+			);
 		}
 
 		WP_CLI::log( '' );
@@ -195,7 +198,7 @@ final class Tag_Import_CLI {
 		$statuses = array_count_values(
 			array_map(
 				static function ( $status ) {
-					return preg_replace( '/^(error|duplicate).*/', '$1', $status );
+					return (string) preg_replace( '/^(error|duplicate).*/', '$1', (string) $status );
 				},
 				array_column( $rows, 'status' )
 			)
@@ -217,7 +220,7 @@ final class Tag_Import_CLI {
 	 *
 	 * @param array<string, array<string, string>> $votes Planned votes.
 	 *
-	 * @return array<array<string, int|string>>
+	 * @return list<array{error: int, exists: int, new: int, source: string, tag: string}>
 	 */
 	private static function totals( array $votes ) {
 		$totals = array();
@@ -226,19 +229,30 @@ final class Tag_Import_CLI {
 			$tag = $vote['tag_label'] . ' (' . $vote['tag_key'] . ')';
 			$key = $vote['source'] . '|' . $tag;
 
-			$totals[ $key ] ??= array(
-				'error'  => 0,
-				'exists' => 0,
-				'new'    => 0,
-				'source' => $vote['source'],
-				'tag'    => $tag,
-			);
-			++$totals[ $key ][ Tag_Import_Plan::is_error( $vote['status'] ) ? 'error' : $vote['status'] ];
+			if ( ! isset( $totals[ $key ] ) ) {
+				$totals[ $key ] = array(
+					'error'  => 0,
+					'exists' => 0,
+					'new'    => 0,
+					'source' => $vote['source'],
+					'tag'    => $tag,
+				);
+			}
+
+			$bucket = Tag_Import_Plan::is_error( $vote['status'] ) ? 'error' : $vote['status'];
+			++$totals[ $key ][ $bucket ];
 		}
 
 		ksort( $totals );
 
-		return array_values( $totals );
+		$result = array();
+
+		foreach ( $totals as $item ) {
+			$result[] = $item;
+		}
+
+		// @phpstan-ignore return.type
+		return $result;
 	}
 
 	/**

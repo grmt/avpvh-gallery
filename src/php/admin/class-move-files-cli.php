@@ -119,7 +119,9 @@ final class Move_Files_CLI {
 	 */
 	public function undo_move_files( $args ) {
 		if ( ! isset( $args[0] ) ) {
-			array_map( array( WP_CLI::class, 'log' ), self::batches() );
+			foreach ( self::batches() as $batch ) {
+				WP_CLI::log( $batch );
+			}
 
 			return;
 		}
@@ -191,8 +193,9 @@ final class Move_Files_CLI {
 	 */
 	private static function read_plan( $file ) {
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- CLI input file.
-		$handle = fopen( '-' === $file ? 'php://stdin' : $file, 'rb' );
-		$header = false === $handle ? false : fgetcsv( $handle, null, ',', '"', '' );
+		$handle     = fopen( '-' === $file ? 'php://stdin' : $file, 'rb' );
+		$header_row = false === $handle ? false : fgetcsv( $handle, 0, ',', '"', '' );
+		$header     = is_array( $header_row ) ? array_map( 'strval', $header_row ) : false;
 
 		if (
 			false === $handle
@@ -204,7 +207,7 @@ final class Move_Files_CLI {
 
 		$rows   = array();
 		$line   = 1;
-		$values = fgetcsv( $handle, null, ',', '"', '' );
+		$values = fgetcsv( $handle, 0, ',', '"', '' );
 
 		while ( false !== $values ) {
 			++$line;
@@ -218,7 +221,7 @@ final class Move_Files_CLI {
 				);
 			}
 
-			$values = fgetcsv( $handle, null, ',', '"', '' );
+			$values = fgetcsv( $handle, 0, ',', '"', '' );
 		}
 
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- CLI input file.

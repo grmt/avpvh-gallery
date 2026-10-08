@@ -67,8 +67,14 @@ final class Photo_Shares_Page {
 	 * finds now. admin-post form: share, _wpnonce.
 	 *
 	 * @return void
+	 *
+	 * @SuppressWarnings("PHPMD.ExitExpression")
 	 */
 	public static function handle_recreate() {
+		if ( ! is_user_logged_in() ) {
+			wp_die( esc_html__( 'Unauthorized', 'avpvh-gallery' ), 403 );
+		}
+
 		check_admin_referer( 'avpvh_gallery_share_recreate' );
 		$share = Photo_Shares_DB::get( absint( $_POST['share'] ?? 0 ) );
 		$back  = wp_get_referer();
@@ -85,7 +91,7 @@ final class Photo_Shares_Page {
 	 * Whether the current user may make this share again: their own, over,
 	 * and not too many open.
 	 *
-	 * @param object $share The share.
+	 * @param object{status: string, user_id: int|string} $share The share.
 	 *
 	 * @return bool
 	 */
@@ -99,7 +105,7 @@ final class Photo_Shares_Page {
 	 * A share's status cell: its link, progress, or what went wrong with a
 	 * button to make it again.
 	 *
-	 * @param object $share The share.
+	 * @param object{drive_folder_id: string, error: string, id: int|string, status: string} $share The share.
 	 *
 	 * @return string
 	 */

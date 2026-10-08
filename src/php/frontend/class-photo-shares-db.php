@@ -22,7 +22,7 @@ final class Photo_Shares_DB {
 	 *
 	 * @param int $share_id Share ID.
 	 *
-	 * @return object|null
+	 * @return object{id: int|string, user_id: int|string, description: string, conditions: string, folder_id: string, recipient: string, status: string, photo_count: int|string, drive_folder_id: string, error: string, created_at: string, expires_at: string|null}|null
 	 */
 	public static function get( $share_id ) {
 		global $wpdb;
@@ -31,6 +31,7 @@ final class Photo_Shares_DB {
 			$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}agallery_photo_shares WHERE id = %d", $share_id )
 		);
 
+		// @phpstan-ignore return.type
 		return is_object( $row ) ? $row : null;
 	}
 
@@ -39,7 +40,7 @@ final class Photo_Shares_DB {
 	 *
 	 * @param int $user_id WordPress user ID.
 	 *
-	 * @return array<object>
+	 * @return array<object{id: int|string, user_id: int|string, description: string, conditions: string, folder_id: string, recipient: string, status: string, photo_count: int|string, drive_folder_id: string, error: string, created_at: string, expires_at: string|null}>
 	 */
 	public static function for_user( $user_id ) {
 		global $wpdb;
@@ -58,7 +59,7 @@ final class Photo_Shares_DB {
 	/**
 	 * The shares that are ready but past their date.
 	 *
-	 * @return array<object>
+	 * @return array<object{id: int|string, user_id: int|string, description: string, conditions: string, folder_id: string, recipient: string, status: string, photo_count: int|string, drive_folder_id: string, error: string, created_at: string, expires_at: string|null}>
 	 */
 	public static function expired() {
 		global $wpdb;

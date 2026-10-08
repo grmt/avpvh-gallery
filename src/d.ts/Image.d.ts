@@ -15,6 +15,7 @@ declare interface Image {
 	description: string;
 	exif?: ImageExif;
 	folder_id: string;
+	full_path?: string;
 	height: number;
 	id: string;
 	image: string;
