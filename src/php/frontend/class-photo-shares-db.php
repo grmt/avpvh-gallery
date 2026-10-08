@@ -76,6 +76,29 @@ final class Photo_Shares_DB {
 	}
 
 	/**
+	 * The user's oldest share that is still open (ready before pending, so
+	 * one being made now is left alone if possible), or null.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 *
+	 * @return stdClass|null
+	 */
+	public static function oldest_open( $user_id ) {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin table.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}agallery_photo_shares
+				 WHERE user_id = %d AND status IN ('pending', 'ready')
+				 ORDER BY status = 'pending', created_at LIMIT 1",
+				$user_id
+			)
+		);
+
+		return self::rows( $rows )[0] ?? null;
+	}
+
+	/**
 	 * How many of a user's shares are being made or still open.
 	 *
 	 * @param int $user_id WordPress user ID.

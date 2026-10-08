@@ -161,6 +161,15 @@ interface ShareOptions {
 	captions: boolean;
 	a4: boolean;
 	google: string;
+	// Close the oldest open share first when the user has the maximum open.
+	replaceOldest: boolean;
+}
+
+// What the server answered: what to tell the user, and whether it refused
+// because the user has the maximum number of shares open.
+interface ShareResult {
+	message: string;
+	full: boolean;
 }
 
 // Asks the server to share the filter's photos via Google Drive (see
@@ -171,7 +180,7 @@ async function requestShare(
 	conditions: Array<FilterCondition>,
 	description: string,
 	options: ShareOptions
-): Promise<string> {
+): Promise<ShareResult> {
 	try {
 		const response = await fetch(ajaxUrl, {
 			method: 'POST',
@@ -185,18 +194,25 @@ async function requestShare(
 				captions: options.captions ? '1' : '0',
 				a4: options.a4 ? '1' : '0',
 				google: options.google,
+				replace_oldest: options.replaceOldest ? '1' : '0',
 				_ajax_nonce: share.nonce,
 			}).toString(),
 		});
 		const data = (await response.json()) as {
 			success?: boolean;
-			data?: { recipient?: string; message?: string };
+			data?: { recipient?: string; message?: string; full?: boolean };
 		};
 		return data.success === true
-			? `De map wordt gemaakt; je krijgt de link per e-mail op ${data.data?.recipient ?? 'je Google-adres'}.`
-			: (data.data?.message ?? 'Delen mislukt');
+			? {
+					message: `De map wordt gemaakt; je krijgt de link per e-mail op ${data.data?.recipient ?? 'je Google-adres'}.`,
+					full: false,
+				}
+			: {
+					message: data.data?.message ?? 'Delen mislukt',
+					full: data.data?.full === true,
+				};
 	} catch {
-		return 'Delen mislukt';
+		return { message: 'Delen mislukt', full: false };
 	}
 }
 
@@ -248,6 +264,22 @@ export interface FilterLibrary {
 	onApply(filter: SavedFilter): void;
 	onDelete(id: string): Promise<Array<SavedFilter>>;
 	onSave(name: string, id: string): Promise<Array<SavedFilter>>;
+}
+
+// "Oudste verwijderen en delen", offered when the user has the maximum
+// number of shares open.
+function replaceButton(onClick: () => void): HTMLButtonElement {
+	const button = document.createElement('button');
+	button.type = 'button';
+	button.className = 'avpvh-filter-share';
+	button.textContent = 'Oudste verwijderen en delen';
+	button.title =
+		'De map van je oudste deling wordt verwijderd (als die er nog is); op je profiel kun je hem later opnieuw laten maken';
+	button.addEventListener('click', () => {
+		button.disabled = true;
+		onClick();
+	});
+	return button;
 }
 
 // A checkbox with its label, shown while confirming a share.
@@ -331,19 +363,31 @@ function shareButton(
 		captions.disabled = true;
 		a4.disabled = true;
 		google.disabled = true;
-		void requestShare(
-			ajaxUrl,
-			share,
-			conditions,
-			describe(conditions, folders),
-			{
-				captions: captions.checked,
-				a4: a4.checked,
-				google: share.google === '' ? google.value.trim() : '',
-			}
-		).then((message) => {
-			status.textContent = message;
-		});
+		const send = (replaceOldest: boolean): void => {
+			void requestShare(
+				ajaxUrl,
+				share,
+				conditions,
+				describe(conditions, folders),
+				{
+					captions: captions.checked,
+					a4: a4.checked,
+					google: share.google === '' ? google.value.trim() : '',
+					replaceOldest,
+				}
+			).then(({ message, full }) => {
+				status.textContent = message;
+				if (full && !replaceOldest) {
+					status.append(
+						' ',
+						replaceButton(() => {
+							send(true);
+						})
+					);
+				}
+			});
+		};
+		send(false);
 	});
 	wrapper.appendChild(button);
 	return wrapper;

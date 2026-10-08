@@ -89,7 +89,8 @@ final class Photo_Shares {
 	 * gallery_filter), folders (JSON Drive folder IDs: only photos below
 	 * those branches), description (the filter in words, for e-mail/profile),
 	 * captions ('1': upright, with dig names written on them; see Share_Image),
-	 * a4 ('1': cropped to A4 proportions for printing),
+	 * a4 ('1': cropped to A4 proportions for printing), replace_oldest ('1':
+	 * when the user has MAX_OPEN shares open, close the oldest first),
 	 * google (the user's Google address, when asked for; see Share_Recipient).
 	 *
 	 * @return void
@@ -104,13 +105,24 @@ final class Photo_Shares {
 		$captions    = '1' === wp_unslash( (string) ( $_POST['captions'] ?? '' ) ) && Share_Image::available();
 		$crop_a4     = '1' === wp_unslash( (string) ( $_POST['a4'] ?? '' ) ) && Share_Image::available();
 		$google      = sanitize_email( wp_unslash( (string) ( $_POST['google'] ?? '' ) ) );
+		$replace     = '1' === wp_unslash( (string) ( $_POST['replace_oldest'] ?? '' ) );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+
+		if ( $replace && Photo_Shares_Limit::reached() ) {
+			Photo_Shares_Limit::close_oldest();
+		}
 
 		$valid = Photo_Filter::valid_conditions( $conditions );
 		$error = self::create_refusal( $valid, $folder_ids );
 
 		if ( null !== $error ) {
-			wp_send_json_error( array( 'message' => $error ), 400 );
+			wp_send_json_error(
+				array(
+					'full'    => Photo_Shares_Limit::reached(),
+					'message' => $error,
+				),
+				400
+			);
 		}
 
 		Share_Recipient::remember( get_current_user_id(), $google );
@@ -262,8 +274,8 @@ final class Photo_Shares {
 			return 'Delen via Google Drive is nog niet ingesteld; vraag een beheerder';
 		}
 
-		if ( self::MAX_OPEN <= Photo_Shares_DB::open_count( get_current_user_id() ) ) {
-			return sprintf( 'Je hebt al %d delingen open; wacht tot er een verloopt', self::MAX_OPEN );
+		if ( Photo_Shares_Limit::reached() ) {
+			return Photo_Shares_Limit::message();
 		}
 
 		try {

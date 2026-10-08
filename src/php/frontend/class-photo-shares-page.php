@@ -23,6 +23,15 @@ use stdClass;
 final class Photo_Shares_Page {
 
 	/**
+	 * How shares that ended without an error are shown.
+	 */
+	// phpcs:ignore SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- PHPCSUtils false positive on an array value.
+	private const ENDED = array(
+		'expired' => 'Verlopen',
+		'removed' => 'Verwijderd',
+	);
+
+	/**
 	 * Registers the shortcode and the "Opnieuw maken" form handler.
 	 */
 	public function __construct() {
@@ -95,7 +104,7 @@ final class Photo_Shares_Page {
 	 */
 	private static function may_recreate( $share ) {
 		return get_current_user_id() === (int) $share->user_id
-			&& in_array( $share->status, array( 'expired', 'failed' ), true )
+			&& in_array( $share->status, array( 'expired', 'failed', 'removed' ), true )
 			&& Photo_Shares::MAX_OPEN > Photo_Shares_DB::open_count( get_current_user_id() );
 	}
 
@@ -123,7 +132,7 @@ final class Photo_Shares_Page {
 				: sprintf( 'Wordt gemaakt… (%d foto’s klaar; je krijgt een e-mail)', $done );
 		}
 
-		$text = 'expired' === $share->status ? 'Verlopen' : esc_html( (string) $share->error );
+		$text = self::ENDED[ $share->status ] ?? esc_html( (string) $share->error );
 
 		return $text . sprintf(
 			' <form method="post" action="%s" style="display:inline">%s'
