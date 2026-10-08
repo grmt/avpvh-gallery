@@ -40,6 +40,7 @@ final class Photo_Shares_Page {
 	 * Registers the shortcode and the "Opnieuw maken" form handler.
 	 */
 	public function __construct() {
+		new Photo_Shares_Cleanup();
 		add_shortcode( 'avpvh_gallery_shares', array( self::class, 'shortcode' ) );
 		add_action( 'admin_post_avpvh_gallery_share_recreate', array( self::class, 'handle_recreate' ) );
 		add_action( 'admin_post_avpvh_gallery_share_delete', array( self::class, 'handle_delete' ) );
@@ -85,11 +86,20 @@ final class Photo_Shares_Page {
 				. 'Filter in de galerie en kies "Delen via Google Drive".</p></div>';
 		}
 
+		$ended = count(
+			array_filter(
+				$shares,
+				static function ( $share ) {
+					return in_array( $share->status, Photo_Shares_Cleanup::ENDED, true );
+				}
+			)
+		);
 		$html .= sprintf(
-			'<p>%d van de %d open%s.</p>',
+			'<p>%d van de %d open%s.%s</p>',
 			Photo_Shares_DB::open_count( get_current_user_id() ),
 			Photo_Shares::MAX_OPEN,
-			20 <= count( $shares ) ? '; alleen de laatste 20 staan hieronder' : ''
+			20 <= count( $shares ) ? '; alleen de laatste 20 staan hieronder' : '',
+			0 < $ended ? Photo_Shares_Cleanup::tidy_form() : ''
 		);
 		$html .= '<table><thead><tr><th>Selectie</th><th>Gemaakt</th><th>Foto’s</th><th>Status</th>'
 			. '<th>Beschikbaar tot</th></tr></thead><tbody>';
@@ -202,7 +212,7 @@ final class Photo_Shares_Page {
 
 		$text = self::ENDED[ $share->status ] ?? esc_html( (string) $share->error );
 
-		return $text . self::recreate_form( $share );
+		return $text . self::recreate_form( $share ) . self::form( $share, 'hide', 'Uit lijst halen' );
 	}
 
 	/**
@@ -243,7 +253,7 @@ final class Photo_Shares_Page {
 	 * A button that posts one action for a share.
 	 *
 	 * @param stdClass $share  The share.
-	 * @param string   $action "recreate" or "delete".
+	 * @param string   $action "recreate", "delete" or "hide".
 	 * @param string   $label  The button's text.
 	 *
 	 * @return string
