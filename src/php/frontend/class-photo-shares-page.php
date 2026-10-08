@@ -116,7 +116,11 @@ final class Photo_Shares_Page {
 		}
 
 		if ( 'pending' === $share->status ) {
-			return 'Wordt gemaakt… (je krijgt een e-mail)';
+			$done = (int) $share->photo_count;
+
+			return 0 === $done
+				? 'Wordt gemaakt… (je krijgt een e-mail)'
+				: sprintf( 'Wordt gemaakt… (%d foto’s klaar; je krijgt een e-mail)', $done );
 		}
 
 		$text = 'expired' === $share->status ? 'Verlopen' : esc_html( (string) $share->error );

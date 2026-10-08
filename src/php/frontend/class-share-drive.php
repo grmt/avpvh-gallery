@@ -267,6 +267,64 @@ final class Share_Drive {
 	}
 
 	/**
+	 * The files' names and media types, by ID.
+	 *
+	 * @param array<string> $ids Drive file IDs.
+	 *
+	 * @return array<string, array{name: string, mime: string}>
+	 *
+	 * @throws RuntimeException A file couldn't be read.
+	 */
+	public static function details( array $ids ) {
+		$details = array();
+
+		foreach ( array_chunk( array_values( $ids ), self::BATCH_SIZE ) as $chunk ) {
+			$files = self::batch(
+				$chunk,
+				static function ( $file_id ) {
+					return self::drive()->files->get(
+						$file_id,
+						array(
+							'fields'            => 'id, name, mimeType',
+							'supportsAllDrives' => true,
+						)
+					);
+				}
+			);
+
+			foreach ( $files as $file ) {
+				$details[ (string) $file->getId() ] = array(
+					'mime' => (string) $file->getMimeType(),
+					'name' => (string) $file->getName(),
+				);
+			}
+		}
+
+		return $details;
+	}
+
+	/**
+	 * The service account's Drive client. Requests made through it are
+	 * deferred for batching (see batch()) except where executed directly.
+	 * Also used by Share_Drive_Files.
+	 *
+	 * @return Drive
+	 */
+	public static function drive() {
+		$drive = self::$drive;
+
+		if ( null === $drive ) {
+			$client = new Client();
+			$client->setAuthConfig( Options::$share_service_account->credentials() );
+			$client->addScope( Drive::DRIVE );
+			$drive       = new Drive( $client );
+			self::$drive = $drive;
+		}
+
+		return $drive;
+	}
+
+	/**
 	 * The Drive query for the folders with a name in a folder.
 	 *
 	 * @param string $parent_id The folder to look in.
@@ -317,28 +375,12 @@ final class Share_Drive {
 	 * @throws RuntimeException A file couldn't be read.
 	 */
 	private static function names( array $ids ) {
-		$names = array();
-
-		foreach ( array_chunk( $ids, self::BATCH_SIZE ) as $chunk ) {
-			$files = self::batch(
-				$chunk,
-				static function ( $file_id ) {
-						return self::drive()->files->get(
-							$file_id,
-							array(
-								'fields'            => 'id, name',
-								'supportsAllDrives' => true,
-							)
-						);
-				}
-			);
-
-			foreach ( $files as $file ) {
-				$names[ (string) $file->getId() ] = (string) $file->getName();
-			}
-		}
-
-		return $names;
+		return array_map(
+			static function ( $file ) {
+				return $file['name'];
+			},
+			self::details( $ids )
+		);
 	}
 
 	/**
@@ -394,25 +436,5 @@ final class Share_Drive {
 	 */
 	private static function parent_folder() {
 		return trim( (string) Options::$share_folder->get() );
-	}
-
-	/**
-	 * The service account's Drive client. Requests made through it are
-	 * deferred for batching (see batch()) except where executed directly.
-	 *
-	 * @return Drive
-	 */
-	private static function drive() {
-		$drive = self::$drive;
-
-		if ( null === $drive ) {
-			$client = new Client();
-			$client->setAuthConfig( Options::$share_service_account->credentials() );
-			$client->addScope( Drive::DRIVE );
-			$drive       = new Drive( $client );
-			self::$drive = $drive;
-		}
-
-		return $drive;
 	}
 }

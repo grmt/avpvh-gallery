@@ -231,19 +231,21 @@ final class Shortcode {
 
 	/**
 	 * The frontend data only logged-in members get: whether they can share a
-	 * filter via Google Drive, and their remembered filter.
+	 * filter via Google Drive (and with captions), and their remembered filter.
 	 *
-	 * @return array{can_share: string, saved_filter: array<string, mixed>|null}
+	 * @return array{can_caption: string, can_share: string, saved_filter: array<string, mixed>|null}
 	 */
 	private static function member_data() {
 		if ( ! is_user_logged_in() ) {
 			return array(
+				'can_caption'  => 'false',
 				'can_share'    => 'false',
 				'saved_filter' => null,
 			);
 		}
 
 		return array(
+			'can_caption'  => Share_Image::available() ? 'true' : 'false',
 			'can_share'    => Share_Drive::configured() ? 'true' : 'false',
 			'saved_filter' => Filter_Memory::saved_state(),
 		);

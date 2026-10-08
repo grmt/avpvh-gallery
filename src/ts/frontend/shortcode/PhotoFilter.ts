@@ -122,7 +122,8 @@ async function requestShare(
 	ajaxUrl: string,
 	share: FilterShare,
 	conditions: Array<FilterCondition>,
-	description: string
+	description: string,
+	captions: boolean
 ): Promise<string> {
 	try {
 		const response = await fetch(ajaxUrl, {
@@ -134,6 +135,7 @@ async function requestShare(
 				conditions: conditionsParam(conditions),
 				folder: share.folder,
 				description,
+				captions: captions ? '1' : '0',
 				_ajax_nonce: share.nonce,
 			}).toString(),
 		});
@@ -182,16 +184,19 @@ export interface FilterSort {
 	onChange(order: SortOrder): void;
 }
 
-// Sharing the filter's photos via Google Drive: whether it's set up, the
-// folder the filter is limited to ('' for the whole gallery) and the nonce.
+// Sharing the filter's photos via Google Drive: whether it's set up,
+// whether photos can be captioned, the folder the filter is limited to (''
+// for the whole gallery) and the nonce.
 export interface FilterShare {
 	enabled: boolean;
+	captions: boolean;
 	folder: string;
 	nonce: string;
 }
 
 // "Delen via Google Drive": after confirming, starts the share and says
-// where the link will be sent.
+// where the link will be sent. While confirming, the photos can be chosen
+// to be put upright with the dig's year and name written on them.
 function shareButton(
 	ajaxUrl: string,
 	share: FilterShare,
@@ -200,31 +205,51 @@ function shareButton(
 	here: boolean,
 	status: HTMLElement
 ): HTMLElement {
+	const wrapper = document.createElement('span');
+	wrapper.className = 'avpvh-filter-share-wrapper';
 	const button = document.createElement('button');
 	button.type = 'button';
 	button.className = 'avpvh-filter-share';
 	button.textContent = 'Delen via Google Drive';
 	button.title =
 		'Kopieer deze foto’s naar een map in Google Drive die alleen jij een week lang kunt openen; de link komt per e-mail';
+	const captions = document.createElement('input');
+	captions.type = 'checkbox';
 	// The first click asks for confirmation in the button itself, the second
 	// one starts the share.
 	button.addEventListener('click', () => {
 		if (button.dataset['confirm'] !== '1') {
 			button.dataset['confirm'] = '1';
 			button.textContent = `Ja, ${String(total)} foto${total === 1 ? '' : "'s"} delen (link per e-mail, een week geldig)`;
+			if (share.captions) {
+				wrapper.appendChild(captionsOption(captions));
+			}
 			return;
 		}
 		button.disabled = true;
+		captions.disabled = true;
 		void requestShare(
 			ajaxUrl,
 			share,
 			conditions,
-			describe(conditions, here)
+			describe(conditions, here),
+			captions.checked
 		).then((message) => {
 			status.textContent = message;
 		});
 	});
-	return button;
+	wrapper.appendChild(button);
+	return wrapper;
+}
+
+// The "jaar en opgraving erop" checkbox shown while confirming a share.
+function captionsOption(checkbox: HTMLInputElement): HTMLElement {
+	const label = document.createElement('label');
+	label.className = 'avpvh-filter-share-captions';
+	label.title =
+		'De foto’s worden rechtop gezet zoals in de galerij, en foto’s van opgravingen krijgen rechtsonder het jaar en de plaats';
+	label.append(checkbox, document.createTextNode(' jaar en opgraving erop'));
+	return label;
 }
 
 // "Volgorde": by name, or by date either way. Filter results are always by

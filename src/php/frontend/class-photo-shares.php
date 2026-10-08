@@ -80,7 +80,8 @@ final class Photo_Shares {
 	/**
 	 * Starts a share of a filter's photos. POST: conditions (JSON, as for
 	 * gallery_filter), folder ('' or a Drive folder ID: only photos below
-	 * it), description (the filter in words, for the e-mail and profile).
+	 * it), description (the filter in words, for the e-mail and profile),
+	 * captions ('1': upright, with dig names written on them; see Share_Image).
 	 *
 	 * @return void
 	 */
@@ -90,6 +91,7 @@ final class Photo_Shares {
 		$conditions  = wp_unslash( (string) ( $_POST['conditions'] ?? '[]' ) );
 		$folder_id   = sanitize_text_field( wp_unslash( (string) ( $_POST['folder'] ?? '' ) ) );
 		$description = sanitize_text_field( wp_unslash( (string) ( $_POST['description'] ?? '' ) ) );
+		$captions    = '1' === wp_unslash( (string) ( $_POST['captions'] ?? '' ) ) && Share_Image::available();
 		// phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
 		$valid = Photo_Filter::valid_conditions( $conditions );
@@ -102,6 +104,7 @@ final class Photo_Shares {
 		self::start(
 			Photo_Shares_DB::insert(
 				array(
+					'captions'    => $captions ? 1 : 0,
 					'conditions'  => (string) wp_json_encode( $valid ),
 					'description' => mb_substr( $description, 0, 500 ),
 					'folder_id'   => $folder_id,
@@ -163,7 +166,7 @@ final class Photo_Shares {
 			$matching   = Photo_Filter::all_matching_ids( $conditions, $share->folder_id );
 			$ids        = array_slice( $matching, 0, self::MAX_PHOTOS );
 			$folder     = Share_Drive::create_folder( self::folder_name( $share ) );
-			Share_Drive::copy_into( $ids, $folder );
+			self::copy( $share, $ids, $folder );
 			Share_Drive::share_with( $folder, $share->recipient );
 		} catch ( Throwable $e ) {
 			self::fail( $share, $folder, $e );
@@ -254,6 +257,32 @@ final class Photo_Shares {
 		return self::MAX_PHOTOS < $count
 			? sprintf( 'Je kunt hooguit %d foto’s tegelijk delen (dit filter vindt er %d)', self::MAX_PHOTOS, $count )
 			: null;
+	}
+
+	/**
+	 * Puts a share's photos in its folder: plain copies, or edited ones
+	 * (see Share_Image) with progress kept in photo_count.
+	 *
+	 * @param stdClass      $share     The share.
+	 * @param array<string> $ids       Drive file IDs.
+	 * @param string        $folder_id The share's folder.
+	 *
+	 * @return void
+	 */
+	private static function copy( $share, array $ids, $folder_id ) {
+		if ( 1 !== (int) ( $share->captions ?? 0 ) || ! Share_Image::available() ) {
+			Share_Drive::copy_into( $ids, $folder_id );
+
+			return;
+		}
+
+		Share_Image::copy_into(
+			$ids,
+			$folder_id,
+			static function ( $done ) use ( $share ) {
+				Photo_Shares_DB::update( (int) $share->id, array( 'photo_count' => $done ) );
+			}
+		);
 	}
 
 	/**
