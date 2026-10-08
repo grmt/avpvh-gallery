@@ -51,20 +51,16 @@ final class Photo_Shares_Page {
 	 * shares (its folder goes; see Photo_Shares_Removal) and goes back.
 	 *
 	 * @return void
-	 *
-	 * @SuppressWarnings("PHPMD.ExitExpression")
 	 */
 	public static function handle_delete() {
 		check_admin_referer( 'avpvh_gallery_share_delete' );
 		$share = Photo_Shares_DB::get( absint( $_POST['share'] ?? 0 ) );
-		$back  = wp_get_referer();
 
 		if ( null !== $share && get_current_user_id() === (int) $share->user_id && 'ready' === $share->status ) {
 			Photo_Shares_Removal::close( $share );
 		}
 
-		wp_safe_redirect( false === $back ? home_url() : $back );
-		exit;
+		Photo_Shares_Cleanup::back();
 	}
 
 	/**
@@ -79,7 +75,8 @@ final class Photo_Shares_Page {
 
 		Photo_Shares_Limit::sync( get_current_user_id() );
 		$shares = Photo_Shares_DB::for_user( get_current_user_id() );
-		$html   = '<div class="avpvh-gallery-shares"><h3>Shared Google Drive - foto selecties</h3>';
+		$html   = '<div class="avpvh-gallery-shares" id="' . Photo_Shares_Cleanup::ANCHOR . '">'
+			. '<h3>Shared Google Drive - foto selecties</h3>';
 
 		if ( array() === $shares ) {
 			return $html . '<p>Je hebt nog geen foto’s gedeeld. '
@@ -119,17 +116,14 @@ final class Photo_Shares_Page {
 	}
 
 	/**
-	 * Makes an expired or failed share again, with the photos its filter
-	 * finds now. admin-post form: share, _wpnonce.
+	 * Makes a share again, with the photos its filter finds now (an open
+	 * one in place of itself). admin-post form: share, _wpnonce.
 	 *
 	 * @return void
-	 *
-	 * @SuppressWarnings("PHPMD.ExitExpression")
 	 */
 	public static function handle_recreate() {
 		check_admin_referer( 'avpvh_gallery_share_recreate' );
 		$share = Photo_Shares_DB::get( absint( $_POST['share'] ?? 0 ) );
-		$back  = wp_get_referer();
 
 		if ( null !== $share && self::may_recreate( $share ) ) {
 			if ( 'ready' === $share->status ) {
@@ -140,8 +134,7 @@ final class Photo_Shares_Page {
 			Photo_Shares::restart( $share );
 		}
 
-		wp_safe_redirect( false === $back ? home_url() : $back );
-		exit;
+		Photo_Shares_Cleanup::back();
 	}
 
 	/**

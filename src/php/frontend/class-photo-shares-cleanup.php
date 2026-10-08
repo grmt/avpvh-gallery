@@ -28,6 +28,11 @@ final class Photo_Shares_Cleanup {
 	public const ENDED = array( 'expired', 'removed', 'failed' );
 
 	/**
+	 * The share list's HTML id, to come back to after a button.
+	 */
+	public const ANCHOR = 'avpvh-gallery-shares';
+
+	/**
 	 * Registers the two form handlers.
 	 */
 	public function __construct() {
@@ -83,15 +88,17 @@ final class Photo_Shares_Cleanup {
 	}
 
 	/**
-	 * Back to the profile.
+	 * Back to the profile, at the share list (not the top of the page).
+	 * Also used by Photo_Shares_Page's buttons.
 	 *
 	 * @return void
 	 *
 	 * @SuppressWarnings("PHPMD.ExitExpression")
 	 */
-	private static function back() {
+	public static function back() {
 		$back = wp_get_referer();
-		wp_safe_redirect( false === $back ? home_url() : $back );
+		$back = false === $back ? home_url() : strtok( $back, '#' );
+		wp_safe_redirect( $back . '#' . self::ANCHOR );
 		exit;
 	}
 }
