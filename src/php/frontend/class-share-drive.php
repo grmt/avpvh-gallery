@@ -267,11 +267,11 @@ final class Share_Drive {
 	}
 
 	/**
-	 * The files' names and media types, by ID.
+	 * The files' names, media types, sizes (bytes) and thumbnail links, by ID.
 	 *
 	 * @param array<string> $ids Drive file IDs.
 	 *
-	 * @return array<string, array{name: string, mime: string}>
+	 * @return array<string, array{name: string, mime: string, size: int, thumb: string}>
 	 *
 	 * @throws RuntimeException A file couldn't be read.
 	 */
@@ -285,7 +285,7 @@ final class Share_Drive {
 					return self::drive()->files->get(
 						$file_id,
 						array(
-							'fields'            => 'id, name, mimeType',
+							'fields'            => 'id, name, mimeType, size, thumbnailLink',
 							'supportsAllDrives' => true,
 						)
 					);
@@ -294,8 +294,10 @@ final class Share_Drive {
 
 			foreach ( $files as $file ) {
 				$details[ (string) $file->getId() ] = array(
-					'mime' => (string) $file->getMimeType(),
-					'name' => (string) $file->getName(),
+					'mime'  => (string) $file->getMimeType(),
+					'name'  => (string) $file->getName(),
+					'size'  => (int) $file->getSize(),
+					'thumb' => (string) $file->getThumbnailLink(),
 				);
 			}
 		}

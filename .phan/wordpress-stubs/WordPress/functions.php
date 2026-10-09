@@ -1149,6 +1149,53 @@ function sanitize_meta( $meta_key, $meta_value, $object_type, $object_subtype = 
 }
 
 /**
+ * @param string $email
+ *
+ * @return string
+ */
+function sanitize_email( $email ) {
+}
+
+/**
+ * @return \DateTimeZone
+ */
+function wp_timezone() {
+}
+
+/**
+ * @return string
+ */
+function get_temp_dir() {
+}
+
+/**
+ * @param string                                    $content
+ * @param array<string, array<string, bool>>|string $allowed_html
+ * @param array<string>                             $allowed_protocols
+ *
+ * @return string
+ */
+function wp_kses( $content, $allowed_html, $allowed_protocols = array() ) {
+}
+
+/**
+ * @param string $scheme
+ *
+ * @return string
+ */
+function wp_salt( $scheme = 'auth' ) {
+}
+
+/**
+ * @param string $email
+ * @param bool   $deprecated
+ *
+ * @return string|false
+ */
+function is_email( $email, $deprecated = false ) {
+}
+
+/**
  * @param string $str
  *
  * @return string

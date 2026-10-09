@@ -83,6 +83,9 @@ final class Photo_Filter {
 		add_action( 'wp_ajax_gallery_filter', array( self::class, 'handle_filter' ) );
 		add_action( 'wp_ajax_gallery_filter_options', array( self::class, 'handle_options' ) );
 		add_action( 'wp_ajax_gallery_filter_save', array( Filter_Memory::class, 'handle_save' ) );
+		add_action( 'wp_ajax_gallery_filter_preset_save', array( Filter_Memory::class, 'handle_preset_save' ) );
+		add_action( 'wp_ajax_gallery_filter_preset_delete', array( Filter_Memory::class, 'handle_preset_delete' ) );
+		new Filter_Sharing();
 	}
 
 	/**
@@ -108,8 +111,8 @@ final class Photo_Filter {
 	 * @return void
 	 */
 	public static function filter_body() {
-		list( , $options ) = Gallery_Context::get();
-		$conditions        = self::conditions_from_request();
+		list( $root_id, $options ) = Gallery_Context::get();
+		$conditions                = self::conditions_from_request();
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
 		$page = max( 1, intval( $_GET['page'] ?? 1 ) );
 
@@ -127,19 +130,27 @@ final class Photo_Filter {
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
-		$folder_id = sanitize_text_field( wp_unslash( (string) ( $_GET['folder'] ?? '' ) ) );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only lookup; JSON values are sanitized by folder_ids().
+		$folder_ids = Photo_Filter_Scope::folder_ids( wp_unslash( (string) ( $_GET['folders'] ?? '' ) ) );
+
+		if ( array() === $folder_ids ) {
+			// Backwards compatibility with links/clients that still send one folder.
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
+			$folder_id  = sanitize_text_field( wp_unslash( (string) ( $_GET['folder'] ?? '' ) ) );
+			$folder_ids = '' === $folder_id ? array() : array( $folder_id );
+		}
 
 		// "Datum (nieuw → oud)": newest first.
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
 		$newest_first = 'date_desc' === sanitize_key( wp_unslash( (string) ( $_GET['sort'] ?? '' ) ) );
 
-		list( $ids, $total ) = '' === $folder_id
+		list( $ids, $total ) = array() === $folder_ids
 			? self::matching_ids( $conditions, $page, $newest_first )
-			: self::matching_ids_within( $conditions, $page, $folder_id, $newest_first );
+			: self::matching_ids_within( $conditions, $page, $folder_ids, $newest_first );
 
 		wp_send_json(
 			array(
-				'images' => self::images_for( $ids, $options ),
+				'images' => self::images_for( $ids, $options, $root_id ),
 				'more'   => $page * self::PAGE_SIZE < $total,
 				'total'  => $total,
 			)
@@ -220,18 +231,20 @@ final class Photo_Filter {
 	 * filter (see Photo_Shares). None when there is no "and"/"or" condition.
 	 *
 	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See valid_conditions().
-	 * @param string                                                    $folder_id  Drive folder ID, or '' for the whole gallery.
+	 * @param string|array<string>                                      $folders    Drive folder ID(s), or none for the whole gallery.
 	 *
 	 * @return array<string>
 	 */
-	public static function all_matching_ids( array $conditions, $folder_id ) {
+	public static function all_matching_ids( array $conditions, $folders ) {
 		if ( array() === array_intersect( array( 'and', 'or' ), array_column( $conditions, 'op' ) ) ) {
 			return array();
 		}
 
 		list( $ids ) = self::matching_ids( $conditions, 0 );
 
-		return '' === $folder_id ? $ids : Photo_Filter_Scope::within( $ids, $folder_id );
+		$folder_ids = is_array( $folders ) ? $folders : ( '' === $folders ? array() : array( $folders ) );
+
+		return array() === $folder_ids ? $ids : Photo_Filter_Scope::within_many( $ids, $folder_ids );
 	}
 
 	/**
@@ -325,14 +338,14 @@ final class Photo_Filter {
 	 *
 	 * @param array<array{kind: string, value: string|int, op: string}> $conditions See conditions_from_request().
 	 * @param int                                                       $page       1-based page number.
-	 * @param string                                                    $folder_id  Drive folder ID.
+	 * @param array<string>                                             $folder_ids Drive folder IDs.
 	 * @param bool                                                      $newest_first Whether the newest come first.
 	 *
 	 * @return array{0: array<string>, 1: int}
 	 */
-	private static function matching_ids_within( array $conditions, $page, $folder_id, $newest_first = false ) {
+	private static function matching_ids_within( array $conditions, $page, array $folder_ids, $newest_first = false ) {
 		list( $all ) = self::matching_ids( $conditions, 0, $newest_first );
-		$inside      = Photo_Filter_Scope::within( $all, $folder_id );
+		$inside      = Photo_Filter_Scope::within_many( $all, $folder_ids );
 
 		return array(
 			array_slice( $inside, ( $page - 1 ) * self::PAGE_SIZE, self::PAGE_SIZE ),
@@ -371,20 +384,31 @@ final class Photo_Filter {
 	 *
 	 * @param array<string> $ids     Drive file IDs, in display order.
 	 * @param Options_Proxy $options The configuration of the gallery.
+	 * @param string        $root_id Gallery root folder ID.
 	 *
 	 * @return array<array<string, mixed>>
 	 */
-	private static function images_for( array $ids, $options ) {
+	private static function images_for( array $ids, $options, $root_id ) {
 		$by_folder = array();
 
 		foreach ( self::fetch_records( $ids ) as $record ) {
 			$by_folder[ $record['parents'][0] ?? '' ][] = $record;
 		}
 
+		$paths  = Photo_Filter_Scope::paths( array_map( 'strval', array_keys( $by_folder ) ), $root_id, $options );
 		$images = array();
 
 		foreach ( $by_folder as $folder_id => $records ) {
 			foreach ( Images::from_records( $records, (string) $folder_id, $options ) as $image ) {
+				$image['full_path']     = implode(
+					'/',
+					array_filter(
+						array( $paths[ $folder_id ] ?? '', $image['name'] ),
+						static function ( $part ) {
+							return '' !== $part;
+						}
+					)
+				);
 				$images[ $image['id'] ] = $image;
 			}
 		}

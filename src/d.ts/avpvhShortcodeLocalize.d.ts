@@ -28,6 +28,8 @@ declare const avpvhShortcodeLocalize: {
 	can_exclude_photos: string;
 	can_remove_tags: string;
 	can_caption: string;
+	google: string;
+	google_known: string;
 	can_share: string;
 	saved_filter: {
 		conditions: Array<{
@@ -36,8 +38,50 @@ declare const avpvhShortcodeLocalize: {
 			op: 'and' | 'not' | 'or';
 			label: string;
 		}>;
+		folders?: Array<{ id: string; name: string; path: string }>;
 		here: boolean;
+		sort?: 'date' | 'date_desc' | 'name';
 	} | null;
+	saved_filters: Array<{
+		id: string;
+		name: string;
+		conditions: Array<{
+			kind: 'liked_by' | 'marked' | 'person' | 'place' | 'tag';
+			value: string;
+			op: 'and' | 'not' | 'or';
+			label: string;
+		}>;
+		folders: Array<{
+			id: string;
+			name: string;
+			path: string;
+			exclude?: boolean;
+		}>;
+		sort: 'date' | 'date_desc' | 'name';
+		users?: Array<number>;
+		groups?: Array<string>;
+		owner?: string;
+	}>;
+	shared_filters: Array<{
+		id: string;
+		name: string;
+		conditions: Array<{
+			kind: 'liked_by' | 'marked' | 'person' | 'place' | 'tag';
+			value: string;
+			op: 'and' | 'not' | 'or';
+			label: string;
+		}>;
+		folders: Array<{
+			id: string;
+			name: string;
+			path: string;
+			exclude?: boolean;
+		}>;
+		sort: 'date' | 'date_desc' | 'name';
+		users?: Array<number>;
+		groups?: Array<string>;
+		owner?: string;
+	}>;
 	exclusion_url: string;
 	exif_date_url: string;
 	subject_tags: Record<

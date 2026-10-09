@@ -49,7 +49,7 @@ final class Photo_Shares_DB {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}agallery_photo_shares
-				 WHERE user_id = %d ORDER BY created_at DESC LIMIT 20",
+				 WHERE user_id = %d AND status <> 'hidden' ORDER BY created_at DESC LIMIT 20",
 				$user_id
 			)
 		);
@@ -73,6 +73,50 @@ final class Photo_Shares_DB {
 		);
 
 		return self::rows( $rows );
+	}
+
+	/**
+	 * The user's oldest share that is still open (ready before pending, so
+	 * one being made now is left alone if possible), or null.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 *
+	 * @return stdClass|null
+	 */
+	public static function oldest_open( $user_id ) {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin table.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}agallery_photo_shares
+				 WHERE user_id = %d AND status IN ('pending', 'ready')
+				 ORDER BY status = 'pending', created_at LIMIT 1",
+				$user_id
+			)
+		);
+
+		return self::rows( $rows )[0] ?? null;
+	}
+
+	/**
+	 * Takes a user's ended shares (expired, removed, failed) off their
+	 * profile list ("Opruimen"). Returns how many.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 *
+	 * @return int
+	 */
+	public static function hide_ended( $user_id ) {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin table.
+		return (int) $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}agallery_photo_shares SET status = 'hidden'
+				 WHERE user_id = %d AND status IN ('expired', 'removed', 'failed')",
+				$user_id
+			)
+		);
 	}
 
 	/**

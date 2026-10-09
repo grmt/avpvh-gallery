@@ -22,7 +22,7 @@ final class Photo_Tags_DB {
 	 * Schema version stored in wp_options.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility -- matches the no-modifier convention used elsewhere (see Photo_Corrections_DB::SCHEMA_VERSION).
-	const SCHEMA_VERSION = 12;
+	const SCHEMA_VERSION = 15;
 
 	/**
 	 * Runs schema migration if needed; hooked to init.
@@ -240,7 +240,10 @@ final class Photo_Tags_DB {
 	 * Creates the table of shared photo selections: a filter's photos copied
 	 * into a Drive folder shared with the user's Google address for a while
 	 * (see Photo_Shares). The filter is kept, so an expired share can be made
-	 * again. captions: the photos are turned upright and dig photos get the
+	 * again. state and page_url: the filter as the gallery showed it and
+	 * where, so the profile can open it there. a4: the photos are cropped
+	 * to A4 proportions. captions: the
+	 * photos are turned upright and dig photos get the
 	 * year and name of the dig written on them (see Share_Image).
 	 *
 	 * @param string $charset_collate The table charset/collation clause.
@@ -251,19 +254,23 @@ final class Photo_Tags_DB {
 		global $wpdb;
 		$table_shares = $wpdb->prefix . 'agallery_photo_shares';
 		$sql_shares   = "CREATE TABLE {$table_shares} (
-			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			user_id BIGINT UNSIGNED NOT NULL,
 			description VARCHAR(500) NOT NULL DEFAULT '',
 			conditions TEXT NOT NULL,
-			folder_id VARCHAR(255) NOT NULL DEFAULT '',
+			folder_id TEXT NOT NULL,
 			recipient VARCHAR(255) NOT NULL DEFAULT '',
 			status VARCHAR(10) NOT NULL,
 			photo_count INT UNSIGNED NOT NULL DEFAULT 0,
 			captions TINYINT(1) NOT NULL DEFAULT 0,
+			a4 TINYINT(1) NOT NULL DEFAULT 0,
+			state TEXT NULL,
+			page_url VARCHAR(500) NOT NULL DEFAULT '',
 			drive_folder_id VARCHAR(255) NOT NULL DEFAULT '',
 			error VARCHAR(500) NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,
 			expires_at DATETIME NULL,
+			PRIMARY KEY  (id),
 			INDEX idx_user (user_id),
 			INDEX idx_status_expires (status, expires_at)
 		) {$charset_collate};";

@@ -233,21 +233,29 @@ final class Shortcode {
 	 * The frontend data only logged-in members get: whether they can share a
 	 * filter via Google Drive (and with captions), and their remembered filter.
 	 *
-	 * @return array{can_caption: string, can_share: string, saved_filter: array<string, mixed>|null}
+	 * @return array{can_caption: string, google: string, google_known: string, can_share: string, saved_filter: array<string, mixed>|null, saved_filters: array<array<string, mixed>>, shared_filters: array<array<string, mixed>>}
 	 */
 	private static function member_data() {
 		if ( ! is_user_logged_in() ) {
 			return array(
-				'can_caption'  => 'false',
-				'can_share'    => 'false',
-				'saved_filter' => null,
+				'can_caption'    => 'false',
+				'can_share'      => 'false',
+				'google'         => '',
+				'google_known'   => 'false',
+				'saved_filter'   => null,
+				'saved_filters'  => array(),
+				'shared_filters' => array(),
 			);
 		}
 
 		return array(
-			'can_caption'  => Share_Image::available() ? 'true' : 'false',
-			'can_share'    => Share_Drive::configured() ? 'true' : 'false',
-			'saved_filter' => Filter_Memory::saved_state(),
+			'can_caption'    => Share_Image::available() ? 'true' : 'false',
+			'can_share'      => Share_Drive::configured() ? 'true' : 'false',
+			'google'         => Share_Recipient::for_user( get_current_user_id() ),
+			'google_known'   => Share_Recipient::known( get_current_user_id() ) ? 'true' : 'false',
+			'saved_filter'   => Filter_Memory::saved_state(),
+			'saved_filters'  => Filter_Memory::saved_filters(),
+			'shared_filters' => Filter_Sharing::shared_with_me(),
 		);
 	}
 

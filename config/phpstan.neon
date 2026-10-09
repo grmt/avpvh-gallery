@@ -37,22 +37,11 @@ parameters:
       path: ../src/php/admin/exif-inspector/class-media-stream-rest.php
     -
       # avpvh-members is an optional sibling plugin (see this class's own
-      # docblock): its AVPVH_Directory class and member records aren't in any
-      # stub set here, so PHPStan can't see the $user_id property or
-      # cached_user_groups() method that exist on them at runtime. The
+      # docblock): its member records aren't in any stub set here, so
+      # PHPStan can't see the $user_id property that exists on them at
+      # runtime. The
       # function_exists()/class_exists() guards in current_member() make
       # this safe when avpvh-members isn't active.
       message: '#^Access to an undefined property object::\$user_id\.$#'
       identifier: property.notFound
       path: ../src/php/frontend/class-exclusion-permission.php
-    -
-      message: '#^Call to static method cached_user_groups\(\) on an unknown class AVPVH_Directory\.$#'
-      identifier: class.notFound
-      path: ../src/php/frontend/class-exclusion-permission.php
-    -
-      # avpvh-members is an optional sibling plugin whose deployed version may
-      # predate the methods its stub declares (e.g. the IT administrator
-      # role), so Like_Visibility checks them at runtime; PHPStan only sees
-      # the stub and considers those checks always true.
-      identifier: function.alreadyNarrowedType
-      path: ../src/php/frontend/class-like-visibility.php

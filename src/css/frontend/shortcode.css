@@ -1406,12 +1406,133 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	padding: 3px 6px;
 }
 
-.avpvh-filter-here,
 .avpvh-filter-sort {
 	align-items: center;
 	display: flex;
 	font-size: 13px;
 	gap: 4px;
+}
+
+.avpvh-filter-folders {
+	font-size: 13px;
+	position: relative;
+}
+
+.avpvh-filter-folders > summary {
+	background: #fff;
+	border: 1px solid #8c8f94;
+	border-radius: 3px;
+	cursor: pointer;
+	max-width: 260px;
+	overflow: hidden;
+	padding: 4px 8px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.avpvh-filter-folder-panel {
+	background: #fff;
+	border: 1px solid #8c8f94;
+	box-shadow: 0 3px 12px rgb(0, 0, 0, 18%);
+	left: 0;
+	max-height: min(420px, 65vh);
+	min-width: 280px;
+	overflow: auto;
+	padding: 8px 10px;
+	position: absolute;
+	top: calc(100% + 3px);
+	z-index: 20;
+}
+
+.avpvh-filter-folder-tree {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.avpvh-filter-folder-tree .avpvh-filter-folder-tree {
+	padding-left: 18px;
+}
+
+.avpvh-filter-folder-tree.loading::after {
+	color: #646970;
+	content: "Laden…";
+	display: block;
+	padding: 3px 0 3px 22px;
+}
+
+.avpvh-filter-folder-row {
+	align-items: center;
+	display: flex;
+	gap: 3px;
+	margin: 3px 0;
+}
+
+.avpvh-filter-folder-row label,
+.avpvh-filter-folder-tree > li > label {
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.avpvh-filter-folder-toggle {
+	background: none;
+	border: 0;
+	color: #646970;
+	cursor: pointer;
+	line-height: 1;
+	padding: 2px;
+	width: 18px;
+}
+
+.avpvh-filter-folder-box {
+	align-items: center;
+	background: #fff;
+	border: 1px solid #8c8f94;
+	border-radius: 3px;
+	color: #fff;
+	cursor: pointer;
+	display: inline-flex;
+	font-size: 12px;
+	font-weight: 700;
+	height: 16px;
+	justify-content: center;
+	line-height: 1;
+	padding: 0;
+	vertical-align: middle;
+	width: 16px;
+}
+
+.avpvh-filter-folder-box[data-state="in"] {
+	background: #2271b1;
+	border-color: #2271b1;
+}
+
+.avpvh-filter-folder-box[data-state="out"] {
+	background: #d63638;
+	border-color: #d63638;
+}
+
+.avpvh-filter-folder-item.closed > .avpvh-filter-folder-tree {
+	display: none;
+}
+
+.avpvh-filter-saved {
+	align-items: center;
+	display: flex;
+	flex-basis: 100%;
+	flex-wrap: wrap;
+	gap: 5px;
+}
+
+.avpvh-filter-saved input[type="text"] {
+	font-size: 13px;
+	max-width: 220px;
+	padding: 3px 6px;
+}
+
+.avpvh-filter-saved-button {
+	cursor: pointer;
+	font-size: 13px;
 }
 
 .avpvh-filter-found {
@@ -1441,6 +1562,12 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	display: inline-flex;
 	flex-wrap: wrap;
 	gap: 8px;
+}
+
+.avpvh-filter-share-google {
+	font-size: 13px;
+	min-width: 16em;
+	padding: 2px 6px;
 }
 
 .avpvh-filter-share-captions {
@@ -1641,4 +1768,64 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	position: absolute;
 	right: 4px;
 	z-index: 3;
+}
+
+/* "Jaar en opgraving" on the photo in the lightbox (see DigCaption.ts). */
+.avpvh-pswp-dig {
+	color: #fff;
+	font-family: "DejaVu Sans", Verdana, sans-serif;
+	font-weight: 700;
+	line-height: 1;
+	pointer-events: none;
+	position: absolute;
+	text-shadow:
+		0 0 2px rgb(0, 0, 0, 90%),
+		1px 1px 2px rgb(0, 0, 0, 90%),
+		-1px -1px 2px rgb(0, 0, 0, 90%);
+	white-space: nowrap;
+	z-index: 10;
+}
+
+.avpvh-pswp-dig[hidden] {
+	display: none;
+}
+
+.avpvh-pswp-dig-toggle {
+	opacity: 0.55;
+}
+
+.avpvh-pswp-dig-toggle.avpvh-pswp-dig-on {
+	opacity: 1;
+}
+
+/* "Delen…" for a named filter (see sharePanel in PhotoFilter.ts). */
+.avpvh-filter-share-panel {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	display: flex;
+	flex-basis: 100%;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 6px;
+	max-width: 420px;
+	padding: 8px;
+}
+
+.avpvh-filter-share-list {
+	display: flex;
+	flex-direction: column;
+	max-height: 220px;
+	overflow-y: auto;
+}
+
+.avpvh-filter-share-row {
+	cursor: pointer;
+	font-size: 13px;
+	padding: 2px 0;
+	white-space: nowrap;
+}
+
+.avpvh-filter-share-row[hidden] {
+	display: none;
 }

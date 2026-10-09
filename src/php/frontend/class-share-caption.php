@@ -12,7 +12,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * The text Share_Image writes on a shared photo: for photos somewhere
+ * The text Share_Image writes on a shared photo, and the lightbox can show
+ * on a photo (gallery_dig_captions): for photos somewhere
  * below the digs folder (01-Opgravingen), the name of the dig's folder
  * just below it — its year and place, such as "1983 Grobbendonk" (also for
  * photos in subfolders of it, like "1983 Grobbendonk/Rob"). Other photos
@@ -29,6 +30,19 @@ final class Share_Caption {
 	 * Levels to climb at most from a photo's folder.
 	 */
 	private const DEPTH = 6;
+
+	/**
+	 * AJAX (GET folders: JSON list of Drive folder IDs, at most 50): the
+	 * caption for the photos in each folder ('' for none).
+	 *
+	 * @return void
+	 */
+	public static function ajax_folders() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only; the IDs are sanitized by folder_ids().
+		$folder_ids = Photo_Filter_Scope::folder_ids( wp_unslash( (string) ( $_GET['folders'] ?? '[]' ) ) );
+
+		wp_send_json_success( self::folder_captions( array_slice( $folder_ids, 0, 50 ) ) );
+	}
 
 	/**
 	 * Each photo's caption ('' for none).

@@ -23,11 +23,44 @@ use stdClass;
 final class Photo_Shares_Page {
 
 	/**
+	 * The gallery URL parameter that opens a share's filter.
+	 */
+	private const LINK_PARAM = 'avpvh_share';
+
+	/**
+	 * How shares that ended without an error are shown.
+	 */
+	// phpcs:ignore SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- PHPCSUtils false positive on an array value.
+	private const ENDED = array(
+		'expired' => 'Verlopen',
+		'removed' => 'Verwijderd',
+	);
+
+	/**
 	 * Registers the shortcode and the "Opnieuw maken" form handler.
 	 */
 	public function __construct() {
+		new Photo_Shares_Cleanup();
 		add_shortcode( 'avpvh_gallery_shares', array( self::class, 'shortcode' ) );
 		add_action( 'admin_post_avpvh_gallery_share_recreate', array( self::class, 'handle_recreate' ) );
+		add_action( 'admin_post_avpvh_gallery_share_delete', array( self::class, 'handle_delete' ) );
+	}
+
+	/**
+	 * The "Verwijderen" button's handler: removes one of the user's open
+	 * shares (its folder goes; see Photo_Shares_Removal) and goes back.
+	 *
+	 * @return void
+	 */
+	public static function handle_delete() {
+		check_admin_referer( 'avpvh_gallery_share_delete' );
+		$share = Photo_Shares_DB::get( absint( $_POST['share'] ?? 0 ) );
+
+		if ( null !== $share && get_current_user_id() === (int) $share->user_id && 'ready' === $share->status ) {
+			Photo_Shares_Removal::close( $share );
+		}
+
+		Photo_Shares_Cleanup::back();
 	}
 
 	/**
@@ -40,21 +73,39 @@ final class Photo_Shares_Page {
 			return '';
 		}
 
+		Photo_Shares_Limit::sync( get_current_user_id() );
 		$shares = Photo_Shares_DB::for_user( get_current_user_id() );
-		$html   = '<div class="avpvh-gallery-shares"><h3>Gedeelde fotoselecties</h3>';
+		$html   = '<div class="avpvh-gallery-shares" id="' . Photo_Shares_Cleanup::ANCHOR . '">'
+			. '<h3>Shared Google Drive - foto selecties</h3>';
 
 		if ( array() === $shares ) {
 			return $html . '<p>Je hebt nog geen foto’s gedeeld. '
 				. 'Filter in de galerie en kies "Delen via Google Drive".</p></div>';
 		}
 
-		$html .= '<table><thead><tr><th>Selectie</th><th>Foto’s</th><th>Status</th>'
+		$ended = count(
+			array_filter(
+				$shares,
+				static function ( $share ) {
+					return in_array( $share->status, Photo_Shares_Cleanup::ENDED, true );
+				}
+			)
+		);
+		$html .= sprintf(
+			'<p>%d van de %d open%s.%s</p>',
+			Photo_Shares_DB::open_count( get_current_user_id() ),
+			Photo_Shares::MAX_OPEN,
+			20 <= count( $shares ) ? '; alleen de laatste 20 staan hieronder' : '',
+			0 < $ended ? Photo_Shares_Cleanup::tidy_form() : ''
+		);
+		$html .= '<table><thead><tr><th>Selectie</th><th>Gemaakt</th><th>Foto’s</th><th>Status</th>'
 			. '<th>Beschikbaar tot</th></tr></thead><tbody>';
 
 		foreach ( $shares as $share ) {
 			$html .= sprintf(
-				'<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
-				esc_html( '' === $share->description ? '–' : $share->description ),
+				'<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
+				self::name_html( $share ),
+				esc_html( Photo_Shares::date( (string) $share->created_at ) ),
 				esc_html( 0 < (int) $share->photo_count ? (string) $share->photo_count : '' ),
 				self::status_html( $share ),
 				esc_html( 'ready' === $share->status ? Photo_Shares::date( (string) $share->expires_at ) : '' )
@@ -65,24 +116,48 @@ final class Photo_Shares_Page {
 	}
 
 	/**
-	 * Makes an expired or failed share again, with the photos its filter
-	 * finds now. admin-post form: share, _wpnonce.
+	 * Makes a share again, with the photos its filter finds now (an open
+	 * one in place of itself). admin-post form: share, _wpnonce.
 	 *
 	 * @return void
-	 *
-	 * @SuppressWarnings("PHPMD.ExitExpression")
 	 */
 	public static function handle_recreate() {
 		check_admin_referer( 'avpvh_gallery_share_recreate' );
 		$share = Photo_Shares_DB::get( absint( $_POST['share'] ?? 0 ) );
-		$back  = wp_get_referer();
 
 		if ( null !== $share && self::may_recreate( $share ) ) {
+			if ( 'ready' === $share->status ) {
+				// Made again in place of the open one: its folder goes.
+				Photo_Shares_Removal::close( $share );
+			}
+
 			Photo_Shares::restart( $share );
 		}
 
-		wp_safe_redirect( false === $back ? home_url() : $back );
-		exit;
+		Photo_Shares_Cleanup::back();
+	}
+
+	/**
+	 * The filter a gallery link from the profile opens (?avpvh_share=ID):
+	 * that share's filter as the gallery showed it, if it's the user's own;
+	 * else null.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	public static function linked_state() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: only opens the user's own filter.
+		$share_id = absint( $_GET[ self::LINK_PARAM ] ?? 0 );
+		$share    = 0 === $share_id ? null : Photo_Shares_DB::get( $share_id );
+
+		if ( ! $share instanceof stdClass ) {
+			return null;
+		}
+
+		if ( get_current_user_id() !== (int) $share->user_id ) {
+			return null;
+		}
+
+		return Filter_Memory::sanitize_state( json_decode( (string) $share->state, true ) );
 	}
 
 	/**
@@ -94,9 +169,14 @@ final class Photo_Shares_Page {
 	 * @return bool
 	 */
 	private static function may_recreate( $share ) {
-		return get_current_user_id() === (int) $share->user_id
-			&& in_array( $share->status, array( 'expired', 'failed' ), true )
-			&& Photo_Shares::MAX_OPEN > Photo_Shares_DB::open_count( get_current_user_id() );
+		if ( get_current_user_id() !== (int) $share->user_id ) {
+			return false;
+		}
+
+		// An open one is replaced, so it needs no room of its own.
+		return 'ready' === $share->status
+			|| ( in_array( $share->status, array( 'expired', 'failed', 'removed' ), true )
+				&& Photo_Shares::MAX_OPEN > Photo_Shares_DB::open_count( get_current_user_id() ) );
 	}
 
 	/**
@@ -112,7 +192,7 @@ final class Photo_Shares_Page {
 			return sprintf(
 				'<a href="%s" target="_blank" rel="noopener">Openen in Google Drive</a>',
 				esc_url( Photo_Shares::folder_url( (string) $share->drive_folder_id ) )
-			);
+			) . self::recreate_form( $share ) . self::form( $share, 'delete', 'Verwijderen' );
 		}
 
 		if ( 'pending' === $share->status ) {
@@ -123,16 +203,65 @@ final class Photo_Shares_Page {
 				: sprintf( 'Wordt gemaakt… (%d foto’s klaar; je krijgt een e-mail)', $done );
 		}
 
-		$text = 'expired' === $share->status ? 'Verlopen' : esc_html( (string) $share->error );
+		$text = self::ENDED[ $share->status ] ?? esc_html( (string) $share->error );
 
-		return $text . sprintf(
+		return $text . self::recreate_form( $share ) . self::form( $share, 'hide', 'Uit lijst halen' );
+	}
+
+	/**
+	 * The share's name, linked to the gallery with its filter open when
+	 * the share knows both (older ones don't).
+	 *
+	 * @param stdClass $share The share.
+	 *
+	 * @return string
+	 */
+	private static function name_html( $share ) {
+		$name = esc_html( '' === $share->description ? '–' : $share->description );
+
+		if ( '' === (string) $share->page_url || '' === (string) $share->state ) {
+			return $name;
+		}
+
+		return sprintf(
+			'<a href="%s" title="Openen in de galerij">%s</a>',
+			esc_url( add_query_arg( self::LINK_PARAM, (int) $share->id, (string) $share->page_url ) ),
+			$name
+		);
+	}
+
+	/**
+	 * The "Opnieuw maken" button: makes the share again with its saved
+	 * filter and choices (for an open one, in place of it).
+	 *
+	 * @param stdClass $share The share.
+	 *
+	 * @return string
+	 */
+	private static function recreate_form( $share ) {
+		return self::form( $share, 'recreate', 'Opnieuw maken' );
+	}
+
+	/**
+	 * A button that posts one action for a share.
+	 *
+	 * @param stdClass $share  The share.
+	 * @param string   $action "recreate", "delete" or "hide".
+	 * @param string   $label  The button's text.
+	 *
+	 * @return string
+	 */
+	private static function form( $share, $action, $label ) {
+		return sprintf(
 			' <form method="post" action="%s" style="display:inline">%s'
-				. '<input type="hidden" name="action" value="avpvh_gallery_share_recreate">'
+				. '<input type="hidden" name="action" value="avpvh_gallery_share_%s">'
 				. '<input type="hidden" name="share" value="%d">'
-				. '<button type="submit">Opnieuw maken</button></form>',
+				. '<button type="submit">%s</button></form>',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			wp_nonce_field( 'avpvh_gallery_share_recreate', '_wpnonce', true, false ),
-			(int) $share->id
+			wp_nonce_field( 'avpvh_gallery_share_' . $action, '_wpnonce', true, false ),
+			esc_attr( $action ),
+			(int) $share->id,
+			esc_html( $label )
 		);
 	}
 }

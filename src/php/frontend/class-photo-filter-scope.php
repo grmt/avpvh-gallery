@@ -35,6 +35,68 @@ final class Photo_Filter_Scope {
 	private const MAX_DEPTH = 10;
 
 	/**
+	 * Sanitizes a JSON list of Drive folder IDs (each may start with "!",
+	 * meaning left out; see within_many()).
+	 *
+	 * @param string $json JSON list.
+	 *
+	 * @return array<string>
+	 */
+	public static function folder_ids( $json ) {
+		$decoded    = json_decode( $json, true );
+		$folder_ids = array();
+
+		foreach ( array_slice( is_array( $decoded ) ? $decoded : array(), 0, 50 ) as $folder_id ) {
+			$clean = sanitize_text_field( (string) $folder_id );
+
+			if ( '' !== $clean ) {
+				$folder_ids[] = $clean;
+			}
+		}
+
+		return array_values( array_unique( $folder_ids ) );
+	}
+
+	/**
+	 * Keeps the IDs inside the chosen folders, preserving order. Each
+	 * chosen folder takes in or (with a "!" before its ID) leaves out its
+	 * whole branch; they come ordered from the top down, so a choice deeper
+	 * down overrules one above it ("03-Weekenden" but not "2024 Meerveld").
+	 * With only folders left out, the rest of the gallery counts.
+	 *
+	 * @param array<string> $ids        Photo IDs.
+	 * @param array<string> $folder_ids Chosen Drive folder IDs, top down.
+	 *
+	 * @return array<string>
+	 */
+	public static function within_many( array $ids, array $folder_ids ) {
+		$included = array_filter(
+			$folder_ids,
+			static function ( $folder_id ) {
+				return '!' !== substr( $folder_id, 0, 1 );
+			}
+		);
+		$kept     = array() === $included ? array_fill_keys( $ids, true ) : array();
+
+		foreach ( $folder_ids as $folder_id ) {
+			$leave_out = '!' === substr( $folder_id, 0, 1 );
+			$branch    = self::within( $ids, $leave_out ? substr( $folder_id, 1 ) : $folder_id );
+			$kept      = $leave_out
+				? array_diff_key( $kept, array_flip( $branch ) )
+				: $kept + array_fill_keys( $branch, true );
+		}
+
+		return array_values(
+			array_filter(
+				$ids,
+				static function ( $photo_id ) use ( $kept ) {
+					return isset( $kept[ $photo_id ] );
+				}
+			)
+		);
+	}
+
+	/**
 	 * The photos that are in a folder or anywhere below it, in their
 	 * original order.
 	 *
@@ -81,6 +143,58 @@ final class Photo_Filter_Scope {
 		set_transient( self::CACHE_KEY, $parents, DAY_IN_SECONDS );
 
 		return array_intersect_key( $parents, array_flip( $ids ) );
+	}
+
+	/**
+	 * Folder display paths below the gallery root, using the same prefix
+	 * trimming as breadcrumbs. Shared ancestors are fetched once per level;
+	 * names and parents use the existing caches across result pages.
+	 *
+	 * @param array<string> $folder_ids Photo folder IDs.
+	 * @param string        $root_id    Gallery root folder ID.
+	 * @param Options_Proxy $options    Gallery options.
+	 *
+	 * @return array<string, string> Folder ID => display path.
+	 */
+	public static function paths( array $folder_ids, $root_id, $options ) {
+		$parts    = array_fill_keys( $folder_ids, array() );
+		$climbing = array_combine( $folder_ids, $folder_ids );
+		$prefix   = (string) $options->get( 'dir_prefix' );
+
+		// Stop at the gallery root, including for photos directly in it.
+		$below_root = static function ( $folder_id ) use ( $root_id ) {
+			return '' !== $folder_id && $root_id !== $folder_id;
+		};
+		$climbing   = array_filter( $climbing, $below_root );
+
+		// Bound malformed/cyclic parent chains without limiting normal paths
+		// to the shallower depth used for filter membership checks.
+		for ( $level = 0; $level < 50 && array() !== $climbing; ++$level ) {
+			$current = array_values( array_unique( $climbing ) );
+			$names   = array_map(
+				static function ( $name ) use ( $prefix ) {
+					$position = '' === $prefix ? false : mb_strpos( $name, $prefix );
+
+					return mb_substr( $name, false === $position ? 0 : $position + 1 );
+				},
+				Photo_Date_Order::folder_names( $current )
+			);
+			$parents = self::parents( $current );
+
+			foreach ( $climbing as $folder_id => $ancestor_id ) {
+				$parts[ $folder_id ][]  = $names[ $ancestor_id ] ?? '';
+				$climbing[ $folder_id ] = $parents[ $ancestor_id ] ?? '';
+			}
+
+			$climbing = array_filter( $climbing, $below_root );
+		}
+
+		return array_map(
+			static function ( $segments ) {
+				return implode( '/', array_reverse( $segments ) );
+			},
+			$parts
+		);
 	}
 
 	/**
