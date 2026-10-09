@@ -8,6 +8,11 @@ updates:
     - marekdedic
 - package-ecosystem: npm
   directory: "/"
+  # eslint-plugin-react 7.37.5 supports ESLint through 9 only.
+  # Revisit when its peer dependency includes ESLint 10.
+  ignore:
+    - dependency-name: eslint
+      versions: ["10.x"]
   schedule:
     interval: daily
   assignees:
