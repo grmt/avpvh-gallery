@@ -31,6 +31,12 @@ Common commands:
 - `npm run test` — runs PHPUnit. Requires the WordPress test suite at `$WP_TESTS_DIR` (defaults to `/tmp/wordpress-tests-lib`); install via `./bin/install-wp-tests.sh <db-name> <db-user> <db-pass> [db-host] [wp-version]`.
 - Single PHPUnit test: `vendor/bin/phpunit --filter <TestName>` (the `pretest`/`posttest` hooks around `npm run test:php:phpunit` rewrite the Composer autoloader — see "PHP-Scoper" below — so prefer running the binary directly when iterating on one test).
 
+CI (`.github/workflows/CI.yml`: build, lint, plugin check, PHPUnit) is the authoritative gate — a PR isn't ready to merge until it's green. Things that pass a quick local check but fail there:
+
+- **Static-analysis stubs.** PHPStan and Phan only know the WordPress, WP-CLI and avpvh-members APIs declared in `.phan/` — a hand-maintained subset (`.phan/wordpress-stubs/` is vendored from skaut/wordpress-stubs with local additions; `.phan/stubs/` covers WP-CLI, avpvh-members and wpdb constants). Using a WordPress function or constant that isn't there yet (e.g. `wp_mail`, `WEEK_IN_SECONDS`) fails with "function/constant not found": add its signature to the stubs rather than suppressing.
+- **Plugin check: direct-access guard in the first 50 lines.** The WordPress.org plugin check finds the `if ( ! defined( 'ABSPATH' ) )` guard in namespaced files by regex over the first 50 lines only. `avpvh-gallery.php` has a long licence header, so its guard sits directly after `namespace` — keep it there, above the `use` lines.
+- **PHP extensions differ.** CI's PHP has `intl`; a local PHP may not. Don't add Phan suppressions that only match one environment (they become `UnusedPluginSuppression` errors in the other) — guard with `function_exists()` instead.
+
 ## Architecture
 
 ### PHP entry & wiring

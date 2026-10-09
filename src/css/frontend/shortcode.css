@@ -1508,6 +1508,34 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	width: 18px;
 }
 
+.avpvh-filter-folder-box {
+	align-items: center;
+	background: #fff;
+	border: 1px solid #8c8f94;
+	border-radius: 3px;
+	color: #fff;
+	cursor: pointer;
+	display: inline-flex;
+	font-size: 12px;
+	font-weight: 700;
+	height: 16px;
+	justify-content: center;
+	line-height: 1;
+	padding: 0;
+	vertical-align: middle;
+	width: 16px;
+}
+
+.avpvh-filter-folder-box[data-state="in"] {
+	background: #2271b1;
+	border-color: #2271b1;
+}
+
+.avpvh-filter-folder-box[data-state="out"] {
+	background: #d63638;
+	border-color: #d63638;
+}
+
 .avpvh-filter-folder-item.closed > .avpvh-filter-folder-tree {
 	display: none;
 }
@@ -1551,6 +1579,24 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	color: #8c8f94;
 	cursor: default;
 	text-decoration: none;
+}
+
+.avpvh-filter-share-wrapper {
+	align-items: center;
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.avpvh-filter-share-google {
+	font-size: 13px;
+	min-width: 16em;
+	padding: 2px 6px;
+}
+
+.avpvh-filter-share-captions {
+	font-size: 13px;
+	white-space: nowrap;
 }
 
 .avpvh-filter-add {
@@ -1746,4 +1792,64 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	position: absolute;
 	right: 4px;
 	z-index: 3;
+}
+
+/* "Jaar en opgraving" on the photo in the lightbox (see DigCaption.ts). */
+.avpvh-pswp-dig {
+	color: #fff;
+	font-family: "DejaVu Sans", Verdana, sans-serif;
+	font-weight: 700;
+	line-height: 1;
+	pointer-events: none;
+	position: absolute;
+	text-shadow:
+		0 0 2px rgb(0, 0, 0, 90%),
+		1px 1px 2px rgb(0, 0, 0, 90%),
+		-1px -1px 2px rgb(0, 0, 0, 90%);
+	white-space: nowrap;
+	z-index: 10;
+}
+
+.avpvh-pswp-dig[hidden] {
+	display: none;
+}
+
+.avpvh-pswp-dig-toggle {
+	opacity: 0.55;
+}
+
+.avpvh-pswp-dig-toggle.avpvh-pswp-dig-on {
+	opacity: 1;
+}
+
+/* "Delen…" for a named filter (see sharePanel in PhotoFilter.ts). */
+.avpvh-filter-share-panel {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	display: flex;
+	flex-basis: 100%;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 6px;
+	max-width: 420px;
+	padding: 8px;
+}
+
+.avpvh-filter-share-list {
+	display: flex;
+	flex-direction: column;
+	max-height: 220px;
+	overflow-y: auto;
+}
+
+.avpvh-filter-share-row {
+	cursor: pointer;
+	font-size: 13px;
+	padding: 2px 0;
+	white-space: nowrap;
+}
+
+.avpvh-filter-share-row[hidden] {
+	display: none;
 }

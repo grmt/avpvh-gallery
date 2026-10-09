@@ -144,7 +144,8 @@ final class Photo_Date_Order {
 	}
 
 	/**
-	 * Folder names (cached; one batch for those not known yet).
+	 * Folder names (cached; one batch for those not known yet). Also used
+	 * by Share_Caption.
 	 *
 	 * @param array<string> $folder_ids Drive folder IDs.
 	 *

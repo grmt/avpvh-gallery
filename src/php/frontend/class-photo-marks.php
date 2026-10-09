@@ -115,19 +115,23 @@ final class Photo_Marks {
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-		$rows            = is_array( $rows ) ? $rows : array();
-		$names           = self::short_names();
-		$current_user_id = get_current_user_id();
-		$tallies         = array();
+		$rows    = is_array( $rows ) ? $rows : array();
+		$names   = self::short_names();
+		$current = get_current_user_id();
+		$tallies = array();
 
 		foreach ( $rows as $row ) {
-			$image_id               = (string) $row->image_id;
-			$tallies[ $image_id ] ??= self::empty_tally();
-			$key                    = (int) $row->owner === $current_user_id ? 'mine' : 'others';
+			$image_id = (string) $row->image_id;
+			$owner    = (int) $row->owner;
+			$level    = (int) $row->level;
+			$tally    = $tallies[ $image_id ] ?? self::empty_tally();
+			$voter    = ( $names[ $owner ] ?? '?' ) . ' ' . $level;
 
-			$tallies[ $image_id ][ $key ]   += (int) $row->level;
-			$tallies[ $image_id ]['voters'] .= ( '' === $tallies[ $image_id ]['voters'] ? '' : ', ' )
-				. ( $names[ (int) $row->owner ] ?? '?' ) . ' ' . (int) $row->level;
+			$tallies[ $image_id ] = array(
+				'mine'   => $tally['mine'] + ( $owner === $current ? $level : 0 ),
+				'others' => $tally['others'] + ( $owner === $current ? 0 : $level ),
+				'voters' => '' === $tally['voters'] ? $voter : $tally['voters'] . ', ' . $voter,
+			);
 		}
 
 		return $tallies;
@@ -219,8 +223,11 @@ final class Photo_Marks {
 	private static function name_parts( $user_id, $display_name ) {
 		$member = function_exists( 'avpvh_get_member_by_wp_user' ) ? avpvh_get_member_by_wp_user( $user_id ) : null;
 
-		if ( is_object( $member ) && '' !== trim( (string) ( $member->first_name ?? '' ) ) ) {
-			return array( trim( (string) $member->first_name ), trim( (string) ( $member->last_name ?? '' ) ) );
+		$fields = is_object( $member ) ? get_object_vars( $member ) : array();
+		$first  = trim( (string) ( $fields['first_name'] ?? '' ) );
+
+		if ( '' !== $first ) {
+			return array( $first, trim( (string) ( $fields['last_name'] ?? '' ) ) );
 		}
 
 		$words = preg_split( '/\s+/', trim( $display_name ) );

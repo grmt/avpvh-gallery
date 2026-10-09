@@ -53,6 +53,18 @@ final class Exclusion_Permission {
 	}
 
 	/**
+	 * The logged-in member's directory group names, lower-cased (none
+	 * without avpvh-members). Also used by Filter_Sharing.
+	 *
+	 * @return array<string>
+	 */
+	public static function current_groups() {
+		$member = self::current_member();
+
+		return null === $member ? array() : self::cached_group_names( $member );
+	}
+
+	/**
 	 * Resolves the logged-in user to an avpvh-members member record, if that
 	 * (optional) plugin is active and the user is one.
 	 *
@@ -69,7 +81,11 @@ final class Exclusion_Permission {
 
 		$member = avpvh_get_member_by_wp_user( get_current_user_id() );
 
-		return $member && isset( $member->user_id ) && '' !== $member->user_id ? $member : null;
+		if ( ! is_object( $member ) ) {
+			return null;
+		}
+
+		return isset( $member->user_id ) && '' !== $member->user_id ? $member : null;
 	}
 
 	/**

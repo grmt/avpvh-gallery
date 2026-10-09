@@ -11,7 +11,7 @@
 Plugin Name:       AVPVH Gallery
 Plugin URI:        https://github.com/grmt/avpvh-gallery
 Description:       A WordPress gallery using Google Drive as file storage
-Version:           2.13.14.141
+Version:           2.13.14.142
 Requires at least: 6.5
 Requires PHP:      8.1
 Author:            Garmt Boekholt (info@avphilipsvanhorne.nl), based on work by Junák - český skaut
@@ -45,14 +45,15 @@ SOFTWARE.
 
 namespace Avpvh;
 
+// Within the first 50 lines, where the WordPress.org plugin check looks for it.
+if ( ! defined( 'ABSPATH' ) ) {
+	die( 'Die, die, die!' );
+}
+
 use Avpvh\Admin\Exif_Dates_CLI;
 use Avpvh\Admin\Move_Files_CLI;
 use Avpvh\Admin\Tag_Import_CLI;
 use WP_CLI;
-
-if ( ! defined( 'ABSPATH' ) ) {
-	die( 'Die, die, die!' );
-}
 
 require_once __DIR__ . '/vendor/scoper-autoload.php';
 
@@ -120,10 +121,21 @@ require_once __DIR__ . '/frontend/class-like-visibility.php';
 require_once __DIR__ . '/frontend/class-photo-marks.php';
 require_once __DIR__ . '/frontend/class-photo-date-order.php';
 require_once __DIR__ . '/frontend/class-filter-memory.php';
+require_once __DIR__ . '/frontend/class-filter-sharing.php';
 require_once __DIR__ . '/frontend/class-share-drive.php';
+require_once __DIR__ . '/frontend/class-share-drive-files.php';
+require_once __DIR__ . '/frontend/class-share-caption.php';
+require_once __DIR__ . '/frontend/class-share-orientation.php';
+require_once __DIR__ . '/frontend/class-share-pdf.php';
+require_once __DIR__ . '/frontend/class-share-pdf-parts.php';
+require_once __DIR__ . '/frontend/class-share-image.php';
 require_once __DIR__ . '/frontend/class-share-recipient.php';
 require_once __DIR__ . '/frontend/class-photo-shares-db.php';
+require_once __DIR__ . '/frontend/class-photo-shares-limit.php';
+require_once __DIR__ . '/frontend/class-photo-shares-mail.php';
+require_once __DIR__ . '/frontend/class-photo-shares-removal.php';
 require_once __DIR__ . '/frontend/class-photo-shares.php';
+require_once __DIR__ . '/frontend/class-photo-shares-cleanup.php';
 require_once __DIR__ . '/frontend/class-photo-shares-page.php';
 require_once __DIR__ . '/frontend/class-photo-filter-options.php';
 require_once __DIR__ . '/frontend/class-photo-filter-scope.php';

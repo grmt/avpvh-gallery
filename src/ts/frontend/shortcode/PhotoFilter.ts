@@ -15,10 +15,28 @@ export interface FilterCondition {
 	label: string;
 }
 
+// A folder chosen in the folder tree: its whole branch is taken in, or
+// left out when exclude is set (a choice deeper down overrules one above).
 export interface FilterFolder {
 	id: string;
 	name: string;
 	path: string;
+	exclude?: boolean;
+}
+
+// The chosen folders as the server wants them (see Photo_Filter_Scope::
+// within_many): top down, left-out ones marked with "!".
+export function folderIds(folders: Array<FilterFolder>): Array<string> {
+	return [...folders]
+		.sort((a, b) => a.path.split('/').length - b.path.split('/').length)
+		.map(({ id, exclude }) => (exclude === true ? `!${id}` : id));
+}
+
+// "✓ 03-Weekenden, ✗ 2024 Meerveld".
+function folderNames(folders: Array<FilterFolder>): string {
+	return folders
+		.map(({ name, exclude }) => `${exclude === true ? '✗' : '✓'} ${name}`)
+		.join(', ');
 }
 
 export interface FilterState {
@@ -30,6 +48,17 @@ export interface FilterState {
 export interface SavedFilter extends FilterState {
 	id: string;
 	name: string;
+	// Whom the owner shares it with (own filters only; see Filter_Sharing).
+	users?: Array<number>;
+	groups?: Array<string>;
+	// Whose it is, for filters shared with the user.
+	owner?: string;
+}
+
+// Whom a filter can be shared with.
+export interface FilterRecipients {
+	users: Array<{ id: number; name: string }>;
+	groups: Array<string>;
 }
 
 interface FilterOption {
@@ -133,10 +162,25 @@ function describe(
 				return `${operator?.[2] ?? ''} ${condition.label}`;
 			})
 			.join(', ') +
-		(folders.length > 0
-			? ` (mappen: ${folders.map(({ name }) => name).join(', ')})`
-			: '')
+		(folders.length > 0 ? ` (mappen: ${folderNames(folders)})` : '')
 	);
+}
+
+// What the user chose while confirming a share: captions ("jaar en
+// opgraving erop"), cropping to A4, and their Google address if asked.
+interface ShareOptions {
+	captions: boolean;
+	a4: boolean;
+	google: string;
+	// Close the oldest open share first when the user has the maximum open.
+	replaceOldest: boolean;
+}
+
+// What the server answered: what to tell the user, and whether it refused
+// because the user has the maximum number of shares open.
+interface ShareResult {
+	message: string;
+	full: boolean;
 }
 
 // Asks the server to share the filter's photos via Google Drive (see
@@ -145,8 +189,9 @@ async function requestShare(
 	ajaxUrl: string,
 	share: FilterShare,
 	conditions: Array<FilterCondition>,
-	description: string
-): Promise<string> {
+	description: string,
+	options: ShareOptions
+): Promise<ShareResult> {
 	try {
 		const response = await fetch(ajaxUrl, {
 			method: 'POST',
@@ -155,20 +200,36 @@ async function requestShare(
 			body: new URLSearchParams({
 				action: 'gallery_share_create',
 				conditions: conditionsParam(conditions),
-				folders: JSON.stringify(share.folders.map(({ id }) => id)),
+				folders: JSON.stringify(folderIds(share.folders)),
 				description,
+				captions: options.captions ? '1' : '0',
+				a4: options.a4 ? '1' : '0',
+				google: options.google,
+				replace_oldest: options.replaceOldest ? '1' : '0',
+				state: JSON.stringify({
+					conditions,
+					folders: share.folders,
+					sort: share.sort,
+				}),
+				page: window.location.origin + window.location.pathname,
 				_ajax_nonce: share.nonce,
 			}).toString(),
 		});
 		const data = (await response.json()) as {
 			success?: boolean;
-			data?: { recipient?: string; message?: string };
+			data?: { recipient?: string; message?: string; full?: boolean };
 		};
 		return data.success === true
-			? `De map wordt gemaakt; je krijgt de link per e-mail op ${data.data?.recipient ?? 'je Google-adres'}.`
-			: (data.data?.message ?? 'Delen mislukt');
+			? {
+					message: `De map wordt gemaakt; je krijgt de link per e-mail op ${data.data?.recipient ?? 'je Google-adres'}.`,
+					full: false,
+				}
+			: {
+					message: data.data?.message ?? 'Delen mislukt',
+					full: data.data?.full === true,
+				};
 	} catch {
-		return 'Delen mislukt';
+		return { message: 'Delen mislukt', full: false };
 	}
 }
 
@@ -203,23 +264,68 @@ export interface FilterSort {
 	onChange(order: SortOrder): void;
 }
 
-// Sharing the filter's photos via Google Drive: whether it's set up, the
-// folder the filter is limited to ('' for the whole gallery) and the nonce.
+// Sharing the filter's photos via Google Drive: whether it's set up,
+// whether photos can be captioned, the folder the filter is limited to (''
+// for the whole gallery) and the nonce.
 export interface FilterShare {
 	enabled: boolean;
+	captions: boolean;
+	// The user's Google address, or '' when none is known (then it's asked).
+	google: string;
 	folders: Array<FilterFolder>;
+	// The gallery's order, kept with the share so the profile can open it.
+	sort: SortOrder;
 	nonce: string;
 }
 
 export interface FilterLibrary {
 	filters: Array<SavedFilter>;
+	// Other members' filters shared with the user: apply only.
+	shared: Array<SavedFilter>;
+	recipients(): Promise<FilterRecipients>;
+	onShare(
+		id: string,
+		users: Array<number>,
+		groups: Array<string>
+	): Promise<Array<SavedFilter>>;
 	onApply(filter: SavedFilter): void;
 	onDelete(id: string): Promise<Array<SavedFilter>>;
 	onSave(name: string, id: string): Promise<Array<SavedFilter>>;
 }
 
+// "Oudste verwijderen en delen", offered when the user has the maximum
+// number of shares open.
+function replaceButton(onClick: () => void): HTMLButtonElement {
+	const button = document.createElement('button');
+	button.type = 'button';
+	button.className = 'avpvh-filter-share';
+	button.textContent = 'Oudste verwijderen en delen';
+	button.title =
+		'De map van je oudste deling wordt verwijderd (als die er nog is); op je profiel kun je hem later opnieuw laten maken';
+	button.addEventListener('click', () => {
+		button.disabled = true;
+		onClick();
+	});
+	return button;
+}
+
+// A checkbox with its label, shown while confirming a share.
+function shareOption(
+	checkbox: HTMLInputElement,
+	text: string,
+	title: string
+): HTMLElement {
+	const label = document.createElement('label');
+	label.className = 'avpvh-filter-share-captions';
+	label.title = title;
+	label.append(checkbox, document.createTextNode(` ${text}`));
+	return label;
+}
+
 // "Delen via Google Drive": after confirming, starts the share and says
-// where the link will be sent.
+// where the link will be sent. While confirming, the photos can be chosen
+// to be put upright with the dig's year and name written on them, and to
+// be cropped to A4 for printing.
 function shareButton(
 	ajaxUrl: string,
 	share: FilterShare,
@@ -228,31 +334,90 @@ function shareButton(
 	folders: Array<FilterFolder>,
 	status: HTMLElement
 ): HTMLElement {
+	const wrapper = document.createElement('span');
+	wrapper.className = 'avpvh-filter-share-wrapper';
 	const button = document.createElement('button');
 	button.type = 'button';
 	button.className = 'avpvh-filter-share';
 	button.textContent = 'Delen via Google Drive';
 	button.title =
 		'Kopieer deze foto’s naar een map in Google Drive die alleen jij een week lang kunt openen; de link komt per e-mail';
+	const captions = document.createElement('input');
+	captions.type = 'checkbox';
+	const a4 = document.createElement('input');
+	a4.type = 'checkbox';
+	const google = document.createElement('input');
+	google.type = 'email';
+	google.className = 'avpvh-filter-share-google';
+	google.placeholder = 'Je Google-adres, bijv. naam@gmail.com';
+	google.title =
+		'De map wordt gedeeld met dit Google-account; het adres wordt onthouden';
 	// The first click asks for confirmation in the button itself, the second
 	// one starts the share.
 	button.addEventListener('click', () => {
 		if (button.dataset['confirm'] !== '1') {
 			button.dataset['confirm'] = '1';
 			button.textContent = `Ja, ${String(total)} foto${total === 1 ? '' : "'s"} delen (link per e-mail, een week geldig)`;
+			if (share.captions) {
+				wrapper.append(
+					shareOption(
+						captions,
+						'jaar en plaats erop',
+						'De foto’s worden rechtop gezet zoals in de galerij, en foto’s van opgravingen krijgen rechtsonder het jaar en de plaats'
+					),
+					shareOption(
+						a4,
+						'A4-jpg’s + pdf’s (max. 80 MB per pdf)',
+						'Elke foto wordt vanuit het midden bijgesneden tot A4-verhouding. De A4-jpg’s komen ook in genummerde pdf-bestanden van maximaal 80 MB, met dezelfde tekst binnen het beeld'
+					)
+				);
+			}
+			if (share.google === '') {
+				wrapper.appendChild(google);
+			}
+			return;
+		}
+		if (
+			share.google === '' &&
+			(google.value.trim() === '' || !google.checkValidity())
+		) {
+			status.textContent =
+				'Vul het Google-adres in waarmee je de map wilt openen';
+			google.focus();
 			return;
 		}
 		button.disabled = true;
-		void requestShare(
-			ajaxUrl,
-			share,
-			conditions,
-			describe(conditions, folders)
-		).then((message) => {
-			status.textContent = message;
-		});
+		captions.disabled = true;
+		a4.disabled = true;
+		google.disabled = true;
+		const send = (replaceOldest: boolean): void => {
+			void requestShare(
+				ajaxUrl,
+				share,
+				conditions,
+				describe(conditions, folders),
+				{
+					captions: captions.checked,
+					a4: a4.checked,
+					google: share.google === '' ? google.value.trim() : '',
+					replaceOldest,
+				}
+			).then(({ message, full }) => {
+				status.textContent = message;
+				if (full && !replaceOldest) {
+					status.append(
+						' ',
+						replaceButton(() => {
+							send(true);
+						})
+					);
+				}
+			});
+		};
+		send(false);
 	});
-	return button;
+	wrapper.appendChild(button);
+	return wrapper;
 }
 
 // "Volgorde": by name, or by date either way. Filter results are always by
@@ -528,6 +693,110 @@ function folderPicker(scope: FilterScope): HTMLElement {
 	return details;
 }
 
+// The rows of the share panel: groups first, then members, each with a
+// checkbox; returns the rows with what they stand for.
+function recipientRows(
+	recipients: FilterRecipients,
+	filter: SavedFilter
+): Array<{ row: HTMLLabelElement; box: HTMLInputElement; key: string }> {
+	const entries: Array<[string, string, boolean]> = [
+		...recipients.groups.map((group): [string, string, boolean] => [
+			`g:${group}`,
+			`👥 ${group}`,
+			(filter.groups ?? []).includes(group),
+		]),
+		...recipients.users.map(({ id, name }): [string, string, boolean] => [
+			`u:${String(id)}`,
+			name,
+			(filter.users ?? []).includes(id),
+		]),
+	];
+	return entries.map(([key, text, checked]) => {
+		const row = document.createElement('label');
+		row.className = 'avpvh-filter-share-row';
+		const box = document.createElement('input');
+		box.type = 'checkbox';
+		box.checked = checked;
+		row.append(box, document.createTextNode(` ${text}`));
+		return { row, box, key };
+	});
+}
+
+// "Delen…": whom a named filter is shared with — groups and members, with
+// a search field that narrows the list as you type.
+function sharePanel(library: FilterLibrary, filter: SavedFilter): HTMLElement {
+	const panel = document.createElement('div');
+	panel.className = 'avpvh-filter-share-panel';
+	const search = document.createElement('input');
+	search.type = 'search';
+	search.placeholder = 'Zoek een naam of groep';
+	const list = document.createElement('div');
+	list.className = 'avpvh-filter-share-list';
+	list.textContent = 'Laden…';
+	const save = document.createElement('button');
+	save.type = 'button';
+	save.className = 'avpvh-filter-saved-button';
+	save.textContent = 'Delen opslaan';
+	save.disabled = true;
+	const status = document.createElement('span');
+	status.setAttribute('role', 'status');
+	panel.append(search, list, save, status);
+
+	void library.recipients().then((recipients) => {
+		const rows = recipientRows(recipients, filter);
+		const summary = (): void => {
+			const chosen = rows.filter(({ box }) => box.checked);
+			const groups = chosen.filter(({ key }) => key.startsWith('g:'));
+			status.textContent =
+				chosen.length === 0
+					? 'Niet gedeeld'
+					: `Gedeeld met ${String(chosen.length - groups.length)} leden en ${String(groups.length)} groepen`;
+		};
+		list.textContent = '';
+		rows.forEach(({ row, box }) => {
+			box.addEventListener('change', summary);
+			list.appendChild(row);
+		});
+		summary();
+		save.disabled = false;
+		search.addEventListener('input', () => {
+			const query = search.value.trim().toLowerCase();
+			rows.forEach(({ row }) => {
+				row.hidden =
+					query !== '' &&
+					!row.textContent.toLowerCase().includes(query);
+			});
+		});
+		save.addEventListener('click', () => {
+			const keys = rows
+				.filter(({ box }) => box.checked)
+				.map(({ key }) => key);
+			const users = keys
+				.filter((key) => key.startsWith('u:'))
+				.map((key) => Number(key.slice(2)));
+			const groups = keys
+				.filter((key) => key.startsWith('g:'))
+				.map((key) => key.slice(2));
+			save.disabled = true;
+			void library
+				.onShare(filter.id, users, groups)
+				.then(() => {
+					// So the panel shows it when opened again.
+					filter.users = users;
+					filter.groups = groups;
+					status.textContent = `${status.textContent} — opgeslagen`;
+				})
+				.catch(() => {
+					status.textContent = 'Opslaan mislukt';
+				})
+				.finally(() => {
+					save.disabled = false;
+				});
+		});
+	});
+	return panel;
+}
+
 function savedFilterControls(
 	library: FilterLibrary,
 	canSave: boolean
@@ -540,6 +809,23 @@ function savedFilterControls(
 			({ id, name }) => [id, name] as [string, string]
 		),
 	]);
+	if (library.shared.length > 0) {
+		const group = document.createElement('optgroup');
+		group.label = 'Gedeeld met mij';
+		library.shared.forEach(({ id, name, owner }) => {
+			const option = document.createElement('option');
+			option.value = id;
+			option.textContent = `${name} (van ${owner ?? '?'})`;
+			group.appendChild(option);
+		});
+		picker.appendChild(group);
+	}
+	const findChosen = (): SavedFilter | undefined =>
+		[...library.filters, ...library.shared].find(
+			({ id }) => id === picker.value
+		);
+	const isOwn = (): boolean =>
+		library.filters.some(({ id }) => id === picker.value);
 	const apply = document.createElement('button');
 	apply.type = 'button';
 	apply.className = 'avpvh-filter-saved-button';
@@ -550,14 +836,34 @@ function savedFilterControls(
 	remove.className = 'avpvh-filter-saved-button';
 	remove.textContent = 'Verwijderen';
 	remove.disabled = true;
+	const share = document.createElement('button');
+	share.type = 'button';
+	share.className = 'avpvh-filter-saved-button';
+	share.textContent = 'Delen…';
+	share.title = 'Dit filter delen met andere leden of groepen';
+	share.disabled = true;
+	let panel: HTMLElement | null = null;
 	picker.addEventListener('change', () => {
 		apply.disabled = picker.value === '';
-		remove.disabled = picker.value === '';
+		remove.disabled = !isOwn();
+		share.disabled = !isOwn();
+		panel?.remove();
+		panel = null;
 	});
 	apply.addEventListener('click', () => {
-		const chosen = library.filters.find(({ id }) => id === picker.value);
+		const chosen = findChosen();
 		if (chosen !== undefined) {
 			library.onApply(chosen);
+		}
+	});
+	share.addEventListener('click', () => {
+		const chosen = library.filters.find(({ id }) => id === picker.value);
+		if (panel !== null) {
+			panel.remove();
+			panel = null;
+		} else if (chosen !== undefined) {
+			panel = sharePanel(library, chosen);
+			controls.appendChild(panel);
 		}
 	});
 	remove.addEventListener('click', () => {
@@ -619,7 +925,7 @@ function savedFilterControls(
 				save.disabled = false;
 			});
 	});
-	controls.append(picker, apply, remove);
+	controls.append(picker, apply, remove, share);
 	if (canSave) {
 		controls.append(name, save, status);
 	}

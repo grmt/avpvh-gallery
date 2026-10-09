@@ -213,7 +213,7 @@ final class Move_Files_CLI {
 			++$line;
 
 			if ( count( $values ) === count( $header ) ) {
-				$row    = array_combine( $header, $values );
+				$row    = array_combine( array_map( 'strval', $header ), $values );
 				$rows[] = array(
 					'file_id' => trim( (string) $row['file_id'] ),
 					'line'    => $line,

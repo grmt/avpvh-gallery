@@ -27,11 +27,14 @@ import {
 	type ReactionData,
 	type TagContext,
 } from '../photo-tagger/PhotoTagger';
+import { registerDigCaption } from './DigCaption';
 import {
 	buildFilterBar,
 	conditionsParam,
 	type FilterCondition,
 	type FilterFolder,
+	type FilterRecipients,
+	folderIds,
 	isActiveFilter,
 	rememberFilter,
 	type SavedFilter,
@@ -2634,6 +2637,7 @@ export class Shortcode {
 					update();
 				},
 			});
+			registerDigCaption(pswp, avpvhShortcodeLocalize.ajax_url);
 			// Tagging and liking need a logged-in user (the AJAX handlers are
 			// wp_ajax_-only), so don't offer the buttons to anyone else.
 			if ('' !== avpvhShortcodeLocalize.rest_nonce) {
@@ -4626,6 +4630,7 @@ export class Shortcode {
 			el.dataset['pswpWidth'] = String(pswpW);
 			el.dataset['pswpHeight'] = String(pswpH);
 			el.dataset['avpvhId'] = image.id;
+			el.dataset['avpvhFolderId'] = image.folder_id;
 			el.dataset['avpvhCaption'] = image.description;
 			el.dataset['avpvhFullpath'] =
 				image.full_path ?? prefix + image.name;
@@ -5165,6 +5170,53 @@ export class Shortcode {
 		return this.savedFilters;
 	}
 
+	// Whom a named filter can be shared with (fetched once).
+	private recipientsRequest: Promise<FilterRecipients> | null = null;
+
+	private async filterRecipients(): Promise<FilterRecipients> {
+		this.recipientsRequest ??= fetch(
+			`${avpvhShortcodeLocalize.ajax_url}?action=gallery_filter_recipients`,
+			{ credentials: 'include' }
+		)
+			.then(
+				async (response) =>
+					(await response.json()) as {
+						success?: boolean;
+						data?: FilterRecipients;
+					}
+			)
+			.then((result) => result.data ?? { users: [], groups: [] });
+		return this.recipientsRequest;
+	}
+
+	private async shareSavedFilter(
+		id: string,
+		users: Array<number>,
+		groups: Array<string>
+	): Promise<Array<SavedFilter>> {
+		const response = await fetch(avpvhShortcodeLocalize.ajax_url, {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: new URLSearchParams({
+				action: 'gallery_filter_share',
+				id,
+				users: JSON.stringify(users),
+				groups: JSON.stringify(groups),
+				_ajax_nonce: avpvhShortcodeLocalize.tag_nonce,
+			}).toString(),
+		});
+		const result = (await response.json()) as {
+			success?: boolean;
+			data?: { filters?: Array<SavedFilter>; message?: string };
+		};
+		if (result.success !== true) {
+			throw new Error(result.data?.message ?? 'Delen mislukt');
+		}
+		this.savedFilters = result.data?.filters ?? this.savedFilters;
+		return this.savedFilters;
+	}
+
 	private async deleteSavedFilter(id: string): Promise<Array<SavedFilter>> {
 		const response = await fetch(avpvhShortcodeLocalize.ajax_url, {
 			method: 'POST',
@@ -5390,11 +5442,21 @@ export class Shortcode {
 			},
 			{
 				enabled: avpvhShortcodeLocalize.can_share === 'true',
+				captions: avpvhShortcodeLocalize.can_caption === 'true',
+				google:
+					avpvhShortcodeLocalize.google_known === 'true'
+						? avpvhShortcodeLocalize.google
+						: '',
 				folders: this.filterFolders,
+				sort: this.sortOrder,
 				nonce: avpvhShortcodeLocalize.tag_nonce,
 			},
 			{
 				filters: this.savedFilters,
+				shared: avpvhShortcodeLocalize.shared_filters,
+				recipients: async () => this.filterRecipients(),
+				onShare: async (id, users, groups) =>
+					this.shareSavedFilter(id, users, groups),
 				onApply: (saved) => {
 					this.filterFolders = saved.folders;
 					this.sortOrder = saved.sort;
@@ -5532,7 +5594,7 @@ export class Shortcode {
 	// The folder a filter is limited to ("Alleen deze map"), or '' for the
 	// whole gallery.
 	private filterFolderIds(): Array<string> {
-		return this.filterFolders.map(({ id }) => id);
+		return folderIds(this.filterFolders);
 	}
 
 	private openLightboxIfPending(): void {

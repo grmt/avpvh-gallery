@@ -35,7 +35,8 @@ final class Photo_Filter_Scope {
 	private const MAX_DEPTH = 10;
 
 	/**
-	 * Sanitizes a JSON list of Drive folder IDs.
+	 * Sanitizes a JSON list of Drive folder IDs (each may start with "!",
+	 * meaning left out; see within_many()).
 	 *
 	 * @param string $json JSON list.
 	 *
@@ -57,28 +58,39 @@ final class Photo_Filter_Scope {
 	}
 
 	/**
-	 * Keeps IDs below at least one folder, preserving order and removing
-	 * overlap between selected branches.
+	 * Keeps the IDs inside the chosen folders, preserving order. Each
+	 * chosen folder takes in or (with a "!" before its ID) leaves out its
+	 * whole branch; they come ordered from the top down, so a choice deeper
+	 * down overrules one above it ("03-Weekenden" but not "2024 Meerveld").
+	 * With only folders left out, the rest of the gallery counts.
 	 *
 	 * @param array<string> $ids        Photo IDs.
-	 * @param array<string> $folder_ids Selected Drive folder IDs.
+	 * @param array<string> $folder_ids Chosen Drive folder IDs, top down.
 	 *
 	 * @return array<string>
 	 */
 	public static function within_many( array $ids, array $folder_ids ) {
-		$matches = array();
+		$included = array_filter(
+			$folder_ids,
+			static function ( $folder_id ) {
+				return '!' !== substr( $folder_id, 0, 1 );
+			}
+		);
+		$kept     = array() === $included ? array_fill_keys( $ids, true ) : array();
 
 		foreach ( $folder_ids as $folder_id ) {
-			foreach ( self::within( $ids, $folder_id ) as $photo_id ) {
-				$matches[ $photo_id ] = true;
-			}
+			$leave_out = '!' === substr( $folder_id, 0, 1 );
+			$branch    = self::within( $ids, $leave_out ? substr( $folder_id, 1 ) : $folder_id );
+			$kept      = $leave_out
+				? array_diff_key( $kept, array_flip( $branch ) )
+				: $kept + array_fill_keys( $branch, true );
 		}
 
 		return array_values(
 			array_filter(
 				$ids,
-				static function ( $photo_id ) use ( $matches ) {
-					return isset( $matches[ $photo_id ] );
+				static function ( $photo_id ) use ( $kept ) {
+					return isset( $kept[ $photo_id ] );
 				}
 			)
 		);

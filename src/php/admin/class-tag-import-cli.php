@@ -32,6 +32,21 @@ use function WP_CLI\Utils\format_items;
 final class Tag_Import_CLI {
 
 	/**
+	 * The columns of the per-row report.
+	 */
+	// phpcs:ignore SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- PHPCSUtils false positive on an array value.
+	private const REPORT_COLUMNS = array(
+		'line',
+		'source',
+		'user_id',
+		'tag_key',
+		'tag_label',
+		'path',
+		'image_id',
+		'status',
+	);
+
+	/**
 	 * Imports subject-tag votes from a CSV (columns source,user_id,tag_key,path).
 	 *
 	 * Without --apply this is a dry run: it resolves every row and reports what
@@ -185,11 +200,7 @@ final class Tag_Import_CLI {
 	 */
 	private static function report( array $rows, array $votes, $format ) {
 		if ( 'none' !== $format ) {
-			format_items(
-				$format,
-				$rows,
-				array( 'line', 'source', 'user_id', 'tag_key', 'tag_label', 'path', 'image_id', 'status' )
-			);
+			format_items( $format, $rows, self::REPORT_COLUMNS );
 		}
 
 		WP_CLI::log( '' );
@@ -220,39 +231,35 @@ final class Tag_Import_CLI {
 	 *
 	 * @param array<string, array<string, string>> $votes Planned votes.
 	 *
-	 * @return list<array{error: int, exists: int, new: int, source: string, tag: string}>
+	 * @return array<int, array{source: string, tag: string, new: int, exists: int, error: int}>
 	 */
 	private static function totals( array $votes ) {
-		$totals = array();
+		$counts = array();
 
 		foreach ( $votes as $vote ) {
-			$tag = $vote['tag_label'] . ' (' . $vote['tag_key'] . ')';
-			$key = $vote['source'] . '|' . $tag;
+			$tag    = $vote['tag_label'] . ' (' . $vote['tag_key'] . ')';
+			$key    = $vote['source'] . '|' . $tag;
+			$column = Tag_Import_Plan::is_error( $vote['status'] ) ? 'error' : $vote['status'];
 
-			if ( ! isset( $totals[ $key ] ) ) {
-				$totals[ $key ] = array(
-					'error'  => 0,
-					'exists' => 0,
-					'new'    => 0,
-					'source' => $vote['source'],
-					'tag'    => $tag,
-				);
-			}
-
-			$bucket = Tag_Import_Plan::is_error( $vote['status'] ) ? 'error' : $vote['status'];
-			++$totals[ $key ][ $bucket ];
+			$counts[ $key ]['source']  = $vote['source'];
+			$counts[ $key ]['tag']     = $tag;
+			$counts[ $key ][ $column ] = ( $counts[ $key ][ $column ] ?? 0 ) + 1;
 		}
 
-		ksort( $totals );
+		ksort( $counts );
+		$totals = array();
 
-		$result = array();
-
-		foreach ( $totals as $item ) {
-			$result[] = $item;
+		foreach ( $counts as $count ) {
+			$totals[] = array(
+				'error'  => (int) ( $count['error'] ?? 0 ),
+				'exists' => (int) ( $count['exists'] ?? 0 ),
+				'new'    => (int) ( $count['new'] ?? 0 ),
+				'source' => (string) $count['source'],
+				'tag'    => (string) $count['tag'],
+			);
 		}
 
-		// @phpstan-ignore return.type
-		return $result;
+		return $totals;
 	}
 
 	/**

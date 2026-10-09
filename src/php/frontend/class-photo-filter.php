@@ -79,11 +79,14 @@ final class Photo_Filter {
 	 * Registers the AJAX endpoints.
 	 */
 	public function __construct() {
+		// Sharing a filter's photos via Google Drive.
+		new Photo_Shares();
 		add_action( 'wp_ajax_gallery_filter', array( self::class, 'handle_filter' ) );
 		add_action( 'wp_ajax_gallery_filter_options', array( self::class, 'handle_options' ) );
 		add_action( 'wp_ajax_gallery_filter_save', array( Filter_Memory::class, 'handle_save' ) );
 		add_action( 'wp_ajax_gallery_filter_preset_save', array( Filter_Memory::class, 'handle_preset_save' ) );
 		add_action( 'wp_ajax_gallery_filter_preset_delete', array( Filter_Memory::class, 'handle_preset_delete' ) );
+		new Filter_Sharing();
 	}
 
 	/**
@@ -398,8 +401,15 @@ final class Photo_Filter {
 
 		foreach ( $by_folder as $folder_id => $records ) {
 			foreach ( Images::from_records( $records, (string) $folder_id, $options ) as $image ) {
-				$prefix                 = $paths[ $folder_id ] ?? '';
-				$image['full_path']     = ( '' === $prefix ? '' : $prefix . '/' ) . $image['name'];
+				$image['full_path']     = implode(
+					'/',
+					array_filter(
+						array( $paths[ $folder_id ] ?? '', $image['name'] ),
+						static function ( $part ) {
+							return '' !== $part;
+						}
+					)
+				);
 				$images[ $image['id'] ] = $image;
 			}
 		}

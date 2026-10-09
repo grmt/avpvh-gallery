@@ -11,6 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use stdClass;
+
 /**
  * Storage of shared photo selections (agallery_photo_shares, see
  * Photo_Shares).
@@ -22,7 +24,7 @@ final class Photo_Shares_DB {
 	 *
 	 * @param int $share_id Share ID.
 	 *
-	 * @return object{id: int|string, user_id: int|string, description: string, conditions: string, folder_id: string, recipient: string, status: string, photo_count: int|string, drive_folder_id: string, error: string, created_at: string, expires_at: string|null}|null
+	 * @return stdClass|null
 	 */
 	public static function get( $share_id ) {
 		global $wpdb;
@@ -31,8 +33,7 @@ final class Photo_Shares_DB {
 			$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}agallery_photo_shares WHERE id = %d", $share_id )
 		);
 
-		// @phpstan-ignore return.type
-		return is_object( $row ) ? $row : null;
+		return $row instanceof stdClass ? $row : null;
 	}
 
 	/**
@@ -40,7 +41,7 @@ final class Photo_Shares_DB {
 	 *
 	 * @param int $user_id WordPress user ID.
 	 *
-	 * @return array<object{id: int|string, user_id: int|string, description: string, conditions: string, folder_id: string, recipient: string, status: string, photo_count: int|string, drive_folder_id: string, error: string, created_at: string, expires_at: string|null}>
+	 * @return array<stdClass>
 	 */
 	public static function for_user( $user_id ) {
 		global $wpdb;
@@ -48,18 +49,18 @@ final class Photo_Shares_DB {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}agallery_photo_shares
-				 WHERE user_id = %d ORDER BY created_at DESC LIMIT 20",
+				 WHERE user_id = %d AND status <> 'hidden' ORDER BY created_at DESC LIMIT 20",
 				$user_id
 			)
 		);
 
-		return is_array( $rows ) ? $rows : array();
+		return self::rows( $rows );
 	}
 
 	/**
 	 * The shares that are ready but past their date.
 	 *
-	 * @return array<object{id: int|string, user_id: int|string, description: string, conditions: string, folder_id: string, recipient: string, status: string, photo_count: int|string, drive_folder_id: string, error: string, created_at: string, expires_at: string|null}>
+	 * @return array<stdClass>
 	 */
 	public static function expired() {
 		global $wpdb;
@@ -71,7 +72,51 @@ final class Photo_Shares_DB {
 			)
 		);
 
-		return is_array( $rows ) ? $rows : array();
+		return self::rows( $rows );
+	}
+
+	/**
+	 * The user's oldest share that is still open (ready before pending, so
+	 * one being made now is left alone if possible), or null.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 *
+	 * @return stdClass|null
+	 */
+	public static function oldest_open( $user_id ) {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin table.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}agallery_photo_shares
+				 WHERE user_id = %d AND status IN ('pending', 'ready')
+				 ORDER BY status = 'pending', created_at LIMIT 1",
+				$user_id
+			)
+		);
+
+		return self::rows( $rows )[0] ?? null;
+	}
+
+	/**
+	 * Takes a user's ended shares (expired, removed, failed) off their
+	 * profile list ("Opruimen"). Returns how many.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 *
+	 * @return int
+	 */
+	public static function hide_ended( $user_id ) {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin table.
+		return (int) $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}agallery_photo_shares SET status = 'hidden'
+				 WHERE user_id = %d AND status IN ('expired', 'removed', 'failed')",
+				$user_id
+			)
+		);
 	}
 
 	/**
@@ -132,5 +177,24 @@ final class Photo_Shares_DB {
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin table.
 		$wpdb->update( $wpdb->prefix . 'agallery_photo_shares', $fields, array( 'id' => $share_id ) );
+	}
+
+	/**
+	 * The rows of a query result.
+	 *
+	 * @param mixed $rows What $wpdb->get_results() returned.
+	 *
+	 * @return array<stdClass>
+	 */
+	private static function rows( $rows ) {
+		$objects = array();
+
+		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+			if ( $row instanceof stdClass ) {
+				$objects[] = $row;
+			}
+		}
+
+		return $objects;
 	}
 }
