@@ -67,12 +67,11 @@ final class AVPVH_DB {
 	}
 
 	/**
-	 * A member's login identities (provider, email, is_primary,
-	 * verified_at …), primary first.
+	 * A member's linked identities (e.g. Google).
 	 *
-	 * @param int $member_id The member's ID.
+	 * @param int $member_id Member ID.
 	 *
-	 * @return array<object>
+	 * @return array<int, object{id: int, provider: string, email: string, verified_at: string|null}>
 	 */
 	public static function get_member_identities( int $member_id ) {
 		return array();

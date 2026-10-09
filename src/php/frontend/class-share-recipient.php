@@ -131,7 +131,7 @@ final class Share_Recipient {
 	 * @return array<string>
 	 */
 	private static function google_identities( $member_id ) {
-		if ( ! class_exists( AVPVH_DB::class ) ) {
+		if ( ! class_exists( AVPVH_DB::class ) || ! method_exists( AVPVH_DB::class, 'get_member_identities' ) ) {
 			return array();
 		}
 

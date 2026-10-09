@@ -33,6 +33,7 @@ use const PHP_URL_HOST;
  * Main plugin class.
  *
  * @phan-constructor-used-for-side-effects
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
  */
 final class Main {
 

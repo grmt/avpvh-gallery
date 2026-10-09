@@ -71,7 +71,11 @@ final class Share_Image {
 		$details     = Share_Drive::details( $ids );
 		$texts       = $captions ? Share_Caption::for_photos( $ids ) : array();
 		$corrections = Share_Orientation::for_photos( $ids );
-		$pdf         = $options['a4'] ? new Share_Pdf() : null;
+		$pdf         = $options['a4'] ? new Share_Pdf_Parts(
+			static function ( $name, $path ) use ( $folder_id ) {
+				Share_Drive_Files::upload_file( $folder_id, $name, 'application/pdf', $path );
+			}
+		) : null;
 		$done        = 0;
 
 		foreach ( $ids as $file_id ) {
@@ -104,35 +108,24 @@ final class Share_Image {
 			}
 		}
 
-		self::upload_pdf( $pdf, $folder_id );
+		self::finish_pdf( $pdf );
 
 		return $done;
 	}
 
 	/**
-	 * Uploads the share's PDF (one A4 page per photo) and removes the
-	 * temporary file.
+	 * Uploads the last PDF part, if A4 export was selected.
 	 *
-	 * @param Share_Pdf|null $pdf       The PDF, if any.
-	 * @param string         $folder_id Target folder.
+	 * @param Share_Pdf_Parts|null $pdf Export, if any.
 	 *
 	 * @return void
 	 */
-	private static function upload_pdf( $pdf, $folder_id ) {
+	private static function finish_pdf( $pdf ) {
 		if ( null === $pdf ) {
 			return;
 		}
 
-		$pages = $pdf->count();
-		$path  = $pdf->finish();
-
-		try {
-			if ( 0 < $pages ) {
-				Share_Drive_Files::upload_file( $folder_id, '000 Alle foto’s (A4).pdf', 'application/pdf', $path );
-			}
-		} finally {
-			wp_delete_file( $path );
-		}
+		$pdf->finish();
 	}
 
 	/**
@@ -145,7 +138,7 @@ final class Share_Image {
 	 * @param string                                                                                                        $name      The copy's name.
 	 * @param string                                                                                                        $folder_id Target folder.
 	 * @param array{caption: string, correction: array{h_flip: bool, rotation: int, v_flip: bool}, upright: bool, a4: bool} $edit      What to do.
-	 * @param Share_Pdf|null                                                                                                $pdf The share's PDF, if any.
+	 * @param Share_Pdf_Parts|null                                                                                          $pdf The share's PDFs, if any.
 	 *
 	 * @return bool
 	 */
@@ -273,6 +266,19 @@ final class Share_Image {
 		$image->setImageFormat( 'jpeg' );
 		$image->setImageCompressionQuality( 92 );
 		$jpeg = $image->getImageBlob();
+
+		// An exceptional single image must fit in a PDF too. Keep ordinary
+		// photos unchanged; only oversized ones get a 300-dpi A4 rendering.
+		if ( $edit['a4'] && strlen( $jpeg ) > Share_Pdf_Parts::MAX_BYTES - 4096 ) {
+			$image->stripImage();
+			$image->thumbnailImage( 3508, 3508, true );
+			$image->setImageCompressionQuality( 85 );
+			$image->setImageUnits( Imagick::RESOLUTION_PIXELSPERINCH );
+			$dpi = max( $image->getImageWidth(), $image->getImageHeight() ) / 11.69;
+			$image->setImageResolution( $dpi, $dpi );
+			$jpeg = $image->getImageBlob();
+		}
+
 		$image->clear();
 
 		return $jpeg;

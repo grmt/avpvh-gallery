@@ -45,3 +45,12 @@ parameters:
       message: '#^Access to an undefined property object::\$user_id\.$#'
       identifier: property.notFound
       path: ../src/php/frontend/class-exclusion-permission.php
+    -
+      # avpvh-members is an optional sibling plugin whose deployed version may
+      # predate the methods its stub declares (e.g. the IT administrator
+      # role or member identities), so Like_Visibility and Share_Recipient check
+      # them at runtime; PHPStan only sees the stub and considers those checks always true.
+      identifier: function.alreadyNarrowedType
+      paths:
+        - ../src/php/frontend/class-like-visibility.php
+        - ../src/php/frontend/class-share-recipient.php

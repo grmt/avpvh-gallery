@@ -28,6 +28,7 @@ use Avpvh\Helpers;
  * not to the public.
  *
  * @phan-constructor-used-for-side-effects
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
 final class Photo_Filter {
 

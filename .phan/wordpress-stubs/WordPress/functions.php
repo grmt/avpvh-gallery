@@ -13,7 +13,7 @@ const ABSPATH = '';
 /**
  * @var int
  */
-const DAY_IN_SECONDS = 0;
+const DAY_IN_SECONDS = 86400;
 
 /**
  * @var int

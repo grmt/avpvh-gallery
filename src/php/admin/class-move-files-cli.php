@@ -193,8 +193,9 @@ final class Move_Files_CLI {
 	 */
 	private static function read_plan( $file ) {
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- CLI input file.
-		$handle = fopen( '-' === $file ? 'php://stdin' : $file, 'rb' );
-		$header = false === $handle ? false : fgetcsv( $handle, 0, ',', '"', '' );
+		$handle     = fopen( '-' === $file ? 'php://stdin' : $file, 'rb' );
+		$header_row = false === $handle ? false : fgetcsv( $handle, 0, ',', '"', '' );
+		$header     = is_array( $header_row ) ? array_map( 'strval', $header_row ) : false;
 
 		if (
 			false === $handle

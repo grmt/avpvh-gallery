@@ -87,6 +87,20 @@ final class Share_Pdf {
 	}
 
 	/**
+	 * Removes unfinished temporary files too, including after a failed
+	 * download or upload. A finished file belongs to the caller.
+	 */
+	public function __destruct() {
+		if ( ! is_resource( $this->handle ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- see the constructor.
+		fclose( $this->handle );
+		wp_delete_file( $this->path );
+	}
+
+	/**
 	 * Adds a page with a JPEG on it.
 	 *
 	 * @param string $jpeg A JPEG file's contents.
@@ -146,6 +160,20 @@ final class Share_Pdf {
 	 */
 	public function count() {
 		return count( $this->pages );
+	}
+
+	/**
+	 * Whether another JPEG fits, including the page objects and the final
+	 * page tree/xref/trailer. The conservative reserve avoids filling a part
+	 * with image bytes and then exceeding the limit when it is closed.
+	 *
+	 * @param string $jpeg  JPEG contents.
+	 * @param int    $limit Maximum finished size in bytes.
+	 *
+	 * @return bool
+	 */
+	public function can_add( $jpeg, $limit ) {
+		return (int) ftell( $this->handle ) + strlen( $jpeg ) + 2048 + 128 * ( $this->count() + 1 ) <= $limit;
 	}
 
 	/**

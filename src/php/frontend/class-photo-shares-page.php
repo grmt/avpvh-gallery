@@ -120,8 +120,14 @@ final class Photo_Shares_Page {
 	 * one in place of itself). admin-post form: share, _wpnonce.
 	 *
 	 * @return void
+	 *
+	 * @SuppressWarnings("PHPMD.ExitExpression")
 	 */
 	public static function handle_recreate() {
+		if ( ! is_user_logged_in() ) {
+			wp_die( esc_html__( 'Unauthorized', 'avpvh-gallery' ), 403 );
+		}
+
 		check_admin_referer( 'avpvh_gallery_share_recreate' );
 		$share = Photo_Shares_DB::get( absint( $_POST['share'] ?? 0 ) );
 

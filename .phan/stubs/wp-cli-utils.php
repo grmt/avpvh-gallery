@@ -1,23 +1,22 @@
 <?php
 /**
- * WP-CLI's output helper, used by the plugin's WP-CLI commands. Like
- * wp-cli.php, only scanned for static analysis.
+ * WP-CLI Utils stub.
  *
  * @package avpvh-gallery
  *
  * @phan-file-suppress PhanUnusedGlobalFunctionParameter
  */
 
-// phpcs:ignoreFile -- mirrors WP-CLI's own function signature for static analysis only.
+// phpcs:ignoreFile -- WP-CLI Utils stubs.
 
 namespace WP_CLI\Utils;
 
 /**
- * Prints rows as a table, CSV, JSON etc.
+ * Formats and prints items as a table, json, etc.
  *
- * @param string                     $format Output format.
- * @param array<int|string, mixed>   $items  Rows (arrays or objects).
- * @param array<int, string>|string  $fields Columns.
+ * @param string       $format Format to print.
+ * @param array<mixed> $items  Items.
+ * @param array<mixed> $fields Fields.
  *
  * @return void
  */

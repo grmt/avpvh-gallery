@@ -11,7 +11,7 @@
 Plugin Name:       AVPVH Gallery
 Plugin URI:        https://github.com/grmt/avpvh-gallery
 Description:       A WordPress gallery using Google Drive as file storage
-Version:           2.13.14.141
+Version:           2.13.14.142
 Requires at least: 6.5
 Requires PHP:      8.1
 Author:            Garmt Boekholt (info@avphilipsvanhorne.nl), based on work by Junák - český skaut
@@ -127,6 +127,7 @@ require_once __DIR__ . '/frontend/class-share-drive-files.php';
 require_once __DIR__ . '/frontend/class-share-caption.php';
 require_once __DIR__ . '/frontend/class-share-orientation.php';
 require_once __DIR__ . '/frontend/class-share-pdf.php';
+require_once __DIR__ . '/frontend/class-share-pdf-parts.php';
 require_once __DIR__ . '/frontend/class-share-image.php';
 require_once __DIR__ . '/frontend/class-share-recipient.php';
 require_once __DIR__ . '/frontend/class-photo-shares-db.php';

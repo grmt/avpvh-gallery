@@ -54,6 +54,8 @@ final class Photo_Tags_DB {
 	 * shape to migrate from.
 	 *
 	 * @return void
+	 *
+	 * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
 	 */
 	public static function create_tables() {
 		global $wpdb;
