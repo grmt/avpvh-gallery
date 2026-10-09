@@ -19,6 +19,10 @@ return array(
 		'dist/vendor/',
 		'.phan/wordpress-stubs/',
 	),
+	// Use the native intl signature when it is available, and the stub otherwise.
+	'exclude_file_list'                         => extension_loaded( 'intl' )
+		? array( '.phan/stubs/normalizer.php' )
+		: array(),
 	'file_list'                                 => array(
 		'config/scoper.inc.php',
 	),

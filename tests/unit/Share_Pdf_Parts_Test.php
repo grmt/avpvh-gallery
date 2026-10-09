@@ -65,8 +65,10 @@ final class Share_Pdf_Parts_Test extends TestCase {
 	 */
 	public function test_empty_selection() {
 		$parts = new Share_Pdf_Parts(
-			function () {
+			function ( $name, $path ) {
 				++$this->uploads;
+				$this->names[] = $name;
+				$this->paths[] = $path;
 			}
 		);
 		$parts->finish();
@@ -98,6 +100,7 @@ final class Share_Pdf_Parts_Test extends TestCase {
 		}
 
 		$parts->finish();
+		self::assertCount( 3, $this->names );
 		$parts->finish();
 		self::assertSame( array( '1', '2', '3', '4', '5' ), $this->pages );
 		self::assertCount( 3, $this->names );
@@ -138,6 +141,11 @@ final class Share_Pdf_Parts_Test extends TestCase {
 	 */
 	public function test_upload_failure_removes_temporary_file() {
 		$parts = new Share_Pdf_Parts(
+			/**
+			 * Throws the expected synthetic upload error.
+			 *
+			 * @throws RuntimeException Synthetic upload failure.
+			 */
 			function ( $name, $file ) {
 				self::assertStringEndsWith( '.pdf', $name );
 				$this->path = $file;
