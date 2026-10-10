@@ -10,6 +10,9 @@ declare(strict_types = 1);
  */
 const ABSPATH = '';
 
+/** @var string */
+const WP_CONTENT_DIR = '';
+
 /**
  * @var int
  */
@@ -556,6 +559,20 @@ function get_header( $name = '', $args = array() ) {
  * @return string
  */
 function get_home_url( $blog_id = null, $path = '', $scheme = null ) {
+}
+
+/**
+ * @param string $path
+ * @return string
+ */
+function content_url( $path = '' ) {
+}
+
+/**
+ * @param string $target
+ * @return bool
+ */
+function wp_mkdir_p( $target ) {
 }
 
 /**

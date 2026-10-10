@@ -198,6 +198,12 @@ final class Videos {
 		$copy_requires_writer_permission,
 		$permissions
 	) {
+		$local_url = self::get_local_video_url( $video_id );
+
+		if ( '' !== $local_url ) {
+			return new FulfilledPromise( $local_url );
+		}
+
 		if ( $copy_requires_writer_permission || $size > 25165824 ) {
 			return new FulfilledPromise(
 				self::get_proxy_video_url( $video_id, $mime_type, $size )
@@ -232,6 +238,27 @@ final class Videos {
 				);
 			}
 		);
+	}
+
+	/**
+	 * Uses an installed viewing copy, served by the site's protected upload route.
+	 *
+	 * The original stays in Drive. Install MP4 copies in
+	 * wp-content/uploads/private/gallery-video/<sha256-of-drive-id>.mp4.
+	 * This route must enforce the same member access as the gallery.
+	 *
+	 * @param string $video_id The original Drive file ID.
+	 * @return string The protected URL, or an empty string to use Drive.
+	 */
+	private static function get_local_video_url( $video_id ) {
+		$name = hash( 'sha256', $video_id ) . '.mp4';
+		$path = WP_CONTENT_DIR . '/uploads/private/gallery-video/' . $name;
+
+		if ( ! is_file( $path ) || ! is_readable( $path ) ) {
+			return '';
+		}
+
+		return content_url( '/uploads/private/gallery-video/' . $name );
 	}
 
 	/**
