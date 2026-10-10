@@ -50,15 +50,15 @@ final class Video_Playback_Test extends WP_UnitTestCase {
 	/**
 	 * Resolve a large video's source, exercising the normal Drive fallback.
 	 *
-	 * @param string $id A synthetic Drive ID.
+	 * @param string $video_id A synthetic Drive ID.
 	 * @return string The resolved URL.
 	 * @throws UnexpectedValueException If source resolution does not return a promise.
 	 */
-	private static function resolve( $id ) {
+	private static function resolve( $video_id ) {
 		$method = new ReflectionMethod( Videos::class, 'resolve_url' );
 		$method->setAccessible( true );
 
-		$promise = $method->invoke( null, $id, 'video/mp4', 2664954401, '', '', false, array() );
+		$promise = $method->invoke( null, $video_id, 'video/mp4', 2664954401, '', '', false, array() );
 
 		if ( ! $promise instanceof PromiseInterface ) {
 			throw new UnexpectedValueException( 'Video source resolution must return a promise.' );
