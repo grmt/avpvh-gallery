@@ -1536,6 +1536,14 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	border-color: #d63638;
 }
 
+/* Nothing chosen here, but something further down: a small blue dash. */
+.avpvh-filter-folder-box.avpvh-filter-folder-partial::after {
+	background: #2271b1;
+	content: "";
+	height: 2px;
+	width: 8px;
+}
+
 .avpvh-filter-folder-item.closed > .avpvh-filter-folder-tree {
 	display: none;
 }
