@@ -449,6 +449,10 @@ function sortPicker(sort: FilterSort, filtering: boolean): HTMLElement {
 
 const FOLDER_DEBOUNCE_MS = 5000;
 
+// A folder choice as a key: its ID, marked when it's left out.
+const folderKey = ({ id, exclude }: FilterFolder): string =>
+	exclude === true ? `!${id}` : id;
+
 function isSameFolderSelection(
 	a: Array<FilterFolder>,
 	b: Array<FilterFolder>
@@ -456,12 +460,60 @@ function isSameFolderSelection(
 	if (a.length !== b.length) {
 		return false;
 	}
-	const aIds = new Set(a.map((f) => f.id));
-	return b.every((f) => aIds.has(f.id));
+	const aKeys = new Set(a.map(folderKey));
+	return b.every((f) => aKeys.has(folderKey(f)));
 }
 
-// A compact, lazily loaded folder tree. Selecting a folder includes its
-// complete branch; several separate branches may be selected together.
+type FolderState = 'in' | 'none' | 'out';
+
+const FOLDER_STATES: Array<[FolderState, string, string]> = [
+	['none', '', 'Maakt niet uit (klik: wel)'],
+	['in', '✓', 'Wel (klik: niet)'],
+	['out', '✗', 'Niet (klik: maakt niet uit)'],
+];
+
+// Shows a folder's state on its box: maakt niet uit, wel (✓) or niet (✗).
+function showFolderState(box: HTMLButtonElement, state: FolderState): void {
+	const [, mark, title] =
+		FOLDER_STATES.find(([value]) => value === state) ?? FOLDER_STATES[0];
+	const checked: Record<FolderState, string> = {
+		in: 'true',
+		none: 'false',
+		out: 'mixed',
+	};
+	box.dataset['state'] = state;
+	box.textContent = mark;
+	box.title = title;
+	box.setAttribute('aria-checked', checked[state]);
+}
+
+// A three-way box for a folder: maakt niet uit → wel → niet.
+function folderBox(
+	folder: FilterFolder,
+	state: FolderState
+): HTMLButtonElement {
+	const box = document.createElement('button');
+	box.type = 'button';
+	box.className = 'avpvh-filter-folder-box';
+	box.setAttribute('role', 'checkbox');
+	box.dataset['folderId'] = folder.id;
+	box.dataset['folderPath'] = folder.path;
+	showFolderState(box, state);
+	return box;
+}
+
+// The state that follows a box's current one.
+function nextFolderState(box: HTMLButtonElement): FolderState {
+	const index = FOLDER_STATES.findIndex(
+		([value]) => value === box.dataset['state']
+	);
+	return FOLDER_STATES[(index + 1) % FOLDER_STATES.length]?.[0] ?? 'none';
+}
+
+// A compact, lazily loaded folder tree. Each folder can be taken in (✓),
+// left out (✗) or left alone; a choice covers the folder's whole branch,
+// and a choice deeper down overrules one above it. Changes are applied
+// after a pause (FOLDER_DEBOUNCE_MS), with "Toepassen", or on closing.
 function folderPicker(scope: FilterScope): HTMLElement {
 	const details = document.createElement('details');
 	details.className = 'avpvh-filter-folders';
@@ -474,7 +526,14 @@ function folderPicker(scope: FilterScope): HTMLElement {
 		summary.textContent =
 			selected.length === 0
 				? 'Mappen: alles'
-				: `Mappen: ${selected.map(({ name }) => name).join(', ')}`;
+				: `Mappen: ${folderNames(selected)}`;
+	};
+	const stateOf = (folderId: string): FolderState => {
+		const chosen = selectedById.get(folderId);
+		if (chosen === undefined) {
+			return 'none';
+		}
+		return chosen.exclude === true ? 'out' : 'in';
 	};
 	updateSummary();
 	details.appendChild(summary);
@@ -548,25 +607,24 @@ function folderPicker(scope: FilterScope): HTMLElement {
 		const currentSelected = Array.from(selectedById.values());
 		allBox.checked = currentSelected.length === 0;
 
-		tree.querySelectorAll<HTMLInputElement>(
-			'input[data-folder-id]'
-		).forEach((b) => {
-			const folderId = b.dataset['folderId'];
-			const folderPath = b.dataset['folderPath'];
-			if (
-				folderId === undefined ||
-				folderId === '' ||
-				folderPath === undefined ||
-				folderPath === ''
-			) {
+		tree.querySelectorAll<HTMLButtonElement>(
+			'button[data-folder-id]'
+		).forEach((box) => {
+			const folderId = box.dataset['folderId'] ?? '';
+			const folderPath = box.dataset['folderPath'] ?? '';
+			if (folderId === '' || folderPath === '') {
 				return;
 			}
-			const isChecked = selectedById.has(folderId);
-			b.checked = isChecked;
-			const hasDescendant = currentSelected.some(
-				(f) => f.id !== folderId && f.path.startsWith(`${folderPath}/`)
+			const state = stateOf(folderId);
+			showFolderState(box, state);
+			// Something chosen further down: shown as a partial mark.
+			box.classList.toggle(
+				'avpvh-filter-folder-partial',
+				state === 'none' &&
+					currentSelected.some((f) =>
+						f.path.startsWith(`${folderPath}/`)
+					)
 			);
-			b.indeterminate = !isChecked && hasDescendant;
 		});
 	};
 
@@ -602,11 +660,7 @@ function folderPicker(scope: FilterScope): HTMLElement {
 			toggle.textContent = '▸';
 			toggle.title = 'Submappen tonen';
 			const label = document.createElement('label');
-			const box = document.createElement('input');
-			box.type = 'checkbox';
-			box.dataset['folderId'] = folder.id;
-			box.dataset['folderPath'] = folder.path;
-			box.checked = selectedById.has(folder.id);
+			const box = folderBox(folder, stateOf(folder.id));
 
 			const children = document.createElement('ul');
 			children.className = 'avpvh-filter-folder-tree';
@@ -617,23 +671,30 @@ function folderPicker(scope: FilterScope): HTMLElement {
 				(f) =>
 					f.id !== folder.id && f.path.startsWith(`${folder.path}/`)
 			);
-			box.indeterminate = !box.checked && hasSelectedDescendant;
+			box.classList.toggle(
+				'avpvh-filter-folder-partial',
+				stateOf(folder.id) === 'none' && hasSelectedDescendant
+			);
 
-			box.addEventListener('change', () => {
-				if (box.checked) {
-					allBox.checked = false;
-					selectedById.set(folder.id, folder);
-					// A chosen branch already contains its chosen descendants.
+			box.addEventListener('click', () => {
+				const next = nextFolderState(box);
+				if (next === 'none') {
+					selectedById.delete(folder.id);
+				} else {
+					const exclude = next === 'out';
+					selectedById.set(
+						folder.id,
+						exclude ? { ...folder, exclude } : folder
+					);
+					// Below a branch, the same choice again adds nothing.
 					for (const chosen of Array.from(selectedById.values())) {
 						if (
-							chosen.id !== folder.id &&
-							chosen.path.startsWith(`${folder.path}/`)
+							chosen.path.startsWith(`${folder.path}/`) &&
+							(chosen.exclude === true) === exclude
 						) {
 							selectedById.delete(chosen.id);
 						}
 					}
-				} else {
-					selectedById.delete(folder.id);
 				}
 				updateTreeState();
 				updateSummary();
