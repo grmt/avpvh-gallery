@@ -5,7 +5,7 @@ updates:
   schedule:
     interval: daily
   assignees:
-    - marekdedic
+    - grmt
 - package-ecosystem: npm
   directory: "/"
   # eslint-plugin-react 7.37.5 supports ESLint through 9 only.
@@ -16,10 +16,10 @@ updates:
   schedule:
     interval: daily
   assignees:
-    - marekdedic
+    - grmt
 - package-ecosystem: composer
   directory: "/"
   schedule:
     interval: daily
   assignees:
-    - marekdedic
+    - grmt
