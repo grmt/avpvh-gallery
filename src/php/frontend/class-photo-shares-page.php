@@ -69,7 +69,7 @@ final class Photo_Shares_Page {
 	 * @return string
 	 */
 	public static function shortcode() {
-		if ( ! is_user_logged_in() ) {
+		if ( ! is_user_logged_in() || Photo_Shares_Cleanup::is_other_profile() ) {
 			return '';
 		}
 
