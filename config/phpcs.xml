@@ -19,7 +19,7 @@
 	<config name="testVersion" value="8.1-"/>
 	<rule ref="PHPCompatibilityWP"/>
 
-	<config name="minimum_supported_wp_version" value="4.9"/>
+	<config name="minimum_supported_wp_version" value="7.1"/>
 	<rule ref="WordPress">
 		<!-- Incorrectly doesn't count exceptions thrown from called functions -->
 		<exclude name="Squiz.Commenting.FunctionCommentThrowTag.WrongNumber"/>

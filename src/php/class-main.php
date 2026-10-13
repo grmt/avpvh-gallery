@@ -160,10 +160,10 @@ final class Main {
 	 * @return void
 	 */
 	public static function activate() {
-		if ( ! isset( $GLOBALS['wp_version'] ) || version_compare( $GLOBALS['wp_version'], '6.5', '<' ) ) {
+		if ( ! isset( $GLOBALS['wp_version'] ) || version_compare( $GLOBALS['wp_version'], '7.1', '<' ) ) {
 			deactivate_plugins( plugin_basename( __FILE__ ) );
 			wp_die(
-				esc_html__( 'Google Drive gallery requires at least WordPress 6.5', 'avpvh-gallery' )
+				esc_html__( 'Google Drive gallery requires at least WordPress 7.1', 'avpvh-gallery' )
 			);
 		}
 
