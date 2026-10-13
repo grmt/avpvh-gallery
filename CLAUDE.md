@@ -65,7 +65,7 @@ Four independent Vite configs build IIFE bundles (no shared chunks) via the shar
 - `root_selection.vite.config.ts` → admin Drive folder picker (`src/ts/admin/root_selection.ts`)
 - `tinymce.vite.config.ts` → classic editor shortcode dialog (`src/ts/admin/tinymce.ts`)
 
-WordPress globals (`@wordpress/*`, `jquery`, `tinymce`, `imagelightbox`, `justified-layout`) are declared as Rollup `external` so each bundle expects them on `window` rather than inlining them.
+WordPress globals (`@wordpress/*`, `jquery`, `tinymce`, `imagelightbox`) are declared as Rollup `external` so each bundle expects them on `window` rather than inlining them.
 
 ### Tests
 

@@ -111,28 +111,8 @@ gulp.task('build:deps:npm:imagesloaded', () =>
 );
 
 gulp.task(
-	'build:deps:npm:justified-layout',
-	gulp.series(
-		shell.task(['npm install --production=false'], {
-			cwd: 'node_modules/justified-layout',
-		}),
-		shell.task(['npm run build'], { cwd: 'node_modules/justified-layout' }),
-		() =>
-			gulp
-				.src(
-					'node_modules/justified-layout/dist/justified-layout.min.*'
-				)
-				.pipe(gulp.dest('dist/bundled/'))
-	)
-);
-
-gulp.task(
 	'build:deps:npm',
-	gulp.parallel(
-		'build:deps:npm:imagesloaded',
-		'build:deps:npm:justified-layout',
-		'build:deps:npm:photoswipe'
-	)
+	gulp.parallel('build:deps:npm:imagesloaded', 'build:deps:npm:photoswipe')
 );
 
 gulp.task('build:deps', gulp.parallel('build:deps:composer', 'build:deps:npm'));

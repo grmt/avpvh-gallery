@@ -67,7 +67,6 @@ final class Shortcode {
 			'bundled/imagesloaded.pkgd.min.js',
 			array( 'jquery' )
 		);
-		Script_And_Style_Helpers::register_script( 'avpvh_justified-layout', 'bundled/justified-layout.min.js' );
 		add_shortcode( 'avpvh', array( self::class, 'render' ) );
 	}
 
@@ -126,7 +125,6 @@ final class Shortcode {
 	public static function html( $atts ) {
 		wp_enqueue_style( 'avpvh_photoswipe_style' );
 		wp_enqueue_script( 'avpvh_imagesloaded' );
-		wp_enqueue_script( 'avpvh_justified-layout' );
 
 		$options = new Options_Proxy( $atts );
 
