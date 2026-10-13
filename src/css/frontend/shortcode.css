@@ -1316,7 +1316,7 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 .avpvh-pswp-comment-text {
 	display: block;
 	font-size: 12px;
-	word-wrap: break-word;
+	overflow-wrap: break-word;
 }
 
 .avpvh-pswp-comment-input {
