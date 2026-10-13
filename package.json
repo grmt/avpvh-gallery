@@ -60,7 +60,6 @@
   },
   "dependencies": {
     "imagesloaded": "^5.0.0",
-    "justified-layout": "github:skaut/justified-layout",
     "photoswipe": "^5.4.4"
   },
   "devDependencies": {

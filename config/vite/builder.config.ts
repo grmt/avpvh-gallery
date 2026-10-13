@@ -20,7 +20,6 @@ export function viteConfig(
 					'@wordpress/editor',
 					'@wordpress/element',
 					'jquery',
-					'justified-layout',
 					'tinymce',
 				],
 				output: {
@@ -32,7 +31,6 @@ export function viteConfig(
 						'@wordpress/editor': 'wp.editor',
 						'@wordpress/element': 'wp.element',
 						jquery: 'jQuery',
-						'justified-layout': "require('justified-layout')",
 						tinymce: 'tinymce',
 					},
 				},
