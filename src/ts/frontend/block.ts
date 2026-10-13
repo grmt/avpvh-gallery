@@ -10,32 +10,12 @@ function renderFrontend(): null {
 function extractFromShortcode(
 	attributes: ShortcodeToBlockTransformAttributes
 ): Array<string> {
-	if (!attributes.named['path']) {
+	const path = attributes.named['path'];
+	if (path === undefined || path === '') {
 		return [];
 	}
-	return attributes.named['path'].replace(/^\/+|\/+$/g, '').split('/');
+	return path.replace(/^\/+|\/+$/g, '').split('/');
 }
-
-// @wordpress/blocks' own bundled BlockTransform type doesn't declare `tag`/
-// `attributes`, even though the real Block API requires `tag` to match a
-// shortcode's name for `type: 'shortcode'` transforms. Building this as a
-// standalone value (rather than an inline literal in the call below) avoids
-// TypeScript's excess-property check flagging that upstream gap.
-const shortcodeTransform = {
-	from: [
-		{
-			type: 'shortcode' as const,
-			tag: 'avpvh',
-			priority: 15,
-			attributes: {
-				path: {
-					type: 'string',
-					shortcode: extractFromShortcode,
-				},
-			},
-		},
-	],
-};
 
 registerBlockType('avpvh-gallery/gallery', {
 	title: avpvhBlockLocalize.block_name,
@@ -83,5 +63,19 @@ registerBlockType('avpvh-gallery/gallery', {
 	},
 	edit: AvpvhEditorComponent,
 	save: renderFrontend,
-	transforms: shortcodeTransform,
+	transforms: {
+		from: [
+			{
+				type: 'shortcode',
+				tag: 'avpvh',
+				priority: 15,
+				attributes: {
+					path: {
+						type: 'string',
+						shortcode: extractFromShortcode,
+					},
+				},
+			},
+		],
+	},
 });
