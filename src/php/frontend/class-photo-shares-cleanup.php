@@ -88,6 +88,31 @@ final class Photo_Shares_Cleanup {
 	}
 
 	/**
+	 * Whether the page is someone else's profile (an admin opening
+	 * ?member_id=…): the list only ever holds the viewer's own shares, so it
+	 * must not appear there as if they were that member's.
+	 *
+	 * @return bool
+	 */
+	public static function is_other_profile() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only page parameter.
+		$requested = absint( $_GET['member_id'] ?? 0 );
+
+		if ( 0 === $requested ) {
+			return false;
+		}
+
+		if ( ! function_exists( 'avpvh_get_member_by_wp_user' ) ) {
+			return true;
+		}
+
+		$own = avpvh_get_member_by_wp_user( get_current_user_id() );
+		$own = is_object( $own ) ? get_object_vars( $own ) : array();
+
+		return (int) ( $own['id'] ?? 0 ) !== $requested;
+	}
+
+	/**
 	 * Back to the profile, at the share list (not the top of the page).
 	 * Also used by Photo_Shares_Page's buttons.
 	 *
