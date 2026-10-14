@@ -1,7 +1,7 @@
 === AVPVH Gallery ===
 Contributors: grmt
 Tags: google drive, gallery, google drive gallery, image gallery, video gallery
-Requires at least: 6.5
+Requires at least: 7.1
 Tested up to: 7.1
 Stable tag: 2.13.14.142
 Requires PHP: 8.1

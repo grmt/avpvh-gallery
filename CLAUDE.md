@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-WordPress plugin (`avpvh-gallery`) that renders galleries on a WP site from images/videos stored in Google Drive. Supports PHP 8.1+ and WordPress 6.5+ — language features and APIs must respect those floors.
+WordPress plugin (`avpvh-gallery`) that renders galleries on a WP site from images/videos stored in Google Drive. Supports PHP 8.1+ and WordPress 7.1+ (the latest release) — language features and APIs must respect those floors.
 
 ## Deploy
 
