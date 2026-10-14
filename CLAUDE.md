@@ -11,10 +11,10 @@ WordPress plugin (`avpvh-gallery`) that renders galleries on a WP site from imag
 After `npm run build`, push `dist/` to the live server (excludes `vendor/` — already present server-side):
 
 ```bash
-rsync -av --omit-dir-times --exclude='vendor/' dist/ grmt@avpvh.nl:/opt/docker/volumes/html/wp-content-pvh/plugins/avpvh-gallery/
+rsync -av --omit-dir-times --exclude='vendor/' dist/ "$AVPVH_DEPLOY_HOST":/opt/docker/volumes/html/wp-content-pvh/plugins/avpvh-gallery/
 ```
 
-SSH key is auto-selected from `~/.ssh/` (no explicit `-i` needed). Directory-timestamp warnings can be ignored — the files themselves transfer correctly.
+The server login comes from `$AVPVH_DEPLOY_HOST` or the ignored `deploy.local.env` (`AVPVH_DEPLOY_HOST=<user>@<server>`); never write it out in the repo. SSH key is auto-selected from `~/.ssh/` (no explicit `-i` needed). Directory-timestamp warnings can be ignored — the files themselves transfer correctly.
 
 ## Git workflow
 

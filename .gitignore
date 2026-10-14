@@ -192,3 +192,6 @@ clover.xml
 
 .claude/worktrees/
 .wp-env/
+
+# Local settings, e.g. deploy.local.env with the server login
+*.local.*
