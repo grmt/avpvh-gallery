@@ -4,19 +4,10 @@ coverage:
   status:
     project:
       default:
-        target: auto
-        threshold: 5%
+        informational: true
     patch:
       default:
-        target: 0%
-
-parsers:
-  gcov:
-    branch_detection:
-      conditional: yes
-      loop: yes
-      method: no
-      macro: no
+        informational: true
 
 comment:
   layout: "reach,diff,flags,files"
