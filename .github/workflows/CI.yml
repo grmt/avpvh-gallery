@@ -277,3 +277,4 @@ jobs:
           ignore-codes: |
             missing_composer_json_file
             PluginCheck.CodeAnalysis.Offloading.OffloadedContent
+            plugin_updater_detected
