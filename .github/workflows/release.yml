@@ -1,0 +1,66 @@
+name: Release Plugin ZIP
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  php-version: 8.3
+  node-version: 24.16.0
+  npm-version: 11.13.0
+
+jobs:
+  release:
+    name: Build & Publish Release ZIP
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.php-version }}
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install -n --prefer-dist
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.node-version }}
+
+      - name: Build plugin dist
+        run: |
+          npm install -g npm@${{ env.npm-version }}
+          npm ci
+          npm run build
+
+      - name: Build avpvh-gallery.zip
+        run: |
+          PLUGIN_SLUG="avpvh-gallery"
+          BUILD_DIR="${RUNNER_TEMP}/${PLUGIN_SLUG}"
+          rm -rf "${BUILD_DIR}"
+          cp -r dist "${BUILD_DIR}"
+          (cd "${RUNNER_TEMP}" && zip -r "${GITHUB_WORKSPACE}/${PLUGIN_SLUG}.zip" "${PLUGIN_SLUG}" -q)
+          ls -lh "${GITHUB_WORKSPACE}/${PLUGIN_SLUG}.zip"
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" avpvh-gallery.zip --clobber
+          else
+            gh release create "${TAG}" avpvh-gallery.zip \
+              --title "AVPVH Gallery ${TAG}" \
+              --generate-notes
+          fi
