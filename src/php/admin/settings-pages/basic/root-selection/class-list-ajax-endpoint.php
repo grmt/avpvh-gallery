@@ -91,8 +91,8 @@ final class List_Ajax_Endpoint {
 			)
 		)->then(
 			null,
-			static function ( $e ) {
-				if ( $e instanceof File_Not_Found_Exception || $e instanceof Drive_Not_Found_Exception ) {
+			static function ( $exception ) {
+				if ( $exception instanceof File_Not_Found_Exception || $exception instanceof Drive_Not_Found_Exception ) {
 					return array(
 						'path'      => array(),
 						'path_ids'  => array(),
@@ -103,7 +103,7 @@ final class List_Ajax_Endpoint {
 					);
 				}
 
-				return new RejectedPromise( $e );
+				return new RejectedPromise( $exception );
 			}
 		)->then(
 			static function ( $ret ) {
