@@ -12,7 +12,7 @@ export function viteConfig(
 				name: entry,
 				formats: ['iife'],
 			},
-			rollupOptions: {
+			rolldownOptions: {
 				external: [
 					'@wordpress/block-editor',
 					'@wordpress/blocks',

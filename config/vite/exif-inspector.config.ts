@@ -8,7 +8,7 @@ export default defineConfig({
 			name: 'exifInspector',
 			formats: ['iife'],
 		},
-		rollupOptions: {
+		rolldownOptions: {
 			output: {
 				entryFileNames: 'admin/js/exif-inspector.min.js',
 			},

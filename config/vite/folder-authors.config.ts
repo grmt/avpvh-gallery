@@ -8,7 +8,7 @@ export default defineConfig({
 			name: 'folderAuthors',
 			formats: ['iife'],
 		},
-		rollupOptions: {
+		rolldownOptions: {
 			output: {
 				entryFileNames: 'admin/js/folder-authors.min.js',
 			},
