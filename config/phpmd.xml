@@ -13,6 +13,13 @@
         </properties>
 	</rule>
 	CouplingBetweenObjects maximum = 20
-	<rule ref="rulesets/naming.xml"/>
+	<rule ref="rulesets/naming.xml">
+		<exclude name="LongMethodName" />
+	</rule>
+	<rule ref="rulesets/naming.xml/LongMethodName">
+		<properties>
+			<property name="maximum" value="60" />
+		</properties>
+	</rule>
 	<rule ref="rulesets/unusedcode.xml"/>
 </ruleset>

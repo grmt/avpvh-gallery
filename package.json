@@ -40,7 +40,7 @@
     "lint:css": "run-p -c --aggregate-output lint:css:*",
     "lint:php:phan": "export PHAN_DISABLE_XDEBUG_WARN=1; vendor/bin/phan --allow-polyfill-parser --load-baseline=.phan/baseline.php",
     "lint:php:phpcs": "vendor/bin/phpcs --standard=config/phpcs.xml",
-    "lint:php:phpmd": "vendor/bin/phpmd src,tests,.phan/config.php,config/scoper.inc.php text config/phpmd.xml",
+    "lint:php:phpmd": "vendor/bin/phpmd analyze --no-progress --format text --ruleset config/phpmd.xml src tests .phan/config.php config/scoper.inc.php",
     "lint:php:phpstan": "vendor/bin/phpstan --configuration=config/phpstan.neon",
     "lint:php": "run-p -c --aggregate-output lint:php:*",
     "lint:ts:eslint": "eslint --color 'src/**/*.ts' 'config/**/*.{js,ts}'",
