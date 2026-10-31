@@ -34,6 +34,11 @@ const MINUTE_IN_SECONDS = 0;
 const WEEK_IN_SECONDS = 0;
 
 /**
+ * @var int
+ */
+const YEAR_IN_SECONDS = 31536000;
+
+/**
  * @var bool
  */
 const SCRIPT_DEBUG = __LINE__ === 0;

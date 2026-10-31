@@ -29,6 +29,9 @@ use WP_REST_Response;
  * downloads and parses the file's full EXIF data for that view. A photo an
  * admin has never inspected simply has no date to show here yet.
  *
+ * Given the photo's folder, its date correction applies (see
+ * Folder_Date_Correction): an ignored date comes back as null.
+ *
  * @phan-constructor-used-for-side-effects
  */
 final class Exif_Date_REST {
@@ -52,8 +55,12 @@ final class Exif_Date_REST {
 			'exif-date',
 			array(
 				'args'                => array(
-					'file_id' => array(
+					'file_id'   => array(
 						'required' => true,
+						'type'     => 'string',
+					),
+					'folder_id' => array(
+						'required' => false,
 						'type'     => 'string',
 					),
 				),
@@ -74,7 +81,8 @@ final class Exif_Date_REST {
 	 */
 	public function get_exif_date( $request ) {
 		global $wpdb;
-		$file_id = sanitize_text_field( (string) $request->get_param( 'file_id' ) );
+		$file_id   = sanitize_text_field( (string) $request->get_param( 'file_id' ) );
+		$folder_id = sanitize_text_field( (string) $request->get_param( 'folder_id' ) );
 
 		if ( '' === $file_id ) {
 			return new WP_Error( 'invalid_file', 'file_id is required', array( 'status' => 400 ) );
@@ -91,12 +99,17 @@ final class Exif_Date_REST {
 			ARRAY_A
 		);
 
-		$stored = is_array( $cached ) ? $cached['original_datetime'] : null;
+		$stored = is_array( $cached ) && null !== $cached['original_datetime']
+			? Folder_Date_Correction::apply(
+				(string) $cached['original_datetime'],
+				'' === $folder_id ? null : Folder_Date_Correction::for_folder( $folder_id )
+			)
+			: '';
 
 		return new WP_REST_Response(
 			// The frontend's EXIF date formatter expects EXIF's own "Y:m:d H:i:s" style
 			// (colons throughout); MySQL's DATETIME format uses dashes in the date part.
-			array( 'original_datetime' => null !== $stored ? str_replace( '-', ':', $stored ) : null ),
+			array( 'original_datetime' => '' !== $stored ? str_replace( '-', ':', $stored ) : null ),
 			200
 		);
 	}

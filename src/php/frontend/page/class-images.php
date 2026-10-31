@@ -16,6 +16,7 @@ use Avpvh\Exceptions\Internal_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Exceptions\Unsupported_Value_Exception;
 use Avpvh\Frontend\API_Fields;
+use Avpvh\Frontend\Folder_Date_Correction;
 use Avpvh\Frontend\Options_Proxy;
 use Avpvh\Frontend\Pagination_Helper;
 use Avpvh\Frontend\Paging_Pagination_Helper;
@@ -103,7 +104,10 @@ final class Images {
 
 		return API_Facade::list_images( $parent_id, $fields, $pagination_helper, $order_by )->then(
 			static function ( $image_response ) use ( $options, $parent_id ) {
-				$image_response = self::filter_excluded( $image_response );
+				$image_response = Folder_Date_Correction::apply_to_records(
+					self::filter_excluded( $image_response ),
+					$parent_id
+				);
 				$images         = array_map(
 					static function ( $image ) use ( $options, $parent_id ) {
 						return self::format_image( $image, $options, $parent_id );
@@ -142,7 +146,7 @@ final class Images {
 			static function ( $image ) use ( $options, $parent_id ) {
 				return self::format_image( $image, $options, $parent_id );
 			},
-			self::filter_excluded( $records )
+			Folder_Date_Correction::apply_to_records( self::filter_excluded( $records ), $parent_id )
 		);
 
 		return self::merge_corrections( $images, $parent_id, $options );
@@ -190,7 +194,10 @@ final class Images {
 
 		return API_Facade::list_images( $parent_id, $fields, $all, 'name' )->then(
 			static function ( $records ) use ( $parent_id, $pagination_helper, $options, $newest_first ) {
-				$sorted = Photo_Date_Order::sort_records( self::filter_excluded( $records ) );
+				$sorted = Photo_Date_Order::sort_records(
+					Folder_Date_Correction::apply_to_records( self::filter_excluded( $records ), $parent_id ),
+					$parent_id
+				);
 				$page   = array();
 				$pagination_helper->iterate(
 					$newest_first ? array_reverse( $sorted ) : $sorted,

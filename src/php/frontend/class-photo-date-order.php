@@ -28,6 +28,9 @@ use Avpvh\API_Facade;
  * the year of the folder they're in ("1983 Grobbendonk"), then by that date;
  * a folder's photos by that date alone. Undated ones come last.
  *
+ * A folder can have its photos' EXIF date ignored or shifted, for a device
+ * with a wrong clock (see Folder_Date_Correction).
+ *
  * Folder years and the Drive-side dates are cached for a week, so ordering
  * the same matches again needs no Drive requests.
  */
@@ -49,10 +52,11 @@ final class Photo_Date_Order {
 	private const YEAR_DEPTH = 4;
 
 	/**
-	 * Transient: photo ID => its date without the EXIF cache ('Y-m-d
-	 * H:i:s', '' when unknown; see record_date()).
+	 * Transient: photo ID => the Drive fields its date is taken from apart
+	 * from the EXIF cache (see record_date()), kept apart so a folder's date
+	 * correction can still be applied to them.
 	 */
-	private const DRIVE_DATES_KEY = 'avpvh_photo_record_dates';
+	private const DRIVE_DATES_KEY = 'avpvh_photo_date_records';
 
 	/**
 	 * The photos in date order: by folder year, then by date.
@@ -66,14 +70,29 @@ final class Photo_Date_Order {
 			return array_values( $ids );
 		}
 
-		$years = self::years( $ids );
-		$exif  = self::exif_dates( $ids );
-		$other = self::record_dates( array_values( array_diff( $ids, array_keys( $exif ) ) ) );
-		$keys  = array();
+		$years   = self::years( $ids );
+		$fixes   = Folder_Date_Correction::for_photos( $ids );
+		$exif    = self::exif_dates( $ids );
+		$records = self::date_records(
+			array_values(
+				array_filter(
+					$ids,
+					static function ( $file_id ) use ( $exif, $fixes ) {
+						return ! isset( $exif[ $file_id ] )
+							|| Folder_Date_Correction::IGNORE === ( $fixes[ $file_id ]['mode'] ?? '' );
+					}
+				)
+			)
+		);
+		$keys    = array();
 
 		foreach ( $ids as $file_id ) {
 			$year             = $years[ $file_id ] ?? 0;
-			$date             = $exif[ $file_id ] ?? ( $other[ $file_id ] ?? '' );
+			$fix              = $fixes[ $file_id ] ?? null;
+			$date             = Folder_Date_Correction::apply( $exif[ $file_id ] ?? '', $fix );
+			$date             = '' === $date
+				? self::corrected_record_date( $records[ $file_id ] ?? array(), $fix )
+				: $date;
 			$keys[ $file_id ] = array( 0 === $year ? 1 : 0, $year, '' === $date ? 1 : 0, $date, $file_id );
 		}
 
@@ -85,17 +104,21 @@ final class Photo_Date_Order {
 	/**
 	 * Drive image records from one folder in date order, then by name.
 	 *
-	 * @param array<array<string, mixed>> $records Parsed Drive records with id, name, createdTime and imageMediaMetadata.time.
+	 * @param array<array<string, mixed>> $records   Parsed Drive records with id, name, createdTime and imageMediaMetadata.time,
+	 *                                               with the folder's date correction applied (Folder_Date_Correction::apply_to_records()).
+	 * @param string                      $folder_id The folder they're in, for its date correction of the EXIF cache.
 	 *
 	 * @return array<array<string, mixed>>
 	 */
-	public static function sort_records( array $records ) {
+	public static function sort_records( array $records, $folder_id = '' ) {
 		$records = array_values( $records );
 		$exif    = self::exif_dates( array_map( 'strval', array_column( $records, 'id' ) ) );
+		$fix     = '' === $folder_id ? null : Folder_Date_Correction::for_folder( $folder_id );
 		$keys    = array();
 
 		foreach ( $records as $index => $record ) {
-			$date           = $exif[ (string) $record['id'] ] ?? self::record_date( $record );
+			$date           = Folder_Date_Correction::apply( $exif[ (string) $record['id'] ] ?? '', $fix );
+			$date           = '' === $date ? self::record_date( $record ) : $date;
 			$keys[ $index ] = array( '' === $date ? 1 : 0, $date, (string) ( $record['name'] ?? '' ) );
 		}
 
@@ -268,14 +291,27 @@ final class Photo_Date_Order {
 	}
 
 	/**
-	 * Each photo's date apart from the EXIF cache (see record_date()),
-	 * fetched from Drive once and cached.
+	 * A photo's date from its cached Drive fields, with its folder's date
+	 * correction applied.
+	 *
+	 * @param array<string, mixed>                  $record Cached Drive fields (see date_records()).
+	 * @param array{mode: string, offset: int}|null $fix    The folder's date correction.
+	 *
+	 * @return string 'Y-m-d H:i:s' or ''.
+	 */
+	private static function corrected_record_date( array $record, $fix ) {
+		return self::record_date( null === $fix ? $record : Folder_Date_Correction::apply_to_record( $record, $fix ) );
+	}
+
+	/**
+	 * The Drive fields each photo's date is taken from apart from the EXIF
+	 * cache (see record_date()), fetched from Drive once and cached.
 	 *
 	 * @param array<string> $ids Drive file IDs.
 	 *
-	 * @return array<string, string> Photo ID => 'Y-m-d H:i:s' or ''.
+	 * @return array<string, array<string, mixed>> Photo ID => name, createdTime and imageMediaMetadata.time.
 	 */
-	private static function record_dates( array $ids ) {
+	private static function date_records( array $ids ) {
 		$cached  = get_transient( self::DRIVE_DATES_KEY );
 		$known   = is_array( $cached ) ? $cached : array();
 		$missing = array_values( array_diff( $ids, array_keys( $known ) ) );
@@ -301,7 +337,10 @@ final class Photo_Date_Order {
 			}
 
 			foreach ( API_Client::execute( $promises ) as $file_id => $file ) {
-				$known[ (string) $file_id ] = self::record_date( is_array( $file ) ? $file : array() );
+				$known[ (string) $file_id ] = array_intersect_key(
+					is_array( $file ) ? $file : array(),
+					array_flip( array( 'name', 'createdTime', 'imageMediaMetadata' ) )
+				);
 			}
 
 			set_transient( self::DRIVE_DATES_KEY, $known, WEEK_IN_SECONDS );

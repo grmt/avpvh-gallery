@@ -54,6 +54,71 @@ declare const avpvhExifInspector: {
 	preview_size: string;
 };
 
+// The EXIF Inspector's folder date correction fields (see
+// Folder_Date_Correction); these helpers need no inspector state.
+function folderDateInput(id: string): HTMLInputElement | null {
+	return document.getElementById(id) as HTMLInputElement | null;
+}
+
+function showFolderDateShift(): void {
+	const select = document.getElementById(
+		'folder-date-mode'
+	) as HTMLSelectElement | null;
+	const shift = document.getElementById('folder-date-shift');
+	if (shift) {
+		shift.style.display = select?.value === 'shift' ? 'inline' : 'none';
+	}
+}
+
+// An offset in seconds as days, hours and minutes, each with its sign.
+function offsetParts(offset: number): [number, number, number] {
+	const sign = offset < 0 ? -1 : 1;
+	const abs = Math.abs(offset);
+	return [
+		sign * Math.floor(abs / 86400),
+		sign * Math.floor((abs % 86400) / 3600),
+		sign * Math.round((abs % 3600) / 60),
+	];
+}
+
+function showFolderDateOffset(offset: number): void {
+	const [days, hours, minutes] = offsetParts(offset);
+	const fields: Array<[string, number]> = [
+		['folder-date-days', days],
+		['folder-date-hours', hours],
+		['folder-date-minutes', minutes],
+	];
+	for (const [id, value] of fields) {
+		const input = folderDateInput(id);
+		if (input) {
+			input.value = String(value);
+		}
+	}
+}
+
+function folderDateOffsetInput(): number {
+	const value = (id: string): number => {
+		const parsed = Number.parseInt(folderDateInput(id)?.value ?? '', 10);
+		return Number.isNaN(parsed) ? 0 : parsed;
+	};
+	return (
+		value('folder-date-days') * 86400 +
+		value('folder-date-hours') * 3600 +
+		value('folder-date-minutes') * 60
+	);
+}
+
+function folderDateStatus(mode: string, offset: number): string {
+	if (mode === 'ignore') {
+		return 'Genegeerd: foto’s krijgen de datum uit hun bestandsnaam, of staan op naam.';
+	}
+	if (mode !== 'shift') {
+		return 'De EXIF-datum wordt gebruikt zoals hij is.';
+	}
+	const [days, hours, minutes] = offsetParts(Math.abs(offset));
+	return `Alle EXIF-datums in deze map ${offset < 0 ? '−' : '+'}${days.toString()} d ${hours.toString()} u ${minutes.toString()} min.`;
+}
+
 class ExifInspector {
 	private static readonly SAVE_DEBOUNCE_MS = 500;
 
@@ -428,6 +493,11 @@ class ExifInspector {
 		string,
 		{ r: number; h: boolean; v: boolean }
 	> = {};
+	// The folder's saved EXIF date correction (see Folder_Date_Correction).
+	private folderDateCorrection: { mode: string; offset: number } = {
+		mode: '',
+		offset: 0,
+	};
 	private photoCorrectionsLoaded = false;
 	// Size keys whose preview card is temporarily showing Google's raw,
 	// uncorrected bytes (via the "Origineel/Resultaat" toggle) instead of the
@@ -1255,6 +1325,22 @@ class ExifInspector {
 							<button id="folder-mirror-btn" type="button">Hele map spiegelen</button>
 							<span id="folder-correction-status">Nieuwe foto's erven deze correctie automatisch.</span>
 						</div>
+						<div id="folder-date-bar" class="folder-correction-bar folder-date-bar" style="display:none;">
+							<label for="folder-date-mode">EXIF-datum in deze map</label>
+							<select id="folder-date-mode">
+								<option value="">gebruiken</option>
+								<option value="ignore">niet gebruiken</option>
+								<option value="shift">verschuiven</option>
+							</select>
+							<span id="folder-date-shift" style="display:none;">
+								met <input id="folder-date-days" type="number" step="1" value="0" style="width:6em;" /> dagen
+								<input id="folder-date-hours" type="number" step="1" value="0" style="width:4em;" /> uur
+								<input id="folder-date-minutes" type="number" step="1" value="0" style="width:4em;" /> min
+								· of: deze foto is echt van <input id="folder-date-actual" type="datetime-local" step="1" />
+							</span>
+							<button id="folder-date-save" type="button">Opslaan</button>
+							<span id="folder-date-status"></span>
+						</div>
 						<div class="previews-section">
 							<h3>Voorbeeldformaten</h3>
 							<div id="previews-container" class="previews-container"></div>
@@ -1458,6 +1544,10 @@ class ExifInspector {
 						padding: 8px;
 						background: #eef6fc;
 						border-left: 3px solid #2271b1;
+					}
+
+					.folder-date-bar {
+						flex-wrap: wrap;
 					}
 
 					.folder-correction-bar.is-active {
@@ -2259,6 +2349,7 @@ class ExifInspector {
 			?.addEventListener('click', () => {
 				void this.toggleFolderMirror();
 			});
+		this.bindFolderDateCorrection();
 		document
 			.getElementById('photo-folder-exception-checkbox')
 			?.addEventListener('change', (event) => {
@@ -3529,6 +3620,7 @@ class ExifInspector {
 
 	private async loadFolderCorrections(folderId: string): Promise<void> {
 		this.folderTransformsBySize = {};
+		void this.loadFolderDateCorrection(folderId);
 		try {
 			const response = await fetch(
 				`${this.restUrl}folder-corrections?folder_id=${encodeURIComponent(folderId)}`,
@@ -3550,6 +3642,152 @@ class ExifInspector {
 			/* non-fatal */
 		}
 		this.updateFolderCorrectionUi();
+	}
+
+	private async loadFolderDateCorrection(folderId: string): Promise<void> {
+		this.folderDateCorrection = { mode: '', offset: 0 };
+		try {
+			const response = await fetch(
+				`${this.restUrl}folder-date-correction?folder_id=${encodeURIComponent(folderId)}`,
+				{
+					headers: { 'X-WP-Nonce': this.nonce },
+					credentials: 'include',
+				}
+			);
+			if (response.ok) {
+				const data = (await response.json()) as {
+					mode?: string;
+					offset_seconds?: number;
+				};
+				this.folderDateCorrection = {
+					mode: data.mode ?? '',
+					offset: data.offset_seconds ?? 0,
+				};
+			}
+		} catch {
+			/* non-fatal */
+		}
+		this.renderFolderDateCorrection();
+	}
+
+	private bindFolderDateCorrection(): void {
+		document
+			.getElementById('folder-date-mode')
+			?.addEventListener('change', () => {
+				showFolderDateShift();
+			});
+		document
+			.getElementById('folder-date-actual')
+			?.addEventListener('change', () => {
+				this.offsetFromActualDate();
+			});
+		document
+			.getElementById('folder-date-save')
+			?.addEventListener('click', () => {
+				void this.saveFolderDateCorrection();
+			});
+	}
+
+	private renderFolderDateCorrection(): void {
+		const { mode, offset } = this.folderDateCorrection;
+		const select = document.getElementById(
+			'folder-date-mode'
+		) as HTMLSelectElement | null;
+		if (select) {
+			select.value = mode;
+		}
+		showFolderDateOffset(offset);
+		showFolderDateShift();
+		document
+			.getElementById('folder-date-bar')
+			?.classList.toggle('is-active', mode !== '');
+		const status = document.getElementById('folder-date-status');
+		if (status) {
+			status.textContent = folderDateStatus(mode, offset);
+		}
+	}
+
+	// "This photo was really taken on …": the offset from the current photo's
+	// EXIF date to that. Both are read as UTC, so no time zone gets in between.
+	private offsetFromActualDate(): void {
+		const exif = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}:\d{2}:\d{2})/.exec(
+			String(this.fullExifData['EXIF:DateTimeOriginal'] ?? '')
+		);
+		if (!exif) {
+			const status = document.getElementById('folder-date-status');
+			if (status) {
+				status.textContent =
+					'Deze foto heeft geen EXIF-datum om vanuit te rekenen.';
+			}
+			return;
+		}
+		const actual = folderDateInput('folder-date-actual');
+		const actualTime = Date.parse(`${actual?.value ?? ''}Z`);
+		if (Number.isNaN(actualTime)) {
+			return;
+		}
+		const exifTime = Date.parse(
+			`${exif[1]}-${exif[2]}-${exif[3]}T${exif[4]}Z`
+		);
+		showFolderDateOffset(Math.round((actualTime - exifTime) / 1000));
+	}
+
+	private async saveFolderDateCorrection(): Promise<void> {
+		const folder = ExifInspector.maybe(
+			this.folderStack[this.folderStack.length - 1]
+		);
+		const select = document.getElementById(
+			'folder-date-mode'
+		) as HTMLSelectElement | null;
+		if (!folder || !select) {
+			return;
+		}
+		const button = document.getElementById(
+			'folder-date-save'
+		) as HTMLButtonElement | null;
+		if (button) {
+			button.disabled = true;
+		}
+		try {
+			const response = await fetch(
+				`${this.restUrl}folder-date-correction`,
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce': this.nonce,
+					},
+					body: JSON.stringify({
+						folder_id: folder.id,
+						mode: select.value,
+						offset_seconds: folderDateOffsetInput(),
+					}),
+					credentials: 'include',
+				}
+			);
+			if (!response.ok) {
+				throw new Error('Datumcorrectie kon niet worden opgeslagen');
+			}
+			const data = (await response.json()) as {
+				mode: string;
+				offset_seconds: number;
+			};
+			this.folderDateCorrection = {
+				mode: data.mode,
+				offset: data.offset_seconds,
+			};
+		} catch (error) {
+			ExifInspector.showError(
+				error instanceof Error
+					? error.message
+					: 'Datumcorrectie kon niet worden opgeslagen'
+			);
+		} finally {
+			if (button) {
+				button.disabled = false;
+			}
+			this.renderFolderDateCorrection();
+		}
 	}
 
 	private folderMirrorActive(): boolean {
@@ -3668,6 +3906,10 @@ class ExifInspector {
 		if (bar) {
 			bar.style.display = hasFolder ? 'flex' : 'none';
 			bar.classList.toggle('is-active', active);
+		}
+		const dateBar = document.getElementById('folder-date-bar');
+		if (dateBar) {
+			dateBar.style.display = hasFolder ? 'flex' : 'none';
 		}
 		if (button) {
 			button.textContent = active
