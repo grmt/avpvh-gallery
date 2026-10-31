@@ -40,7 +40,7 @@ final class Move_Files_CLI {
 	 * Photo_Filter_Scope and Photo_Date_Order); stale after moving.
 	 */
 	// phpcs:ignore SlevomatCodingStandard.Classes.DisallowMultiConstantDefinition.DisallowedMultiConstantDefinition -- PHPCSUtils false positive on an array value.
-	private const FOLDER_CACHES = array( 'avpvh_filter_parents', 'avpvh_folder_years', 'avpvh_photo_record_dates' );
+	private const FOLDER_CACHES = array( 'avpvh_filter_parents', 'avpvh_folder_years', 'avpvh_photo_date_records' );
 
 	/**
 	 * Moves files as planned in a CSV with (at least) the columns file_id and
