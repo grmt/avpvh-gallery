@@ -25,9 +25,11 @@ use WP_REST_Response;
 final class Folder_Date_Correction_REST {
 
 	/**
-	 * Registers the REST routes.
+	 * Hooks the REST routes.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public static function init() {
 		add_action( 'rest_api_init', array( self::class, 'register_routes' ) );
 	}
 

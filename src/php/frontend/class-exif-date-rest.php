@@ -99,11 +99,9 @@ final class Exif_Date_REST {
 			ARRAY_A
 		);
 
-		$stored = is_array( $cached ) && null !== $cached['original_datetime']
-			? Folder_Date_Correction::apply(
-				(string) $cached['original_datetime'],
-				'' === $folder_id ? null : Folder_Date_Correction::for_folder( $folder_id )
-			)
+		$correction = '' === $folder_id ? null : Folder_Date_Correction::for_folder( $folder_id );
+		$stored     = is_array( $cached ) && null !== $cached['original_datetime']
+			? Folder_Date_Correction::apply( (string) $cached['original_datetime'], $correction )
 			: '';
 
 		return new WP_REST_Response(

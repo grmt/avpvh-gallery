@@ -67,7 +67,7 @@ final class Settings_Pages {
 		new Browse_REST();
 		new Exif_Data_REST();
 		new Corrections_REST();
-		new Folder_Date_Correction_REST();
+		Folder_Date_Correction_REST::init();
 		new Folder_Authors_REST();
 
 		if ( ! is_admin() ) {

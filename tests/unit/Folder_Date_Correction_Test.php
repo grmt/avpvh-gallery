@@ -13,6 +13,8 @@ final class Folder_Date_Correction_Test extends WP_UnitTestCase {
 
 	private const FOLDER_ID = 'fixture-folder-date-correction';
 
+	private const SCANNED = '2022-05-01 12:03:38';
+
 	/**
 	 * A scan from a film scanner whose clock starts at 2022-05-01 12:00.
 	 */
@@ -43,8 +45,8 @@ final class Folder_Date_Correction_Test extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_none_and_ignore() {
-		$this->assertSame( '2022-05-01 12:03:38', Folder_Date_Correction::apply( '2022-05-01 12:03:38', null ) );
-		$this->assertSame( '', Folder_Date_Correction::apply( '2022-05-01 12:03:38', self::fix( 'ignore', 0 ) ) );
+		$this->assertSame( self::SCANNED, Folder_Date_Correction::apply( self::SCANNED, null ) );
+		$this->assertSame( '', Folder_Date_Correction::apply( self::SCANNED, self::fix( 'ignore', 0 ) ) );
 	}
 
 	/**
@@ -55,11 +57,11 @@ final class Folder_Date_Correction_Test extends WP_UnitTestCase {
 	public function test_shift() {
 		$this->assertSame(
 			'2022-05-02 01:03:38',
-			Folder_Date_Correction::apply( '2022-05-01 12:03:38', self::fix( 'shift', 13 * HOUR_IN_SECONDS ) )
+			Folder_Date_Correction::apply( self::SCANNED, self::fix( 'shift', 13 * HOUR_IN_SECONDS ) )
 		);
 		$this->assertSame(
 			'2021-05-01 12:03:38',
-			Folder_Date_Correction::apply( '2022-05-01 12:03:38', self::fix( 'shift', -365 * DAY_IN_SECONDS ) )
+			Folder_Date_Correction::apply( self::SCANNED, self::fix( 'shift', -365 * DAY_IN_SECONDS ) )
 		);
 	}
 
