@@ -193,6 +193,8 @@ jobs:
         with:
           php-version: ${{ matrix.versions.php }}
           coverage: pcov
+          # pcov only instruments src/ by default; the tests run the plugin from dist/.
+          ini-values: pcov.directory=${{ github.workspace }}/dist
 
       - name: "Cache Composer dependencies"
         uses: actions/cache@v6
