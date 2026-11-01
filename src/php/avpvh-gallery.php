@@ -119,6 +119,7 @@ require_once __DIR__ . '/frontend/class-subject-tags.php';
 require_once __DIR__ . '/frontend/class-photo-places.php';
 require_once __DIR__ . '/frontend/class-like-visibility.php';
 require_once __DIR__ . '/frontend/class-photo-marks.php';
+require_once __DIR__ . '/frontend/class-folder-date-correction.php';
 require_once __DIR__ . '/frontend/class-photo-date-order.php';
 require_once __DIR__ . '/frontend/class-filter-memory.php';
 require_once __DIR__ . '/frontend/class-filter-sharing.php';

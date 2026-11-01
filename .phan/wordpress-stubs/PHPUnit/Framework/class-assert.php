@@ -32,6 +32,10 @@ class Assert {
 	public static function assertCount( $expected, $actual, $message = '' ) {}
 	/** @param string $filename @param string $message @return void */
 	public static function assertFileDoesNotExist( $filename, $message = '' ) {}
+	/** @param mixed $actual @param string $message @return void */
+	public static function assertNull( $actual, $message = '' ) {}
+	/** @param int|string $key @param array<mixed> $array @param string $message @return void */
+	public static function assertArrayNotHasKey( $key, $array, $message = '' ) {}
 	/** @param string $message @return never */
 	public static function fail( $message = '' ) { throw new \RuntimeException( $message ); }
 }

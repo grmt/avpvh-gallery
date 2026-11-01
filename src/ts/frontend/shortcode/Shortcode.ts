@@ -2385,26 +2385,31 @@ export class Shortcode {
 							slideEl instanceof HTMLElement
 								? (slideEl.dataset['avpvhId'] ?? '')
 								: '';
+						const folderId =
+							slideEl instanceof HTMLElement
+								? (slideEl.dataset['avpvhFolderId'] ?? '')
+								: '';
 						if (fileId === '') {
 							return;
 						}
-						void Shortcode.loadExifOriginalDate(fileId).then(
-							(originalDatetime) => {
-								if (
-									originalDatetime === null ||
-									instance.currSlide?.data.element !== slideEl
-								) {
-									return;
-								}
-								const formatted =
-									Shortcode.formatExifDate(originalDatetime);
-								if (formatted === '') {
-									return;
-								}
-								originalDateEl.textContent = formatted;
-								originalDateEl.style.display = '';
+						void Shortcode.loadExifOriginalDate(
+							fileId,
+							folderId
+						).then((originalDatetime) => {
+							if (
+								originalDatetime === null ||
+								instance.currSlide?.data.element !== slideEl
+							) {
+								return;
 							}
-						);
+							const formatted =
+								Shortcode.formatExifDate(originalDatetime);
+							if (formatted === '') {
+								return;
+							}
+							originalDateEl.textContent = formatted;
+							originalDateEl.style.display = '';
+						});
 					};
 					const onVisibilityChange = (): void => {
 						if ('visible' === document.visibilityState) {
@@ -4212,8 +4217,11 @@ export class Shortcode {
 	// Public — unlike loadExifOrientation(), this never gates on an admin-only
 	// localized URL. The endpoint itself is a pure cache read (see
 	// Exif_Date_REST), so it is cheap enough to call for every visitor.
+	// The folder applies its date correction, if it has one (see
+	// Folder_Date_Correction).
 	private static async loadExifOriginalDate(
-		fileId: string
+		fileId: string,
+		folderId: string
 	): Promise<string | null> {
 		const cached = Shortcode.exifOriginalDateCache.get(fileId);
 		if (cached !== undefined) {
@@ -4223,7 +4231,9 @@ export class Shortcode {
 		const url =
 			avpvhShortcodeLocalize.exif_date_url +
 			'?file_id=' +
-			encodeURIComponent(fileId);
+			encodeURIComponent(fileId) +
+			'&folder_id=' +
+			encodeURIComponent(folderId);
 		const request = fetch(url, { credentials: 'include' })
 			.then(async (response): Promise<string | null> => {
 				if (!response.ok) {

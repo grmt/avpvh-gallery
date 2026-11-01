@@ -9,4 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 class WP_UnitTestCase_Base extends TestCase {
 
+	/**
+	 * @return void
+	 */
+	public function set_up() {}
 }
