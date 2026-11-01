@@ -8,7 +8,7 @@ export default defineConfig({
 			name: 'cameraModelIndex',
 			formats: ['iife'],
 		},
-		rollupOptions: {
+		rolldownOptions: {
 			output: {
 				entryFileNames: 'admin/js/camera-model-index.min.js',
 			},

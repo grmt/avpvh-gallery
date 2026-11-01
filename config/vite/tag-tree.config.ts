@@ -8,7 +8,7 @@ export default defineConfig({
 			name: 'tagTree',
 			formats: ['iife'],
 		},
-		rollupOptions: {
+		rolldownOptions: {
 			output: {
 				entryFileNames: 'admin/js/tag-tree.min.js',
 			},
