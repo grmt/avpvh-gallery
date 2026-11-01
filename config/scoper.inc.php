@@ -110,9 +110,10 @@ return array(
 				);
 			}
 
+			// Monolog 1 writes array( ... ), Monolog 3 [ ... ].
 			$contents = safe_replace(
-				"array\('Monolog\\\\\\\\Utils', 'detectAndCleanUtf8'\)",
-				"array('\\\\{$replace_prefix}\\\\Monolog\\\\Utils', 'detectAndCleanUtf8')",
+				"(array\(|\[)'Monolog\\\\\\\\Utils', 'detectAndCleanUtf8'",
+				"\\1'\\\\{$replace_prefix}\\\\Monolog\\\\Utils', 'detectAndCleanUtf8'",
 				$contents
 			);
 			$contents = safe_replace(
