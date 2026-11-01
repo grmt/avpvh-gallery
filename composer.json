@@ -48,7 +48,7 @@
         "google/auth": "^1.19",
         "guzzlehttp/guzzle": "^7.0",
         "guzzlehttp/promises": "^1.5 || ^2.0",
-        "monolog/monolog": "^1.27.1",
+        "monolog/monolog": "^3.12.1",
         "paragonie/constant_time_encoding": "^1.1.0",
         "paragonie/random_compat": "^2.0.21",
         "psr/cache": "^1.0.1",
