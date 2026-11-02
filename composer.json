@@ -44,7 +44,7 @@
     "require": {
         "php": "^8.1",
         "google/apiclient": "^2.14.0",
-        "google/apiclient-services": "^0.302.0",
+        "google/apiclient-services": "^0.465.0",
         "google/auth": "^1.19",
         "guzzlehttp/guzzle": "^7.0",
         "guzzlehttp/promises": "^1.5 || ^2.0",
