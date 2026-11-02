@@ -1,25 +1,36 @@
+# Minor and patch updates come as one PR per ecosystem a week; majors stay
+# separate PRs.
 version: 2
 updates:
 - package-ecosystem: github-actions
   directory: "/"
+  groups:
+    actions:
+      update-types: [minor, patch]
   schedule:
-    interval: daily
+    interval: weekly
   assignees:
     - grmt
 - package-ecosystem: npm
   directory: "/"
+  groups:
+    npm:
+      update-types: [minor, patch]
   # eslint-plugin-react 7.37.5 supports ESLint through 9 only.
   # Revisit when its peer dependency includes ESLint 10.
   ignore:
     - dependency-name: eslint
       versions: ["10.x"]
   schedule:
-    interval: daily
+    interval: weekly
   assignees:
     - grmt
 - package-ecosystem: composer
   directory: "/"
+  groups:
+    composer:
+      update-types: [minor, patch]
   schedule:
-    interval: daily
+    interval: weekly
   assignees:
     - grmt
