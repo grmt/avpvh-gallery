@@ -54,6 +54,9 @@ return array(
 	'suppress_issue_types'                      => array(
 		'PhanPluginDuplicateConditionalNullCoalescing',
 		'PhanPluginMixedKeyNoKey',
+		// Phan 6 suggests a constant for closures held in variables; closures
+		// are only allowed in constant expressions from PHP 8.5.
+		'PhanVariableDefinitionCouldBeConstant',
 	),
 	'target_php_version'                        => '8.1',
 	'unused_variable_detection'                 => true,

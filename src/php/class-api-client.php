@@ -166,7 +166,6 @@ final class API_Client {
 		}
 
 		$key = wp_rand();
-		// @phan-suppress-next-line PhanPossiblyNonClassMethodCall
 		self::$current_batch->add( $request, $key );
 		$promise                                      = new Promise();
 		self::$pending_requests[ 'response-' . $key ] = static function ( $response ) use ( $transform, $promise ) {
@@ -223,7 +222,6 @@ final class API_Client {
 			}
 
 			$key = wp_rand();
-			// @phan-suppress-next-line PhanPossiblyNonClassMethodCall
 			self::$current_batch->add( $request( $page_token ), $key );
 			self::$pending_requests[ 'response-' . $key ] = static function (
 				$response
