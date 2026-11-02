@@ -1,0 +1,55 @@
+name: Release Plugin ZIP
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/CI.yml
+    permissions:
+      contents: read
+      id-token: write
+
+  release:
+    name: Publish Release ZIP
+    runs-on: ubuntu-latest
+    needs: ci
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: build-artifact
+          path: avpvh-gallery
+
+      - name: Build avpvh-gallery.zip
+        run: |
+          zip -r -q avpvh-gallery.zip avpvh-gallery
+          ls -lh avpvh-gallery.zip
+
+      - name: Upload ZIP
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: avpvh-gallery
+          path: avpvh-gallery.zip
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" avpvh-gallery.zip --clobber
+          else
+            gh release create "${TAG}" avpvh-gallery.zip \
+              --title "AVPVH Gallery ${TAG}" \
+              --generate-notes
+          fi
