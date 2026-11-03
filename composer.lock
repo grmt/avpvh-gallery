@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9a023d9327dbd54d4e5813219304831f",
+    "content-hash": "cd2f716c1b3039feccfbc1b90a2b0a98",
     "packages": [
         {
             "name": "firebase/php-jwt",
@@ -141,23 +141,23 @@
         },
         {
             "name": "google/apiclient-services",
-            "version": "v0.302.0",
+            "version": "v0.465.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/googleapis/google-api-php-client-services.git",
-                "reference": "ac872f59a7b4631b12628fe990c167d18a71c783"
+                "reference": "637e740b0f2d00b52fc285717d79437729bce897"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/googleapis/google-api-php-client-services/zipball/ac872f59a7b4631b12628fe990c167d18a71c783",
-                "reference": "ac872f59a7b4631b12628fe990c167d18a71c783",
+                "url": "https://api.github.com/repos/googleapis/google-api-php-client-services/zipball/637e740b0f2d00b52fc285717d79437729bce897",
+                "reference": "637e740b0f2d00b52fc285717d79437729bce897",
                 "shasum": ""
             },
             "require": {
-                "php": ">=5.6"
+                "php": "^8.1"
             },
             "require-dev": {
-                "phpunit/phpunit": "^5.7||^8.5.13"
+                "phpunit/phpunit": "^9.6"
             },
             "type": "library",
             "autoload": {
@@ -179,9 +179,9 @@
             ],
             "support": {
                 "issues": "https://github.com/googleapis/google-api-php-client-services/issues",
-                "source": "https://github.com/googleapis/google-api-php-client-services/tree/v0.302.0"
+                "source": "https://github.com/googleapis/google-api-php-client-services/tree/v0.465.1"
             },
-            "time": "2023-05-16T01:08:12+00:00"
+            "time": "2026-11-02T01:04:15+00:00"
         },
         {
             "name": "google/auth",
@@ -748,33 +748,29 @@
         },
         {
             "name": "paragonie/random_compat",
-            "version": "v2.0.21",
+            "version": "v9.99.100",
             "source": {
                 "type": "git",
                 "url": "https://github.com/paragonie/random_compat.git",
-                "reference": "96c132c7f2f7bc3230723b66e89f8f150b29d5ae"
+                "reference": "996434e5492cb4c3edcb9168db6fbb1359ef965a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/paragonie/random_compat/zipball/96c132c7f2f7bc3230723b66e89f8f150b29d5ae",
-                "reference": "96c132c7f2f7bc3230723b66e89f8f150b29d5ae",
+                "url": "https://api.github.com/repos/paragonie/random_compat/zipball/996434e5492cb4c3edcb9168db6fbb1359ef965a",
+                "reference": "996434e5492cb4c3edcb9168db6fbb1359ef965a",
                 "shasum": ""
             },
             "require": {
-                "php": ">=5.2.0"
+                "php": ">= 7"
             },
             "require-dev": {
-                "phpunit/phpunit": "*"
+                "phpunit/phpunit": "4.*|5.*",
+                "vimeo/psalm": "^1"
             },
             "suggest": {
                 "ext-libsodium": "Provides a modern crypto API that can be used to generate random bytes."
             },
             "type": "library",
-            "autoload": {
-                "files": [
-                    "lib/random.php"
-                ]
-            },
             "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
@@ -798,7 +794,7 @@
                 "issues": "https://github.com/paragonie/random_compat/issues",
                 "source": "https://github.com/paragonie/random_compat"
             },
-            "time": "2022-02-16T17:07:03+00:00"
+            "time": "2020-10-15T08:29:30+00:00"
         },
         {
             "name": "phpseclib/phpseclib",
@@ -912,20 +908,20 @@
         },
         {
             "name": "psr/cache",
-            "version": "1.0.1",
+            "version": "3.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/php-fig/cache.git",
-                "reference": "d11b50ad223250cf17b86e38383413f5a6764bf8"
+                "reference": "aa5030cfa5405eccfdcb1083ce040c2cb8d253bf"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/php-fig/cache/zipball/d11b50ad223250cf17b86e38383413f5a6764bf8",
-                "reference": "d11b50ad223250cf17b86e38383413f5a6764bf8",
+                "url": "https://api.github.com/repos/php-fig/cache/zipball/aa5030cfa5405eccfdcb1083ce040c2cb8d253bf",
+                "reference": "aa5030cfa5405eccfdcb1083ce040c2cb8d253bf",
                 "shasum": ""
             },
             "require": {
-                "php": ">=5.3.0"
+                "php": ">=8.0.0"
             },
             "type": "library",
             "extra": {
@@ -945,7 +941,7 @@
             "authors": [
                 {
                     "name": "PHP-FIG",
-                    "homepage": "http://www.php-fig.org/"
+                    "homepage": "https://www.php-fig.org/"
                 }
             ],
             "description": "Common interface for caching libraries",
@@ -955,9 +951,9 @@
                 "psr-6"
             ],
             "support": {
-                "source": "https://github.com/php-fig/cache/tree/master"
+                "source": "https://github.com/php-fig/cache/tree/3.0.0"
             },
-            "time": "2016-08-06T20:24:11+00:00"
+            "time": "2021-02-03T23:26:27+00:00"
         },
         {
             "name": "psr/http-client",
