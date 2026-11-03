@@ -30,6 +30,12 @@ updates:
   groups:
     composer:
       update-types: [minor, patch]
+  # php-scoper after 0.18.4 no longer prefixes the Composer autoloader the
+  # way the build expects ("Avpvh\Vendor\Composer\Autoload\ClassLoader"
+  # not found). Upgrading needs the autoloader patch in config/gulpfile.js adapted.
+  ignore:
+    - dependency-name: humbug/php-scoper
+      versions: [">0.18.4"]
   schedule:
     interval: weekly
   assignees:
