@@ -11,23 +11,6 @@ env:
   npm-version: 11.13.0
   cache-version: 1
 jobs:
-  platform-check:
-    name: "PHP 8.4 compatibility"
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@v7
-
-      - name: "Setup PHP"
-        uses: shivammathur/setup-php@2.40.0
-        with:
-          php-version: 8.4
-          coverage: none
-
-      - name: "Check dependency compatibility"
-        run: |
-          composer check-platform-reqs --no-dev
-
   build:
     name: "Build"
     runs-on: ubuntu-latest
@@ -261,28 +244,16 @@ jobs:
           use_oidc: true
           fail_ci_if_error: false
 
-  plugin-check:
-    name: "Plugin check"
-    runs-on: ubuntu-latest
+  # Shared with the other own plugins: dependencies on the PHP floor, syntax on
+  # 8.4 and 8.5, PHPCompatibility and the WordPress.org Plugin Check.
+  plugin-checks:
+    name: "Shared"
     needs: build
-    steps:
-      - name: "Download build artifact"
-        uses: actions/download-artifact@v8
-        with:
-          name: "build-artifact"
-          path: avpvh-gallery
-
-      # The action's wp-env runs PHP 8.3 unless told otherwise, below the plugin's
-      # floor. The action overwrites .wp-env.json; wp-env merges the override on top.
-      - name: "Set wp-env PHP version"
-        run: |
-          echo '{"phpVersion": "${{ env.php-version }}"}' > .wp-env.override.json
-
-      - name: "Run plugin check"
-        uses: wordpress/plugin-check-action@v1
-        with:
-          build-dir: avpvh-gallery
-          ignore-codes: |
-            missing_composer_json_file
-            PluginCheck.CodeAnalysis.Offloading.OffloadedContent
-            plugin_updater_detected
+    uses: grmt/wp-plugin-ci/.github/workflows/plugin-checks.yml@main
+    with:
+      slug: avpvh-gallery
+      artifact: build-artifact
+      ignore-codes: |
+        missing_composer_json_file
+        PluginCheck.CodeAnalysis.Offloading.OffloadedContent
+        plugin_updater_detected
