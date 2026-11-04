@@ -81,8 +81,9 @@ return array(
 			$underscore_prefix = mb_ereg_replace( '\\\\', '_', $prefix );
 
 			if ( dirname( __DIR__ ) . '/vendor/composer/autoload_real.php' === $file_path ) {
+				// php-scoper 0.18.5+ writes this string with single backslashes.
 				$contents = safe_replace(
-					"if \\('Composer\\\\\\\\Autoload\\\\\\\\ClassLoader' === \\\$class\\)",
+					"if \\('Composer\\\\\\\\?Autoload\\\\\\\\?ClassLoader' === \\\$class\\)",
 					"if ('{$replace_prefix}\\\\Composer\\\\Autoload\\\\ClassLoader' === \$class)",
 					$contents
 				);
