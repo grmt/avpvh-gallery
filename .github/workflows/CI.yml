@@ -272,6 +272,11 @@ jobs:
           name: "build-artifact"
           path: avpvh-gallery
 
+      # The action's wp-env runs PHP 8.3 unless told otherwise, below the plugin's floor.
+      - name: "Set wp-env PHP version"
+        run: |
+          echo '{"phpVersion": "${{ env.php-version }}"}' > .wp-env.json
+
       - name: "Run plugin check"
         uses: wordpress/plugin-check-action@v1
         with:
