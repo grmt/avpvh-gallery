@@ -26,7 +26,7 @@ return array(
 	'file_list'                                 => array(
 		'config/scoper.inc.php',
 	),
-	'minimum_target_php_version'                => '8.1',
+	'minimum_target_php_version'                => '8.4',
 	'plugins'                                   => array(
 		'AlwaysReturnPlugin',
 		'DollarDollarPlugin',
@@ -58,7 +58,7 @@ return array(
 		// are only allowed in constant expressions from PHP 8.5.
 		'PhanVariableDefinitionCouldBeConstant',
 	),
-	'target_php_version'                        => '8.1',
+	'target_php_version'                        => '8.4',
 	'unused_variable_detection'                 => true,
 	'warn_about_redundant_use_namespaced_class' => true,
 	'warn_about_undocumented_throw_statements'  => true,

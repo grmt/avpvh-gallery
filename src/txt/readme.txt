@@ -4,7 +4,7 @@ Tags: google drive, gallery, google drive gallery, image gallery, video gallery
 Requires at least: 7.1
 Tested up to: 7.1
 Stable tag: 2.13.14.142
-Requires PHP: 8.1
+Requires PHP: 8.4
 License: MIT
 License URI: https://github.com/grmt/avpvh-gallery/blob/master/LICENSE
 

@@ -167,9 +167,9 @@ final class Main {
 			);
 		}
 
-		if ( version_compare( phpversion(), '8.1', '<' ) ) {
+		if ( version_compare( phpversion(), '8.4', '<' ) ) {
 			deactivate_plugins( plugin_basename( __FILE__ ) );
-			wp_die( esc_html__( 'Google Drive gallery requires at least PHP 8.1', 'avpvh-gallery' ) );
+			wp_die( esc_html__( 'Google Drive gallery requires at least PHP 8.4', 'avpvh-gallery' ) );
 		}
 
 		// Create photo tagging tables.
