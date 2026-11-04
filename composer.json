@@ -34,24 +34,19 @@
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true
         },
-        "audit": {
-            "ignore": {
-                "PKSA-y2cr-5h3j-g3ys": "firebase/php-jwt fix requires ^7.0, but google/auth 1.37.2 (the newest release) still pins it to ^6.0."
-            }
-        },
         "classmap-authoritative": true
     },
     "require": {
         "php": "^8.4",
-        "google/apiclient": "^2.14.0",
-        "google/apiclient-services": "^0.302.0",
+        "google/apiclient": "^2.20",
+        "google/apiclient-services": "^0.465.0",
         "google/auth": "^1.19",
         "guzzlehttp/guzzle": "^7.0",
         "guzzlehttp/promises": "^1.5 || ^2.0",
         "monolog/monolog": "^3.12.1",
         "paragonie/constant_time_encoding": "^3.1.3",
-        "paragonie/random_compat": "^2.0.21",
-        "psr/cache": "^1.0.1",
+        "paragonie/random_compat": "^9.99.100",
+        "psr/cache": "^3.0",
         "psr/http-message": "^1.0.1 || ^2.0",
         "symfony/polyfill-intl-idn": "^1.19.0",
         "symfony/polyfill-intl-normalizer": "^1.19.0",
