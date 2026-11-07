@@ -12,6 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Avpvh\Exceptions\Exception as Avpvh_Exception;
+use Avpvh\Frontend\Gallery_Access;
 use Exception as Base_Exception;
 use Throwable;
 use const WP_DEBUG;
@@ -45,8 +46,11 @@ final class Helpers {
 	 * @return void
 	 */
 	public static function members_only_ajax( $handler ) {
-		if ( ! \Avpvh\Frontend\Gallery_Access::check() ) {
-			wp_send_json( array( 'error' => \Avpvh\Frontend\Gallery_Access::refusal_message() ), \Avpvh\Frontend\Gallery_Access::refusal_status() );
+		if ( ! Gallery_Access::check() ) {
+			wp_send_json(
+				array( 'error' => Gallery_Access::refusal_message() ),
+				Gallery_Access::refusal_status()
+			);
 		}
 
 		self::ajax_wrapper( $handler );

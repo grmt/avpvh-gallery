@@ -55,7 +55,7 @@ final class Photo_Places {
 				),
 				'callback'            => array( self::class, 'get_place' ),
 				'methods'             => 'GET',
-				'permission_callback' => '__return_true',
+				'permission_callback' => array( Gallery_Access::class, 'check' ),
 			)
 		);
 		register_rest_route(
@@ -74,9 +74,7 @@ final class Photo_Places {
 				),
 				'callback'            => array( self::class, 'set_place' ),
 				'methods'             => 'POST',
-				'permission_callback' => static function () {
-					return is_user_logged_in();
-				},
+				'permission_callback' => array( Gallery_Access::class, 'check' ),
 			)
 		);
 	}

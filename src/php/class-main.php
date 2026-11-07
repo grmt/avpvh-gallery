@@ -55,7 +55,7 @@ final class Main {
 		new Block();
 		new Page();
 		new Gallery();
-		new Gallery_Access();
+		Gallery_Access::register();
 		new Video_Proxy();
 		new Image_Proxy();
 		new PDF_Proxy();

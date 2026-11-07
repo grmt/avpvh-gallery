@@ -66,7 +66,7 @@ final class Exif_Date_REST {
 				),
 				'callback'            => array( $this, 'get_exif_date' ),
 				'methods'             => 'GET',
-				'permission_callback' => '__return_true',
+				'permission_callback' => array( Gallery_Access::class, 'check' ),
 			)
 		);
 	}
