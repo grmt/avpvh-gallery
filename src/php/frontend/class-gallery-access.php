@@ -80,13 +80,15 @@ final class Gallery_Access {
 	 * @return void
 	 */
 	public static function gate_ajax() {
-		if ( ! defined( 'DOING_AJAX' ) || ! DOING_AJAX ) {
+		if ( ! defined( 'DOING_AJAX' ) || true !== constant( 'DOING_AJAX' ) ) {
 			return;
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- only compared against a fixed list
-		$raw    = isset( $_REQUEST['action'] ) ? $_REQUEST['action'] : '';
-		$action = is_string( $raw ) ? sanitize_key( $raw ) : '';
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- only compared against a fixed list
+		$action = isset( $_REQUEST['action'] ) && is_string( $_REQUEST['action'] )
+			? sanitize_key( wp_unslash( $_REQUEST['action'] ) )
+			: '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		if ( ! in_array( $action, self::ajax_actions(), true ) || self::check() ) {
 			return;
