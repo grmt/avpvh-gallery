@@ -62,7 +62,7 @@ final class Subject_Tags {
 				),
 				'callback'            => array( $this, 'get_tags' ),
 				'methods'             => 'GET',
-				'permission_callback' => '__return_true',
+				'permission_callback' => array( Gallery_Access::class, 'check' ),
 			)
 		);
 		register_rest_route(
@@ -92,9 +92,7 @@ final class Subject_Tags {
 				),
 				'callback'            => array( $this, 'toggle_tag' ),
 				'methods'             => 'POST',
-				'permission_callback' => static function () {
-					return is_user_logged_in();
-				},
+				'permission_callback' => array( Gallery_Access::class, 'check' ),
 			)
 		);
 	}

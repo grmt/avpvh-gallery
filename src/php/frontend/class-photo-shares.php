@@ -68,7 +68,6 @@ final class Photo_Shares {
 		new Photo_Shares_Removal();
 		add_action( 'wp_ajax_gallery_share_create', array( self::class, 'ajax_create' ) );
 		add_action( 'wp_ajax_gallery_dig_captions', array( Share_Caption::class, 'ajax_folders' ) );
-		add_action( 'wp_ajax_nopriv_gallery_dig_captions', array( Share_Caption::class, 'ajax_folders' ) );
 		add_action( self::BUILD_HOOK, array( self::class, 'build' ) );
 		add_action( self::EXPIRE_HOOK, array( self::class, 'expire' ) );
 		add_action( 'init', array( self::class, 'schedule_expiry' ) );

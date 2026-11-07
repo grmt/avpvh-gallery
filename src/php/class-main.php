@@ -16,6 +16,7 @@ use Avpvh\Admin\TinyMCE_Plugin;
 use Avpvh\Frontend\Block;
 use Avpvh\Frontend\Exif_Date_REST;
 use Avpvh\Frontend\Gallery;
+use Avpvh\Frontend\Gallery_Access;
 use Avpvh\Frontend\Image_Proxy;
 use Avpvh\Frontend\Members_API;
 use Avpvh\Frontend\Page;
@@ -54,6 +55,7 @@ final class Main {
 		new Block();
 		new Page();
 		new Gallery();
+		Gallery_Access::register();
 		new Video_Proxy();
 		new Image_Proxy();
 		new PDF_Proxy();

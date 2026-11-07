@@ -12,6 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Avpvh\Exceptions\Exception as Avpvh_Exception;
+use Avpvh\Frontend\Gallery_Access;
 use Exception as Base_Exception;
 use Throwable;
 use const WP_DEBUG;
@@ -36,8 +37,8 @@ final class Helpers {
 	}
 
 	/**
-	 * Runs a members-only AJAX handler: visitors who aren't logged in get a
-	 * 401 asking them to log in. The gallery is only shown on the members
+	 * Runs a members-only AJAX handler: whoever Gallery_Access refuses gets
+	 * a 401 asking them to log in, or a 403. The gallery is only shown on the members
 	 * pages, and its AJAX endpoints used to rely on the gallery hash alone.
 	 *
 	 * @param callable $handler The actual handler.
@@ -45,8 +46,11 @@ final class Helpers {
 	 * @return void
 	 */
 	public static function members_only_ajax( $handler ) {
-		if ( ! is_user_logged_in() ) {
-			wp_send_json( array( 'error' => "Log in om de foto's te bekijken." ), 401 );
+		if ( ! Gallery_Access::check() ) {
+			wp_send_json(
+				array( 'error' => Gallery_Access::refusal_message() ),
+				Gallery_Access::refusal_status()
+			);
 		}
 
 		self::ajax_wrapper( $handler );
