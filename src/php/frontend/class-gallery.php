@@ -46,19 +46,21 @@ final class Gallery {
 	public function __construct() {
 		add_action( 'wp_ajax_gallery', array( self::class, 'handle_ajax' ) );
 		add_action( 'wp_ajax_nopriv_gallery', array( self::class, 'handle_ajax' ) );
-		// For the web server: "is this visitor logged in?" — 204 or 401. nginx
-		// asks this before handing out a cached gallery response.
+		// For the web server: "may this visitor use the gallery?" — 204, 401
+		// (log in) or 403. nginx asks this before handing out a cached
+		// gallery response.
 		add_action( 'wp_ajax_avpvh_logged_in', array( self::class, 'logged_in' ) );
 		add_action( 'wp_ajax_nopriv_avpvh_logged_in', array( self::class, 'logged_in' ) );
 	}
 
 	/**
-	 * Answers whether the visitor is logged in, with nothing but a status.
+	 * Answers whether the visitor may use the gallery (Gallery_Access), with
+	 * nothing but a status.
 	 *
 	 * @return void
 	 */
 	public static function logged_in() {
-		wp_send_json( null, is_user_logged_in() ? 204 : 401 );
+		wp_send_json( null, Gallery_Access::check() ? 204 : Gallery_Access::refusal_status() );
 	}
 
 	/**

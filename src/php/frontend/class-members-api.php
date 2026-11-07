@@ -46,12 +46,13 @@ final class Members_API {
 	}
 
 	/**
-	 * Permission check: allow logged-in users (both active and ex-members)
+	 * Permission check: whoever may use the gallery (Gallery_Access, which
+	 * also gates this route before it gets here).
 	 *
 	 * @return bool
 	 */
 	public function check_can_tag() {
-		return is_user_logged_in();
+		return Gallery_Access::check();
 	}
 
 	/**
@@ -76,15 +77,25 @@ final class Members_API {
 				)
 			);
 
-			$result = array_map(
+			// Members and ex-members; visitors are not in the photos.
+			$taggable = array_filter(
+				$members,
 				static function ( $member ) {
-					return array(
-						'id'     => intval( $member->id ),
-						'name'   => Person_Name::format( $member ),
-						'status' => $member->status,
-					);
-				},
-				$members
+					return 'visitor' !== $member->status;
+				}
+			);
+
+			$result = array_values(
+				array_map(
+					static function ( $member ) {
+						return array(
+							'id'     => intval( $member->id ),
+							'name'   => Person_Name::format( $member ),
+							'status' => $member->status,
+						);
+					},
+					$taggable
+				)
 			);
 
 			return new WP_REST_Response(
