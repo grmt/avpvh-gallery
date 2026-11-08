@@ -1076,6 +1076,11 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	font-weight: 700;
 }
 
+/* Another photo's tags are loading: its boxes don't show it yet. */
+.avpvh-pswp-subject-loading label {
+	opacity: 0.5;
+}
+
 .avpvh-pswp-subject-tags-section {
 	border-bottom: 1px solid rgb(255, 255, 255, 12%);
 	padding: 4px 0;

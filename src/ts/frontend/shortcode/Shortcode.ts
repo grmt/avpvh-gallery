@@ -1150,6 +1150,22 @@ export class Shortcode {
 								}
 							});
 					};
+					// While another photo's tags load, its checkboxes would show
+					// the previous photo's ticks: clear and lock them until the
+					// new state is in.
+					const setSubjectLoading = (loading: boolean): void => {
+						subjectTagsList.classList.toggle(
+							'avpvh-pswp-subject-loading',
+							loading
+						);
+						subjectTagsList
+							.querySelectorAll<HTMLInputElement>(
+								'input[type="checkbox"]'
+							)
+							.forEach((box) => {
+								box.disabled = loading;
+							});
+					};
 					const showSubjectError = (message: string): void => {
 						subjectStatus.textContent = message;
 						setTimeout(() => {
@@ -1303,6 +1319,7 @@ export class Shortcode {
 						const fileId = exclusionFileId;
 						void fetchPhotoPlace(
 							avpvhShortcodeLocalize.photo_place_url,
+							avpvhShortcodeLocalize.rest_nonce,
 							fileId
 						)
 							.then((state) => {
@@ -1706,6 +1723,7 @@ export class Shortcode {
 						const fileId = exclusionFileId;
 						void fetchSubjectTags(
 							avpvhShortcodeLocalize.subject_tags_url,
+							avpvhShortcodeLocalize.rest_nonce,
 							fileId
 						)
 							.then((state) => {
@@ -1714,9 +1732,19 @@ export class Shortcode {
 								}
 								subjectState = state;
 								applySubjectState();
+								setSubjectLoading(false);
 							})
-							.catch(() => {
-								// Leave checkboxes as-is — nothing more useful to do here.
+							.catch((error: unknown) => {
+								if (exclusionFileId !== fileId) {
+									return;
+								}
+								// Stay locked: the boxes don't show this photo.
+								showSubjectError(
+									'Tags laden mislukt' +
+										(error instanceof Error
+											? ` (${error.message})`
+											: '')
+								);
 							});
 
 						void PhotoTagger.listTags(fileId).then((tags) => {
@@ -2538,6 +2566,17 @@ export class Shortcode {
 						taggedPersonKeys = new Set();
 						personTagsList.innerHTML = '';
 						taggedLabel.textContent = 'Laden…';
+						// Same for the subject tags and the place.
+						subjectState = { tags: [], details: {} };
+						applySubjectState();
+						setSubjectLoading(true);
+						placeState = {
+							...placeState,
+							place: '',
+							by: '',
+							at: '',
+						};
+						renderPlace();
 						if (tagsPanel.style.display !== 'none') {
 							renderPersonResults();
 							refreshTagsPanel();
@@ -4234,7 +4273,10 @@ export class Shortcode {
 			encodeURIComponent(fileId) +
 			'&folder_id=' +
 			encodeURIComponent(folderId);
-		const request = fetch(url, { credentials: 'include' })
+		const request = fetch(url, {
+			credentials: 'include',
+			headers: { 'X-WP-Nonce': avpvhShortcodeLocalize.rest_nonce },
+		})
 			.then(async (response): Promise<string | null> => {
 				if (!response.ok) {
 					return null;
