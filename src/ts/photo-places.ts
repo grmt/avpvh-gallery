@@ -12,13 +12,16 @@ export interface PhotoPlaceState {
 	suggestions: Array<string>;
 }
 
+// The nonce matters on GET too: without it WordPress handles a cookie-only
+// REST request as anonymous, and Gallery_Access::check() refuses it.
 export async function fetchPhotoPlace(
 	restUrl: string,
+	nonce: string,
 	fileId: string
 ): Promise<PhotoPlaceState> {
 	const response = await fetch(
 		`${restUrl}?file_id=${encodeURIComponent(fileId)}`,
-		{ credentials: 'include' }
+		{ credentials: 'include', headers: { 'X-WP-Nonce': nonce } }
 	);
 	if (!response.ok) {
 		throw new Error(`HTTP ${String(response.status)}`);

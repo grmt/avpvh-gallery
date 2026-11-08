@@ -10,13 +10,16 @@ export interface SubjectTagState {
 	details: Partial<Record<string, { by: string; at: string; count: number }>>;
 }
 
+// The nonce matters on GET too: without it WordPress handles a cookie-only
+// REST request as anonymous, and Gallery_Access::check() refuses it.
 export async function fetchSubjectTags(
 	restUrl: string,
+	nonce: string,
 	fileId: string
 ): Promise<SubjectTagState> {
 	const response = await fetch(
 		`${restUrl}?file_id=${encodeURIComponent(fileId)}`,
-		{ credentials: 'include' }
+		{ credentials: 'include', headers: { 'X-WP-Nonce': nonce } }
 	);
 	if (!response.ok) {
 		throw new Error(`HTTP ${String(response.status)}`);
