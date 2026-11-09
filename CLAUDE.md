@@ -22,7 +22,7 @@ Never commit directly to `main`. Always create a new branch first (e.g. `fix/sho
 
 ## Build / lint / test
 
-`npm run build` is the single entry point — it composes Gulp (CSS, vendored npm/Composer deps, PHP file copy) with four Vite bundles in parallel and writes everything to `dist/`. The plugin always runs out of `dist/`; `src/` is never loaded directly (see [tests/bootstrap.php](tests/bootstrap.php#L33) — even PHPUnit requires the dist).
+`npm run build` is the single entry point — it composes Gulp (CSS, vendored npm/Composer deps, PHP file copy) with eight Vite bundles in parallel and writes everything to `dist/`. The plugin always runs out of `dist/`; `src/` is never loaded directly (see [tests/bootstrap.php](tests/bootstrap.php#L39) — even PHPUnit requires the dist).
 
 Common commands:
 
@@ -53,17 +53,19 @@ All Composer dependencies are prefixed into the `Avpvh\Vendor\` namespace via [s
 
 Implications:
 - Imports of vendor code use `Avpvh\Vendor\Google\Client`, `Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface`, etc. — never the upstream namespace.
-- The autoloader is patched (see [gulpfile.js](gulpfile.js#L44) `build:deps:composer:autoloader`) so the classmap entries are also prefixed, and `$GLOBALS['__composer_autoload_files']` is renamed to `$GLOBALS['__composer_autoload_files_Avpvh_Vendor']`.
+- The autoloader is patched (see [config/gulpfile.js](config/gulpfile.js#L47) `build:deps:composer:autoloader`) so the classmap entries are also prefixed, and `$GLOBALS['__composer_autoload_files']` is renamed to `$GLOBALS['__composer_autoload_files_Avpvh_Vendor']`.
 - `npm run test:php:phpunit` has a `pretest` hook that removes `vendor/google` and re-dumps the autoloader; `posttest` runs `composer install` to restore it. If a test run is interrupted, run `composer install` manually before further work.
 - Static analysis (Phan, PHPStan) scans `dist/vendor`, not `vendor` — that's why `npm run build` must precede lint.
 
 ### Frontend bundles
 
-Four independent Vite configs build IIFE bundles (no shared chunks) via the shared [vite-builder.config.ts](vite-builder.config.ts) helper:
-- `block.vite.config.ts` → Gutenberg block editor UI (`src/ts/frontend/block.ts`)
-- `shortcode.vite.config.ts` → runtime gallery rendering (`src/ts/frontend/shortcode.ts`)
-- `root_selection.vite.config.ts` → admin Drive folder picker (`src/ts/admin/root_selection.ts`)
-- `tinymce.vite.config.ts` → classic editor shortcode dialog (`src/ts/admin/tinymce.ts`)
+Eight independent Vite configs in [config/vite/](config/vite/) build IIFE bundles (no shared chunks), each `src/ts/<part>/<name>.ts` → `dist/<part>/js/<name>.min.js`. Four use the shared [builder.config.ts](config/vite/builder.config.ts) helper:
+- `block` → Gutenberg block editor UI (`src/ts/frontend/block.ts`)
+- `shortcode` → runtime gallery rendering (`src/ts/frontend/shortcode.ts`)
+- `root_selection` → admin Drive folder picker (`src/ts/admin/root_selection.ts`)
+- `tinymce` → classic editor shortcode dialog (`src/ts/admin/tinymce.ts`)
+
+The other four are standalone configs for the admin pages of the same names: `exif-inspector`, `camera-model-index`, `folder-authors`, `tag-tree` (`src/ts/admin/`).
 
 WordPress globals (`@wordpress/*`, `jquery`, `tinymce`, `imagelightbox`) are declared as Rollup `external` so each bundle expects them on `window` rather than inlining them.
 
@@ -73,7 +75,7 @@ Only one PHPUnit test currently lives in [tests/unit/](tests/unit/). Bootstrap l
 
 ## Conventions
 
-- WordPress Coding Standards via PHPCS (`phpcs.xml`) — class files are `class-foo-bar.php`, classes are `Foo_Bar`. The `WordPress.NamingConventions.PrefixAllGlobals` prefix is `Avpvh`.
+- WordPress Coding Standards via PHPCS (`config/phpcs.xml`) — class files are `class-foo-bar.php`, classes are `Foo_Bar`. The `WordPress.NamingConventions.PrefixAllGlobals` prefix is `Avpvh`.
 - `SlevomatCodingStandard.Complexity.Cognitive` caps cognitive complexity at 10.
 - TypeScript runs `strict` plus `exactOptionalPropertyTypes`, `noPropertyAccessFromIndexSignature`, `noUnusedLocals/Parameters`. ESLint adds `@typescript-eslint/strict-type-checked` + `stylistic-type-checked`.
 - Browser support follows `@wordpress/browserslist-config` (enforced by `eslint-plugin-compat` and `stylelint-no-unsupported-browser-features`).
