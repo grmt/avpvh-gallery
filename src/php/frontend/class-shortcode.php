@@ -189,7 +189,7 @@ final class Shortcode {
 				'can_remove_tags'      => $may_curate,
 				'empty_gallery'        => esc_html__( 'The gallery is empty.', 'avpvh-gallery' ),
 				'error_header'         => esc_html__(
-					'The AVPVH Gallery plugin has encountered an error. Error message:',
+					'The AV-PvH Gallery plugin has encountered an error. Error message:',
 					'avpvh-gallery'
 				),
 				'error_trace_header'   => esc_html__( 'Stack trace:', 'avpvh-gallery' ),

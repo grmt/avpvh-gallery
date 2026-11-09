@@ -1,0 +1,11 @@
+# Plugin header strings. xgettext doesn't read the header, so npm run i18n:pot
+# merges this file into avpvh-gallery.pot. (The Description is already
+# extracted from class-block.php.)
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+#. Plugin Name of the plugin
+#: src/php/avpvh-gallery.php
+msgid "AV-PvH Gallery"
+msgstr ""

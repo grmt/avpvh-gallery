@@ -1,0 +1,600 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the avpvh-gallery package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: avpvh-gallery\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-09 12:13+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: src/php/admin/class-asset-set-option.php
+msgid "Use AVPvH icons on avphilipsvanhorne.nl and neutral icons elsewhere."
+msgstr ""
+
+#: src/php/admin/class-asset-set-option.php
+msgid "Automatic"
+msgstr ""
+
+#: src/php/admin/class-asset-set-option.php
+msgid "Trowel navigation, wheelbarrow loader and AVPvH site icons."
+msgstr ""
+
+#: src/php/admin/class-asset-set-option.php
+msgid "Generic navigation arrow and loading ring; keep the website logo and favicon."
+msgstr ""
+
+#: src/php/admin/class-asset-set-option.php
+msgid "Neutral"
+msgstr ""
+
+#: src/php/admin/class-asset-set-option.php
+msgid "Currently active:"
+msgstr ""
+
+#: src/php/admin/class-asset-set-option.php
+msgid "Selected automatically for this website."
+msgstr ""
+
+#: src/php/admin/class-asset-set-option.php
+msgid "Navigation"
+msgstr ""
+
+#: src/php/admin/class-asset-set-option.php
+msgid "Loading"
+msgstr ""
+
+#: src/php/admin/class-oauth-helpers.php
+msgid "Google API hasn't returned an authentication code. Please try again."
+msgstr ""
+
+#: src/php/admin/class-oauth-helpers.php
+msgid "Permission granted."
+msgstr ""
+
+#: src/php/admin/class-oauth-helpers.php
+msgid "An unknown error has been encountered:"
+msgstr ""
+
+#: src/php/admin/class-oauth-helpers.php
+msgid "Permission revoked."
+msgstr ""
+
+#: src/php/admin/class-oauth-helpers.php
+msgid "The Google authorization API didn't provide a refresh token."
+msgstr ""
+
+#: src/php/admin/class-oauth-helpers.php
+msgid "An unknown error has been encountered."
+msgstr ""
+
+#: src/php/admin/class-oauth-helpers.php
+#, php-format
+msgid "Google Drive API is not enabled. Please enable it at %s and try again after a while."
+msgstr ""
+
+#: src/php/admin/class-settings-pages.php
+#: src/php/admin/class-tinymce-plugin.php src/php/frontend/class-block.php
+msgid "Google Drive gallery"
+msgstr ""
+
+#: src/php/admin/class-tinymce-plugin.php
+#: src/php/admin/settings-pages/basic/class-root-selection.php
+#: src/php/frontend/class-shortcode.php
+msgid "The AV-PvH Gallery plugin has encountered an error. Error message:"
+msgstr ""
+
+#: src/php/admin/class-tinymce-plugin.php
+#: src/php/admin/settings-pages/basic/class-root-selection.php
+#: src/php/frontend/class-shortcode.php
+msgid "Stack trace:"
+msgstr ""
+
+#: src/php/admin/class-tinymce-plugin.php
+msgid "Insert"
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-appearance.php
+msgid "Icons"
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-appearance.php
+msgid "Choose the navigation, loading and site-branding icons used by the plugin."
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-camera-model-index.php
+msgid "Camera model index"
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-camera-model-index.php
+msgid "Build a reusable camera-model index for the gallery root and all subfolders. The EXIF Inspector uses it without searching Google Drive again."
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-camera-model-index.php
+msgid "Loading index status…"
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-camera-model-index.php
+msgid "Update camera model index"
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-folder-authors.php
+msgid "Folder authors"
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-folder-authors.php
+msgid "Assign one or more members as the author(s) of a folder. A folder with no explicit author is attributed to AVPvH by default, and inherits its parent folder's assignment once one is set."
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-folder-authors.php
+msgid "Loading folder authors…"
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-grid.php
+#: src/php/frontend/class-block.php
+msgid "Image grid"
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-lightbox.php
+#: src/php/frontend/class-block.php
+msgid "Image popup"
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-sharing.php
+msgid "Sharing selections via Google Drive"
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-sharing.php
+msgid "Members can copy the photos a filter finds into a temporary folder."
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-sharing.php
+msgid "Only their own Google account may open it, and it is removed after a week."
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-sharing.php
+msgid "A service account makes them; it must be able to read the gallery's photos"
+msgstr ""
+
+#: src/php/admin/settings-pages/advanced/class-sharing.php
+msgid "and add files to the folder below (e.g. as content manager)."
+msgstr ""
+
+#: src/php/admin/settings-pages/basic/class-oauth-grant.php
+#: src/php/admin/settings-pages/basic/class-oauth-revoke.php
+msgid "Step 1: Authorization"
+msgstr ""
+
+#: src/php/admin/settings-pages/basic/class-oauth-grant.php
+msgid "Create a Google app and provide the following details:"
+msgstr ""
+
+#: src/php/admin/settings-pages/basic/class-oauth-grant.php
+msgid "Grant Permission"
+msgstr ""
+
+#: src/php/admin/settings-pages/basic/class-oauth-revoke.php
+msgid "Revoke Permission"
+msgstr ""
+
+#: src/php/admin/settings-pages/basic/class-root-selection.php
+msgid "Step 2: Root directory selection"
+msgstr ""
+
+#: src/php/admin/settings-pages/basic/class-root-selection.php
+msgid "Shared drive list"
+msgstr ""
+
+#: src/php/admin/settings-pages/basic/root-selection/class-list-ajax-endpoint.php
+msgid "Root directory wasn't found. The plugin may be broken until a new one is chosen."
+msgstr ""
+
+#: src/php/admin/settings-pages/basic/root-selection/class-list-ajax-endpoint.php
+msgid "My Drive"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-advanced-settings.php
+msgid "Advanced options"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-advanced-settings.php
+#: src/php/admin/settings-pages/class-basic-settings.php
+#, php-format
+msgid "See the %1$sdocumentation%2$s for more information about how to configure the plugin."
+msgstr ""
+
+#: src/php/admin/settings-pages/class-advanced-settings.php
+#: src/php/admin/settings-pages/class-basic-settings.php
+msgid "Save Changes"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-basic-settings.php
+msgid "Basic options"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-exif-inspector.php
+msgid "EXIF Inspector"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Gevlagde foto's"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Foto's gemeld als \"Ongemakkelijk / AVG-issue / kinderen\" of \"Verzoek om te verbergen\"."
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Geen gevlagde foto's."
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Foto"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Meldingen"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Laatst gemeld"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Status"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Actie"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+#: src/php/frontend/class-photo-shares-page.php
+msgid "Unauthorized"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Al uitgesloten"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Actief in gallery"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Uitsluiten"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Negeren"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-flagged-photos.php
+msgid "Uitgesloten via het \"Gevlagde foto's\" overzicht."
+msgstr ""
+
+#: src/php/admin/settings-pages/class-tag-tree-page.php
+msgid "Tags"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-tag-tree-page.php
+msgid "De tags in het tagpaneel van de lightbox."
+msgstr ""
+
+#: src/php/admin/settings-pages/class-tag-tree-page.php
+msgid "Hernoemen en verplaatsen verandert niets aan getagde foto's;"
+msgstr ""
+
+#: src/php/admin/settings-pages/class-tag-tree-page.php
+msgid "verwijderen haalt de tag ook van de foto's af."
+msgstr ""
+
+#: src/php/admin/settings-pages/class-tag-tree-page.php
+msgid "Laden…"
+msgstr ""
+
+#: src/php/class-main.php
+msgid "Google Drive gallery requires at least WordPress 7.1"
+msgstr ""
+
+#: src/php/class-main.php
+msgid "Google Drive gallery requires at least PHP 8.4"
+msgstr ""
+
+#: src/php/class-main.php
+#, php-format
+msgid "Google Drive gallery needs to be %1$sconfigured%2$s before it can be used. See the %3$sdocumentation%4$s for more information."
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Icon set"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Authorised domain"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Authorised JavaScript origin"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Authorised redirect URI"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Client ID"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Client secret"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Row height"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Item spacing"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Directory title size"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Directory item counts"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Items per page"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Stars per person per photo"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Stars per photo (everyone together)"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Service account (JSON key)"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Folder ID for shared selections"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Autoload new images"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Image and video ordering"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Directory ordering"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "In folder names, hide everything before the first occurence of"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Image size"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Animation speed (ms)"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Navigation arrows"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Close button"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Loop images"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Activity indicator"
+msgstr ""
+
+#: src/php/class-options.php
+msgid "Show captions"
+msgstr ""
+
+#: src/php/exceptions/class-api-exception.php
+msgid "The Google Drive API returned an unknown error."
+msgstr ""
+
+#: src/php/exceptions/class-api-exception.php
+msgid "The Google Drive API returned the following error: "
+msgid_plural "The Google Drive API returned the following errors: "
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/php/exceptions/class-api-rate-limit-exception.php
+msgid "The maximum number of requests has been exceeded. Please try again in a minute."
+msgstr ""
+
+#: src/php/exceptions/class-cant-edit-exception.php
+msgid "Insufficient role for this action - you have to be able to edit posts and pages."
+msgstr ""
+
+#: src/php/exceptions/class-cant-manage-exception.php
+msgid "Insufficient role for this action - you have to be able to manage page options."
+msgstr ""
+
+#: src/php/exceptions/class-directory-not-found-exception.php
+#, php-format
+msgid "Directory \"%1$s\" couldn't be found - it may have been deleted or renamed."
+msgstr ""
+
+#: src/php/exceptions/class-directory-not-found-exception.php
+msgid "The requested directory couldn't be found."
+msgstr ""
+
+#: src/php/exceptions/class-drive-not-found-exception.php
+msgid "The requested shared drive couldn't be found."
+msgstr ""
+
+#: src/php/exceptions/class-file-not-found-exception.php
+msgid "The requested file couldn't be found."
+msgstr ""
+
+#: src/php/exceptions/class-gallery-expired-exception.php
+msgid "The gallery has expired."
+msgstr ""
+
+#: src/php/exceptions/class-internal-exception.php
+msgid "An internal error happened in the gallery."
+msgstr ""
+
+#: src/php/exceptions/class-not-found-exception.php
+msgid "The requested resource couldn't be found."
+msgstr ""
+
+#: src/php/exceptions/class-path-not-found-exception.php
+msgid "No such directory found in this gallery - it may have been deleted or renamed."
+msgstr ""
+
+#: src/php/exceptions/class-plugin-not-authorized-exception.php
+#, php-format
+msgid "Google Drive gallery hasn't been granted permissions yet. If you are the website administrator, you can %1$sconfigure%2$s it in the plugin settings."
+msgstr ""
+
+#: src/php/exceptions/class-root-not-found-exception.php
+msgid "The root directory of the gallery couldn't be found - it may have been deleted or renamed."
+msgstr ""
+
+#: src/php/exceptions/class-unsupported-value-exception.php
+#, php-format
+msgid "The value \"%1$s\" has been passed to the function \"%2$s\" but is not supported by it."
+msgstr ""
+
+#: src/php/frontend/class-block.php
+msgid "A WordPress gallery using Google Drive as file storage"
+msgstr ""
+
+#: src/php/frontend/class-block.php src/php/frontend/class-ordering-option.php
+msgid "Ascending"
+msgstr ""
+
+#: src/php/frontend/class-block.php src/php/frontend/class-ordering-option.php
+msgid "By name"
+msgstr ""
+
+#: src/php/frontend/class-block.php src/php/frontend/class-ordering-option.php
+msgid "By time"
+msgstr ""
+
+#: src/php/frontend/class-block.php src/php/frontend/class-ordering-option.php
+msgid "Descending"
+msgstr ""
+
+#: src/php/frontend/class-block.php
+msgid "Settings override"
+msgstr ""
+
+#: src/php/frontend/class-block.php src/php/frontend/class-shortcode.php
+#: src/php/helpers/class-helpers.php
+msgid "Unknown error."
+msgstr ""
+
+#: src/php/frontend/class-code-string-option.php
+msgid "(unchanged) Enter a new value to replace it"
+msgstr ""
+
+#: src/php/frontend/class-gallery-access.php
+msgid "De foto's zijn alleen voor leden."
+msgstr ""
+
+#: src/php/frontend/class-gallery-access.php
+msgid "Log in om de foto's te bekijken."
+msgstr ""
+
+#: src/php/frontend/class-photo-tags.php
+msgid "Invalid folder ID"
+msgstr ""
+
+#: src/php/frontend/class-photo-tags.php
+msgid "Invalid parameters"
+msgstr ""
+
+#: src/php/frontend/class-photo-tags.php
+msgid "Failed to create tag"
+msgstr ""
+
+#: src/php/frontend/class-photo-tags.php
+msgid "Invalid image ID"
+msgstr ""
+
+#: src/php/frontend/class-photo-tags.php
+msgid "Invalid tag"
+msgstr ""
+
+#: src/php/frontend/class-photo-tags.php
+msgid "Failed to create comment"
+msgstr ""
+
+#: src/php/frontend/class-photo-tags.php
+msgid "Onbekend"
+msgstr ""
+
+#: src/php/frontend/class-photo-tags.php
+msgid "Member not found"
+msgstr ""
+
+#: src/php/frontend/class-service-account-option.php
+msgid "Set for"
+msgstr ""
+
+#: src/php/frontend/class-service-account-option.php
+msgid "remove"
+msgstr ""
+
+#: src/php/frontend/class-service-account-option.php
+msgid "Paste the service account's JSON key to set or replace it"
+msgstr ""
+
+#: src/php/frontend/class-service-account-option.php
+msgid "That is not a service account JSON key; the previous key was kept."
+msgstr ""
+
+#: src/php/frontend/class-shortcode.php
+msgid "Gallery"
+msgstr ""
+
+#: src/php/frontend/class-shortcode.php
+msgid "The gallery is empty."
+msgstr ""
+
+#: src/php/frontend/class-shortcode.php
+msgid "Load more"
+msgstr ""
+
+#: src/php/frontend/class-shortcode.php
+msgid "The server returned an unexpected response."
+msgstr ""
+
+#. Plugin Name of the plugin
+#: src/php/avpvh-gallery.php
+msgid "AV-PvH Gallery"
+msgstr ""

@@ -100,7 +100,7 @@ final class Root_Selection {
 				'ajax_url'           => admin_url( 'admin-ajax.php' ),
 				'drive_list'         => esc_html__( 'Shared drive list', 'avpvh-gallery' ),
 				'error_header'       => esc_html__(
-					'The AVPVH Gallery plugin has encountered an error. Error message:',
+					'The AV-PvH Gallery plugin has encountered an error. Error message:',
 					'avpvh-gallery'
 				),
 				'error_trace_header' => esc_html__( 'Stack trace:', 'avpvh-gallery' ),

@@ -97,7 +97,7 @@ final class TinyMCE_Plugin {
 				'ajax_url'           => admin_url( 'admin-ajax.php' ),
 				'dialog_title'       => esc_html__( 'Google Drive gallery', 'avpvh-gallery' ),
 				'error_header'       => esc_html__(
-					'The AVPVH Gallery plugin has encountered an error. Error message:',
+					'The AV-PvH Gallery plugin has encountered an error. Error message:',
 					'avpvh-gallery'
 				),
 				'error_trace_header' => esc_html__( 'Stack trace:', 'avpvh-gallery' ),
