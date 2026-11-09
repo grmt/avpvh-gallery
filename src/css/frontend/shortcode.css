@@ -998,12 +998,20 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	text-shadow: 0 1px 2px rgb(0, 0, 0, 80%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
+/* Stays at the top while the panel scrolls, so the previous/next buttons
+   are always at hand. The negative margins and the padding take over the
+   panel's own padding, so the content scrolls away under a solid header. */
 .avpvh-pswp-tags-header {
 	align-items: center;
+	background-color: rgb(0, 0, 0, 95%); /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	display: flex;
 	font-weight: 700;
 	justify-content: space-between;
-	margin-bottom: 6px;
+	margin: -12px -16px 6px;
+	padding: 12px 16px 6px;
+	position: sticky;
+	top: -12px;
+	z-index: 1;
 }
 
 .avpvh-pswp-tags-close {

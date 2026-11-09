@@ -118,6 +118,9 @@ export class Shortcode {
 		avpvhShortcodeLocalize.saved_filter
 	);
 	private hasMore = false;
+	// Pages loaded so far while looking for the photo in the URL.
+	private hashSeekPages = 0;
+	private static readonly HASH_SEEK_MAX_PAGES = 20;
 	private path = '';
 	private lastPage = 1;
 	private getEpoch = 0;
@@ -807,6 +810,12 @@ export class Shortcode {
 							'.avpvh-pswp-exclusion-status'
 						);
 					let exclusionFileId = '';
+					// The photo the tag panel was last reset for; update() runs
+					// on 'change' and again on 'loadComplete' for the same photo.
+					let panelFileId = '';
+					let panelRequests: AbortController | null = null;
+					let panelRefreshTimer = 0;
+					let slideSettleTimer = 0;
 					let exclusionFolderId = '';
 					let exclusionMimeType = 'image/*';
 					const setExclusionStatus = (
@@ -1353,7 +1362,9 @@ export class Shortcode {
 							addPick(query, `+ "${query}" als locatie`);
 						}
 					};
-					const refreshPlace = (): void => {
+					const refreshPlace = (
+						signal: AbortSignal | null = null
+					): void => {
 						if (exclusionFileId === '') {
 							return;
 						}
@@ -1361,7 +1372,8 @@ export class Shortcode {
 						void fetchPhotoPlace(
 							avpvhShortcodeLocalize.photo_place_url,
 							avpvhShortcodeLocalize.rest_nonce,
-							fileId
+							fileId,
+							signal
 						)
 							.then((state) => {
 								if (exclusionFileId === fileId) {
@@ -1760,12 +1772,19 @@ export class Shortcode {
 						if (exclusionFileId === '') {
 							return;
 						}
-						refreshPlace();
+						// The pool of PHP workers is small: drop the requests
+						// for a photo you've already left, so this one's
+						// don't queue behind them.
+						panelRequests?.abort();
+						panelRequests = new AbortController();
+						const { signal } = panelRequests;
+						refreshPlace(signal);
 						const fileId = exclusionFileId;
 						void fetchSubjectTags(
 							avpvhShortcodeLocalize.subject_tags_url,
 							avpvhShortcodeLocalize.rest_nonce,
-							fileId
+							fileId,
+							signal
 						)
 							.then((state) => {
 								if (exclusionFileId !== fileId) {
@@ -1776,7 +1795,10 @@ export class Shortcode {
 								setSubjectLoading(false);
 							})
 							.catch((error: unknown) => {
-								if (exclusionFileId !== fileId) {
+								if (
+									exclusionFileId !== fileId ||
+									signal.aborted
+								) {
 									return;
 								}
 								// Stay locked: the boxes don't show this photo.
@@ -2602,29 +2624,46 @@ export class Shortcode {
 							'true' === avpvhShortcodeLocalize.can_exclude_photos
 								? ''
 								: 'none';
-						personSearch.value = '';
-						// Forget the previous photo's persons straight away, so
-						// nothing of it shows until this photo's tags arrive.
-						taggedPersonKeys = new Set();
-						personTagsList.innerHTML = '';
-						taggedLabel.textContent = 'Laden…';
-						// Same for the subject tags and the place.
-						subjectState = { tags: [], details: {} };
-						applySubjectState();
-						setSubjectLoading(true);
-						placeState = {
-							...placeState,
-							place: '',
-							by: '',
-							at: '',
-						};
-						renderPlace();
-						if (tagsPanel.style.display !== 'none') {
-							renderPersonResults();
-							refreshTagsPanel();
-							void loadPersonCandidates().then(
-								renderPersonResults
-							);
+						if (fileId !== panelFileId) {
+							panelFileId = fileId;
+							panelRequests?.abort();
+							personSearch.value = '';
+							// Forget the previous photo's persons straight away, so
+							// nothing of it shows until this photo's tags arrive.
+							taggedPersonKeys = new Set();
+							personTagsList.innerHTML = '';
+							taggedLabel.textContent = 'Laden…';
+							// Same for the subject tags and the place.
+							subjectState = { tags: [], details: {} };
+							applySubjectState();
+							setSubjectLoading(true);
+							placeState = {
+								...placeState,
+								place: '',
+								by: '',
+								at: '',
+							};
+							renderPlace();
+							// The like loads after a pause; until then don't
+							// show the previous photo's.
+							if (likeBarButton !== null) {
+								likeBarButton.innerHTML =
+									Shortcode.likeButtonHtml(0);
+								likeBarButton.classList.remove('avpvh-liked');
+							}
+							likedBy.textContent = '';
+							if (tagsPanel.style.display !== 'none') {
+								renderPersonResults();
+								// Wait until you stop on a photo: scrolling past
+								// ten photos shouldn't fire ten rounds of requests.
+								window.clearTimeout(panelRefreshTimer);
+								panelRefreshTimer = window.setTimeout(() => {
+									refreshTagsPanel();
+									void loadPersonCandidates().then(
+										renderPersonResults
+									);
+								}, 300);
+							}
 						}
 						for (const button of [tagsBarButton, likeBarButton]) {
 							if (button !== null) {
@@ -2632,8 +2671,12 @@ export class Shortcode {
 									fileId !== '' ? '' : 'none';
 							}
 						}
-						refreshLike();
-						refreshOriginalDate();
+						// Also after you stop on the photo (see above).
+						window.clearTimeout(slideSettleTimer);
+						slideSettleTimer = window.setTimeout(() => {
+							refreshLike();
+							refreshOriginalDate();
+						}, 300);
 						if (!hasCorrection && fileId !== '') {
 							const orientationSlideEl = slideEl;
 							const portrait = displayedHeight > displayedWidth;
@@ -2765,12 +2808,15 @@ export class Shortcode {
 			this.onLightboxNodeChange(pswp);
 			const slideEl = pswp.currSlide?.data.element;
 			if (slideEl instanceof HTMLAnchorElement) {
+				// Page first: its URL (QueryParameter.add) has no hash, so
+				// setting the photo's #id after it keeps both, and a reload
+				// reopens this photo.
+				if (slideEl.isConnected) {
+					this.onLightboxNavigation($(slideEl));
+				}
 				const id = slideEl.dataset['avpvhId'];
 				if (id !== undefined && '' !== id) {
 					history.replaceState(history.state, '', '#' + id);
-				}
-				if (slideEl.isConnected) {
-					this.onLightboxNavigation($(slideEl));
 				}
 			}
 		});
@@ -5755,9 +5801,13 @@ export class Shortcode {
 		}
 	}
 
+	// Reopens the photo in the URL (#<file id>), e.g. after a reload. The
+	// lightbox may have been further into the folder than the grid's first
+	// page, so load more pages until the photo turns up.
 	private openFromHash(): void {
 		const hash = window.location.hash.replace(/^#/, '');
 		if ('' === hash) {
+			this.hashSeekPages = 0;
 			return;
 		}
 		const links = this.container
@@ -5767,7 +5817,17 @@ export class Shortcode {
 			(el) => el.getAttribute('data-avpvh-id') === hash
 		);
 		if (0 <= index) {
+			this.hashSeekPages = 0;
 			this.lightbox.loadAndOpen(index);
+		} else if (
+			this.hasMore &&
+			this.filter === null &&
+			this.hashSeekPages < Shortcode.HASH_SEEK_MAX_PAGES
+		) {
+			this.hashSeekPages += 1;
+			this.add();
+		} else {
+			this.hashSeekPages = 0;
 		}
 	}
 
@@ -5841,6 +5901,9 @@ export class Shortcode {
 		}
 		this.container.find('.avpvh-loading').remove();
 		this.postLoad();
+		if (0 < this.hashSeekPages && this.lightbox.pswp === undefined) {
+			this.openFromHash();
+		}
 	}
 
 	private fixPhotoSwipeDimensions(): void {
