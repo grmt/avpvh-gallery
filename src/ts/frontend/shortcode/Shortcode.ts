@@ -3784,10 +3784,16 @@ export class Shortcode {
 		}
 		// Now that this slide is visible, allow it to fetch and play.
 		videoEl.preload = 'auto';
-		try {
-			videoEl.currentTime = 0;
-		} catch {
-			// Not seekable yet — harmless.
+		// Rewind only a video that was played before. Any seek, even to 0,
+		// clears the element's "show poster" flag, so seeking a fresh video
+		// replaced its thumbnail with black until the first frame arrived —
+		// seconds through the proxy.
+		if (videoEl.currentTime > 0) {
+			try {
+				videoEl.currentTime = 0;
+			} catch {
+				// Not seekable yet — harmless.
+			}
 		}
 		const onEnded = (): void => {
 			this.activeVideoCleanup?.();
