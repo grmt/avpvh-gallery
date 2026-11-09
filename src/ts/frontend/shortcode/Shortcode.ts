@@ -418,6 +418,34 @@ export class Shortcode {
 			return itemData;
 		});
 
+		// A slide PhotoSwipe discards (it scrolled out of the slide pool, or the
+		// lightbox closed) leaves the DOM, but a detached <video> keeps
+		// downloading: three videos went on streaming through the proxy at
+		// ~30 MB a minute each after the lightbox had closed, one PHP request
+		// per 0.5 MB. A removed slide stays cached and may come back, so it
+		// keeps its source and only stops fetching (preload='none' + load(), as
+		// in onSlideDeactivate); a destroyed one drops its <source> (see
+		// contentLoad below) before load(), which aborts the fetch for good.
+		lightbox.on('contentRemove', ({ content }) => {
+			const videoEl = content.element?.querySelector('video');
+			if (videoEl instanceof HTMLVideoElement) {
+				videoEl.pause();
+				videoEl.preload = 'none';
+				videoEl.load();
+			}
+		});
+		lightbox.on('contentDestroy', ({ content }) => {
+			const videoEl = content.element?.querySelector('video');
+			if (videoEl instanceof HTMLVideoElement) {
+				videoEl.pause();
+				videoEl.querySelectorAll('source').forEach((source) => {
+					source.remove();
+				});
+				videoEl.removeAttribute('src');
+				videoEl.load();
+			}
+		});
+
 		lightbox.on('contentLoad', (e) => {
 			if ('video' === e.content.type) {
 				e.preventDefault();
