@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: avpvh-gallery\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 10:23+0100\n"
+"POT-Creation-Date: 2026-11-09 12:13+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -91,7 +91,7 @@ msgstr ""
 #: src/php/admin/class-tinymce-plugin.php
 #: src/php/admin/settings-pages/basic/class-root-selection.php
 #: src/php/frontend/class-shortcode.php
-msgid "The AVPVH Gallery plugin has encountered an error. Error message:"
+msgid "The AV-PvH Gallery plugin has encountered an error. Error message:"
 msgstr ""
 
 #: src/php/admin/class-tinymce-plugin.php
@@ -592,4 +592,9 @@ msgstr ""
 
 #: src/php/frontend/class-shortcode.php
 msgid "The server returned an unexpected response."
+msgstr ""
+
+#. Plugin Name of the plugin
+#: src/php/avpvh-gallery.php
+msgid "AV-PvH Gallery"
 msgstr ""

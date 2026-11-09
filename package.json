@@ -1,6 +1,6 @@
 {
   "name": "avpvh-gallery",
-  "version": "2.13.14.146",
+  "version": "2.13.14.147",
   "description": "A WordPress gallery using Google Drive as file storage",
   "keywords": [
     "wordpress",
@@ -54,7 +54,7 @@
     "test:php": "run-p -c --aggregate-output test:php:*",
     "test": "run-p -c --aggregate-output test:*",
     "plugin-check": "wp-env start && wp-env run cli wp plugin check avpvh-gallery --ignore-codes=missing_composer_json_file; CODE=$?; wp-env stop; exit $CODE",
-    "i18n:pot": "find src/php -name '*.php' | sort | xargs xgettext --language=PHP --from-code=UTF-8 --add-comments=translators: --package-name=avpvh-gallery --no-wrap --add-location=file -k__ -k_e -kesc_html__ -kesc_html_e -kesc_attr__ -kesc_attr_e -k_x:1,2c -kesc_html_x:1,2c -kesc_attr_x:1,2c -k_n:1,2 -k_nx:1,2,4c -o src/languages/avpvh-gallery.pot",
+    "i18n:pot": "find src/php -name '*.php' | sort | xargs xgettext --language=PHP --from-code=UTF-8 --add-comments=translators: --package-name=avpvh-gallery --no-wrap --add-location=file -k__ -k_e -kesc_html__ -kesc_html_e -kesc_attr__ -kesc_attr_e -k_x:1,2c -kesc_html_x:1,2c -kesc_attr_x:1,2c -k_n:1,2 -k_nx:1,2,4c -o src/languages/avpvh-gallery.pot && msgcat --use-first --no-wrap -o src/languages/avpvh-gallery.pot src/languages/avpvh-gallery.pot src/languages/plugin-header.pot",
     "i18n:po": "msgmerge --update --backup=none --no-wrap src/languages/avpvh-gallery-nl_NL.po src/languages/avpvh-gallery.pot",
     "i18n:mo": "msgfmt --check -o src/languages/avpvh-gallery-nl_NL.mo src/languages/avpvh-gallery-nl_NL.po",
     "i18n": "run-s i18n:pot i18n:po i18n:mo"

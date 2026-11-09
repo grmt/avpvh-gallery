@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: avpvh-gallery\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 10:23+0100\n"
+"POT-Creation-Date: 2026-11-09 12:13+0100\n"
 "PO-Revision-Date: 2026-11-09 10:23+0100\n"
 "Last-Translator: grmt\n"
 "Language-Team: Dutch\n"
@@ -91,8 +91,8 @@ msgstr "Google Drive-galerij"
 #: src/php/admin/class-tinymce-plugin.php
 #: src/php/admin/settings-pages/basic/class-root-selection.php
 #: src/php/frontend/class-shortcode.php
-msgid "The AVPVH Gallery plugin has encountered an error. Error message:"
-msgstr "De AVPVH Gallery-plugin is op een fout gestuit. Foutmelding:"
+msgid "The AV-PvH Gallery plugin has encountered an error. Error message:"
+msgstr "De AV-PvH Galerij-plugin is op een fout gestuit. Foutmelding:"
 
 #: src/php/admin/class-tinymce-plugin.php
 #: src/php/admin/settings-pages/basic/class-root-selection.php
@@ -593,3 +593,8 @@ msgstr "Meer laden"
 #: src/php/frontend/class-shortcode.php
 msgid "The server returned an unexpected response."
 msgstr "De server gaf een onverwacht antwoord."
+
+#. Plugin Name of the plugin
+#: src/php/avpvh-gallery.php
+msgid "AV-PvH Gallery"
+msgstr "AV-PvH Galerij"

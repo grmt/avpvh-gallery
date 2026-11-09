@@ -1,9 +1,9 @@
-=== AVPVH Gallery ===
+=== AV-PvH Gallery ===
 Contributors: grmt
 Tags: google drive, gallery, google drive gallery, image gallery, video gallery
 Requires at least: 7.1
 Tested up to: 7.1
-Stable tag: 2.13.14.146
+Stable tag: 2.13.14.147
 Requires PHP: 8.4
 License: MIT
 License URI: https://github.com/grmt/avpvh-gallery/blob/master/LICENSE
@@ -12,7 +12,7 @@ A WordPress gallery using Google Drive as file storage
 
 == Description ==
 
-*AVPVH Gallery* is a plugin for WordPress that connects your site to your Google Drive. With this plugin, you can select any folder in your Drive or a Shared drive and the plugin will convert it into a gallery, displaying any photos or videos in a page or a post on your website. Any folders and their subfolders will also be displayed in the gallery as nested galleries.
+*AV-PvH Gallery* is a plugin for WordPress that connects your site to your Google Drive. With this plugin, you can select any folder in your Drive or a Shared drive and the plugin will convert it into a gallery, displaying any photos or videos in a page or a post on your website. Any folders and their subfolders will also be displayed in the gallery as nested galleries.
 
 All the data is sourced from Google Drive with nothing but the plugin configuration being a part of your website. This enables your site to load faster as the images are loaded from Google and not from your hosting provider. It may also save you costs for your site hosting, as the big files of the gallery are not stored as part of your site. On top of that, if you ever decide to move or reinstall your site, simply install this plugin again on the new site and your old galleries will still be there and working.
 
