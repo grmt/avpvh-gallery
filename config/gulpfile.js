@@ -174,6 +174,14 @@ gulp.task('build:fonts', () =>
 		.pipe(gulp.dest('dist/frontend/fonts/'))
 );
 
+// Only the compiled .mo is loaded (Main::load_textdomain); the .po/.pot stay
+// in the repo. Regenerate with `npm run i18n`.
+gulp.task('build:languages', () =>
+	gulp
+		.src(['src/languages/*.mo'], { encoding: false })
+		.pipe(gulp.dest('dist/languages/'))
+);
+
 gulp.task('build:txt', () =>
 	gulp.src(['src/txt/*.txt']).pipe(gulp.dest('dist/'))
 );
@@ -184,6 +192,7 @@ gulp.task(
 		'build:css',
 		'build:deps',
 		'build:fonts',
+		'build:languages',
 		'build:php',
 		'build:png',
 		'build:svg',
