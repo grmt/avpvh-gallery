@@ -1,7 +1,9 @@
 name: "CI"
 on:
+  # Branches are tested through their pull request (the merge result);
+  # main once more after each merge.
   push:
-    branches: "*"
+    branches: [main]
   pull_request:
   # The release workflow runs CI and publishes its build.
   workflow_call:
