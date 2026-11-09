@@ -1034,6 +1034,24 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	z-index: 20;
 }
 
+/* Narrow portrait screen: a sheet over the bottom half, with the photo shrunk
+   into the space above it (Shortcode.ts syncPhotoInset), so tagging doesn't
+   hide the photo. A fixed height keeps the photo still while sections open. */
+@media (orientation: portrait) and (width <= 768px) {
+
+	.avpvh-pswp-tags-panel {
+		border-radius: 12px 12px 0 0;
+		bottom: 0;
+		box-sizing: border-box;
+		height: 50vh;
+		max-height: none;
+		max-width: none;
+		right: 0;
+		top: auto;
+		width: 100%;
+	}
+}
+
 .avpvh-pswp-place {
 	margin-left: 14px;
 	padding: 2px 0 4px;

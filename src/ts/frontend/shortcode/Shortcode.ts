@@ -145,6 +145,10 @@ export class Shortcode {
 	// URL). While set, the auto-slideshow stays paused so we don't keep firing
 	// doomed requests; it clears again as soon as a full-size image loads.
 	private rateLimited = false;
+
+	// Room kept free at the bottom of the lightbox for the tag panel, which
+	// on a narrow portrait screen sits below the photo instead of over it.
+	private lightboxBottomInset = 0;
 	// Automatically retries the current slide's image, at the same pace as
 	// the slideshow itself (SLIDESHOW_DELAY_MS), while it's showing the
 	// Drive-load-error notice — so a transient failure (rate-limit, ORB
@@ -278,6 +282,17 @@ export class Shortcode {
 			close: 'true' === avpvhShortcodeLocalize.preview_closebutton,
 			arrowPrev: 'true' === avpvhShortcodeLocalize.preview_arrows,
 			arrowNext: 'true' === avpvhShortcodeLocalize.preview_arrows,
+			paddingFn: (): {
+				top: number;
+				bottom: number;
+				left: number;
+				right: number;
+			} => ({
+				top: 0,
+				bottom: this.lightboxBottomInset,
+				left: 0,
+				right: 0,
+			}),
 		});
 
 		// A full-size image can fail because Google Drive is rate-limiting us
@@ -986,8 +1001,34 @@ export class Shortcode {
 					);
 					tagsHeader.append(tagsTitle, tagsNav, tagsClose);
 					tagsPanel.appendChild(tagsHeader);
+					// On a narrow portrait screen the panel is a sheet over the
+					// bottom half (see the CSS): shrink the photo into the space
+					// above it, so the photo you tag stays visible.
+					const sheetQuery = window.matchMedia(
+						'(orientation: portrait) and (width <= 768px)'
+					);
+					const syncPhotoInset = (): void => {
+						const inset =
+							tagsPanel.style.display !== 'none' &&
+							sheetQuery.matches
+								? tagsPanel.offsetHeight
+								: 0;
+						if (inset !== this.lightboxBottomInset) {
+							this.lightboxBottomInset = inset;
+							instance.updateSize(true);
+						}
+					};
+					sheetQuery.addEventListener('change', syncPhotoInset);
+					instance.on('close', () => {
+						sheetQuery.removeEventListener(
+							'change',
+							syncPhotoInset
+						);
+						this.lightboxBottomInset = 0;
+					});
 					const closeTagsPanel = (): void => {
 						tagsPanel.style.display = 'none';
+						syncPhotoInset();
 					};
 					tagsClose.addEventListener('click', (e) => {
 						e.stopPropagation();
@@ -2324,6 +2365,7 @@ export class Shortcode {
 					onTagsBarClick = (): void => {
 						const opening = tagsPanel.style.display === 'none';
 						tagsPanel.style.display = opening ? '' : 'none';
+						syncPhotoInset();
 						if (opening) {
 							refreshTagsPanel();
 							void loadPersonCandidates().then(
