@@ -17,11 +17,12 @@ export interface PhotoPlaceState {
 export async function fetchPhotoPlace(
 	restUrl: string,
 	nonce: string,
-	fileId: string
+	fileId: string,
+	signal: AbortSignal | null = null
 ): Promise<PhotoPlaceState> {
 	const response = await fetch(
 		`${restUrl}?file_id=${encodeURIComponent(fileId)}`,
-		{ credentials: 'include', headers: { 'X-WP-Nonce': nonce } }
+		{ credentials: 'include', headers: { 'X-WP-Nonce': nonce }, signal }
 	);
 	if (!response.ok) {
 		throw new Error(`HTTP ${String(response.status)}`);

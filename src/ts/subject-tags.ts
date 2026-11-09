@@ -15,11 +15,12 @@ export interface SubjectTagState {
 export async function fetchSubjectTags(
 	restUrl: string,
 	nonce: string,
-	fileId: string
+	fileId: string,
+	signal: AbortSignal | null = null
 ): Promise<SubjectTagState> {
 	const response = await fetch(
 		`${restUrl}?file_id=${encodeURIComponent(fileId)}`,
-		{ credentials: 'include', headers: { 'X-WP-Nonce': nonce } }
+		{ credentials: 'include', headers: { 'X-WP-Nonce': nonce }, signal }
 	);
 	if (!response.ok) {
 		throw new Error(`HTTP ${String(response.status)}`);
