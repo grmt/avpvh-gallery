@@ -53,8 +53,10 @@ final class Photo_Marks {
 	 * @return void
 	 */
 	public static function ajax_marks() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup.
-		$raw_ids = sanitize_text_field( wp_unslash( (string) ( $_GET['ids'] ?? '' ) ) );
+		// The ids come as POST (a long GET URL is refused before WordPress, see
+		// PhotoMarks.ts); GET still works for short lists.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.NonceVerification.Recommended -- read-only lookup.
+		$raw_ids = sanitize_text_field( wp_unslash( (string) ( $_POST['ids'] ?? $_GET['ids'] ?? '' ) ) );
 		$ids     = array_slice( array_filter( explode( ',', $raw_ids ) ), 0, 500 );
 
 		wp_send_json_success( array( 'marks' => (object) ( array() === $ids ? array() : self::tallies( $ids ) ) ) );

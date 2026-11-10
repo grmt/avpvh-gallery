@@ -16,13 +16,18 @@ async function fetchTallies(
 	ajaxUrl: string,
 	ids: Array<string>
 ): Promise<Record<string, MarkTally>> {
-	const params = new URLSearchParams({
-		action: 'gallery_marks',
-		ids: ids.join(','),
-	});
+	// POST, not GET: wp-admin sits behind Authelia, which gets the request
+	// URL as a header and refuses it (431, shown as 500) once a page of photo
+	// ids makes it longer than a few kB.
 	try {
-		const response = await fetch(`${ajaxUrl}?${params.toString()}`, {
+		const response = await fetch(ajaxUrl, {
+			method: 'POST',
 			credentials: 'include',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: new URLSearchParams({
+				action: 'gallery_marks',
+				ids: ids.join(','),
+			}).toString(),
 		});
 		const data = (await response.json()) as {
 			data?: { marks?: Record<string, MarkTally> };
