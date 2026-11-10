@@ -15,6 +15,9 @@ final class Photo_Marks_Ajax_Test extends WP_Ajax_UnitTestCase {
 
 	private const IMAGE_ID = 'fixture-marked-photo';
 
+	// The test install's admin.
+	private const ADMIN_ID = 1;
+
 	/**
 	 * A logged-in admin with two stars on the fixture photo.
 	 *
@@ -24,9 +27,7 @@ final class Photo_Marks_Ajax_Test extends WP_Ajax_UnitTestCase {
 		parent::set_up();
 
 		Photo_Tags_DB::create_tables();
-		// The test install's admin.
-		$user = 1;
-		wp_set_current_user( $user );
+		wp_set_current_user( self::ADMIN_ID );
 
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- test fixture in the plugin table.
@@ -36,8 +37,8 @@ final class Photo_Marks_Ajax_Test extends WP_Ajax_UnitTestCase {
 				'circle'     => 'votes',
 				'image_id'   => self::IMAGE_ID,
 				'level'      => 2,
-				'owner'      => $user,
-				'updated_by' => $user,
+				'owner'      => self::ADMIN_ID,
+				'updated_by' => self::ADMIN_ID,
 			)
 		);
 	}
@@ -76,15 +77,17 @@ final class Photo_Marks_Ajax_Test extends WP_Ajax_UnitTestCase {
 	private function marks() {
 		// wp_send_json_success() ends the request with this exception.
 		$ended = false;
+
 		try {
 			$this->_handleAjax( 'gallery_marks' );
 		} catch ( WPAjaxDieContinueException ) {
 			$ended = true;
 		}
-		$this->assertTrue( $ended );
+
+		$this->assertSame( true, $ended );
 
 		$response = json_decode( $this->_last_response, true );
-		$this->assertTrue( $response['success'] ?? false );
+		$this->assertSame( true, $response['success'] ?? false );
 
 		return $response['data']['marks'];
 	}
