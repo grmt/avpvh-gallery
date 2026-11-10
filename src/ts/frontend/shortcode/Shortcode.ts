@@ -3109,6 +3109,26 @@ export class Shortcode {
 			) {
 				e.preventDefault();
 				deferred.add(e.content.index);
+				// PhotoSwipe sizes the thumbnail together with the photo element,
+				// which a deferred slide doesn't have yet. Unsized, the thumbnail
+				// sat at its own small size in the photo's top-left corner instead
+				// of filling the photo's (centred) place.
+				const content = e.content;
+				requestAnimationFrame(() => {
+					const slide = content.slide;
+					if (slide === undefined) {
+						return;
+					}
+					// currentResolution is 0 until the viewer zooms.
+					const zoom =
+						slide.currentResolution || slide.zoomLevels.initial;
+					if (0 < zoom) {
+						content.placeholder?.setDisplayedSize(
+							Math.round(slide.width * zoom),
+							Math.round(slide.height * zoom)
+						);
+					}
+				});
 			}
 		});
 		const loadDeferred = (): void => {
