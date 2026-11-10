@@ -22,9 +22,10 @@ final class Photo_Marks_Ajax_Test extends WP_Ajax_UnitTestCase {
 	 */
 	public function set_up() {
 		parent::set_up();
-		Photo_Tags_DB::create_tables();
 
-		$user = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		Photo_Tags_DB::create_tables();
+		// The test install's admin.
+		$user = 1;
 		wp_set_current_user( $user );
 
 		global $wpdb;
@@ -34,8 +35,8 @@ final class Photo_Marks_Ajax_Test extends WP_Ajax_UnitTestCase {
 			array(
 				'circle'     => 'votes',
 				'image_id'   => self::IMAGE_ID,
-				'owner'      => $user,
 				'level'      => 2,
+				'owner'      => $user,
 				'updated_by' => $user,
 			)
 		);
@@ -73,11 +74,14 @@ final class Photo_Marks_Ajax_Test extends WP_Ajax_UnitTestCase {
 	 * @return array<string, array<string, mixed>>
 	 */
 	private function marks() {
+		// wp_send_json_success() ends the request with this exception.
+		$ended = false;
 		try {
 			$this->_handleAjax( 'gallery_marks' );
-		} catch ( WPAjaxDieContinueException $e ) {
-			unset( $e ); // wp_send_json_success() ends the request this way.
+		} catch ( WPAjaxDieContinueException ) {
+			$ended = true;
 		}
+		$this->assertTrue( $ended );
 
 		$response = json_decode( $this->_last_response, true );
 		$this->assertTrue( $response['success'] ?? false );
