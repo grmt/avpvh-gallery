@@ -1180,6 +1180,21 @@ class ExifInspector {
 		});
 	}
 
+	private shownStatus(): string {
+		return this.isVideo()
+			? 'Deze video wordt getoond.'
+			: 'Deze foto wordt getoond.';
+	}
+
+	// "12 bestanden", or "12 van 40 bestanden" while a filter hides some.
+	private fileCountLabel(): string {
+		const shown = String(this.displayFiles.length);
+		if (this.displayFiles.length === this.allFiles.length) {
+			return `${shown} bestanden`;
+		}
+		return `${shown} van ${String(this.allFiles.length)} bestanden`;
+	}
+
 	private init(): void {
 		const root = document.getElementById('avpvh-exif-inspector-root');
 		if (!root) {
@@ -2731,7 +2746,7 @@ class ExifInspector {
 			const parts = path
 				.split('/')
 				.map((p) => p.trim())
-				.filter((p) => p);
+				.filter(Boolean);
 
 			if (parts.length === 0) {
 				ExifInspector.showError('Voer een geldig bestandspad in');
@@ -3084,10 +3099,14 @@ class ExifInspector {
 			} else if (driveRot !== 0) {
 				driveRotLabel = `${String(driveRot)}°`;
 			}
+			const driveIcon = ExifInspector.driveLinkIconHtml(
+				ExifInspector.driveFileUrl(file.id),
+				'"' + file.name + '" openen in Google Drive'
+			);
 			html +=
 				`<tr class="file-table-row${isSel ? ' file-table-selected' : ''}${this.excludedPhotoIds.has(file.id) ? ' photo-excluded' : ''}" data-file-id="${ExifInspector.escapeHtml(file.id)}">` +
 				`<td style="color:#aaa;text-align:right;width:2.5em;">${String(overallIdx)}</td>` +
-				`<td title="${ExifInspector.escapeHtml(file.name)}" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.excludedPhotoIds.has(file.id) ? '<span style="color:#d63638;font-weight:700;" aria-label="Uitgesloten">✕</span> ' : ''}${ExifInspector.escapeHtml(file.name)}${ExifInspector.driveLinkIconHtml(ExifInspector.driveFileUrl(file.id), `"${file.name}" openen in Google Drive`)}</td>` +
+				`<td title="${ExifInspector.escapeHtml(file.name)}" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.excludedPhotoIds.has(file.id) ? '<span style="color:#d63638;font-weight:700;" aria-label="Uitgesloten">✕</span> ' : ''}${ExifInspector.escapeHtml(file.name)}${driveIcon}</td>` +
 				`<td>${isVideo ? '▶ Video' : '▧ Foto'}</td>` +
 				`<td>${ExifInspector.escapeHtml(cam)}</td>` +
 				`<td${!isVideo && orient !== 1 ? ' style="color:#b04000;font-weight:500;"' : ''}>${isVideo ? 'n.v.t.' : ExifInspector.orientLabel(orient)}</td>` +
@@ -3571,9 +3590,7 @@ class ExifInspector {
 			}
 			this.startOrientationFetch();
 			this.applyFilter();
-			this.renderBreadcrumb(
-				`${String(this.displayFiles.length)}${this.displayFiles.length !== this.allFiles.length ? ` van ${String(this.allFiles.length)}` : ''} bestanden`
-			);
+			this.renderBreadcrumb(this.fileCountLabel());
 			this.currentFileIndex = 0;
 			this.renderFilesView();
 			this.displayCurrentFile();
@@ -3608,10 +3625,8 @@ class ExifInspector {
 			const idx = this.displayFiles.findIndex(
 				(f) => f.id === selectFileId
 			);
-			this.currentFileIndex = idx >= 0 ? idx : 0;
-			this.renderBreadcrumb(
-				`${String(this.displayFiles.length)}${this.displayFiles.length !== this.allFiles.length ? ` van ${String(this.allFiles.length)}` : ''} bestanden`
-			);
+			this.currentFileIndex = Math.max(idx, 0);
+			this.renderBreadcrumb(this.fileCountLabel());
 			this.renderFilesView();
 			this.displayCurrentFile();
 		} catch (error) {
@@ -4092,9 +4107,7 @@ class ExifInspector {
 
 		const rerender = (): void => {
 			this.applyFilter();
-			this.renderBreadcrumb(
-				`${String(this.displayFiles.length)}${this.displayFiles.length !== this.allFiles.length ? ` van ${String(this.allFiles.length)}` : ''} bestanden`
-			);
+			this.renderBreadcrumb(this.fileCountLabel());
 			this.currentFileIndex = 0;
 			this.renderFilesView();
 			if (this.displayFiles.length > 0) {
@@ -4557,7 +4570,7 @@ class ExifInspector {
 				status ||
 				(excluded
 					? 'Uitgesloten van gallery, lightbox en diavoorstelling.'
-					: `${this.isVideo() ? 'Deze video' : 'Deze foto'} wordt getoond.`);
+					: this.shownStatus());
 			statusElement.style.color = excluded ? '#b32d2e' : '#50575e';
 		}
 		ExifInspector.setExclusionDetailsVisible(excluded);
@@ -5097,7 +5110,9 @@ class ExifInspector {
 			const ia = sectionOrder.indexOf(sa);
 			const ib = sectionOrder.indexOf(sb);
 			if (ia !== ib) {
-				return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+				const rankA = ia === -1 ? 99 : ia;
+				const rankB = ib === -1 ? 99 : ib;
+				return rankA - rankB;
 			}
 			return a.localeCompare(b);
 		});
@@ -5884,10 +5899,13 @@ class ExifInspector {
 			encodeURIComponent(this.currentFile.size ?? '0') +
 			'&_wpnonce=' +
 			encodeURIComponent(this.nonce);
+		const posterAttr = thumbLink
+			? ' poster="' + ExifInspector.escapeHtml(thumbLink) + '"'
+			: '';
 		player.innerHTML = `
 			<h4>Video afspelen</h4>
 			<div class="correction-scope">Originele video, beveiligd gestreamd via de website</div>
-			<video class="inspector-video-player" controls playsinline preload="metadata"${thumbLink ? ` poster="${ExifInspector.escapeHtml(thumbLink)}"` : ''}>
+			<video class="inspector-video-player" controls playsinline preload="metadata"${posterAttr}>
 				<source src="${ExifInspector.escapeHtml(streamUrl)}" type="${ExifInspector.escapeHtml(this.currentFile.mimeType ?? 'video/mp4')}" />
 				Deze browser kan deze video niet afspelen.
 			</video>`;
@@ -6107,10 +6125,13 @@ class ExifInspector {
 			});
 		}
 		summary.innerHTML = lines
-			.map(
-				({ text, color }) =>
-					`<div${color !== undefined ? ` style="color:${color};font-weight:600"` : ''}>${ExifInspector.escapeHtml(text)}</div>`
-			)
+			.map(({ text, color }) => {
+				const style =
+					color === undefined
+						? ''
+						: ' style="color:' + color + ';font-weight:600"';
+				return `<div${style}>${ExifInspector.escapeHtml(text)}</div>`;
+			})
 			.join('');
 		if (resetAll) {
 			resetAll.style.display = ownKeys.length > 0 ? '' : 'none';

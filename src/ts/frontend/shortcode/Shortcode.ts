@@ -3196,7 +3196,7 @@ export class Shortcode {
 			!this.lightbox.pswp.isOpen ||
 			this.screenWakeLock?.released === false
 		) {
-			return Promise.resolve();
+			return;
 		}
 		if (this.screenWakeLockRequest !== null) {
 			return this.screenWakeLockRequest;
@@ -3205,7 +3205,7 @@ export class Shortcode {
 		// browsers genuinely lack it at runtime — hence the `in` check rather
 		// than a (statically "impossible") undefined comparison.
 		if (!('wakeLock' in navigator)) {
-			return Promise.resolve();
+			return;
 		}
 		const wakeLock = navigator.wakeLock;
 
@@ -4365,7 +4365,7 @@ export class Shortcode {
 			avpvhShortcodeLocalize.exif_orientation_url === '' ||
 			avpvhShortcodeLocalize.rest_nonce === ''
 		) {
-			return Promise.resolve(null);
+			return null;
 		}
 
 		const request = fetch(avpvhShortcodeLocalize.exif_orientation_url, {
@@ -4506,10 +4506,9 @@ export class Shortcode {
 			return;
 		}
 
-		const flipPart =
-			hFlip || vFlip
-				? `scale(${hFlip ? '-1' : '1'}, ${vFlip ? '-1' : '1'}) `
-				: '';
+		const scaleX = hFlip ? '-1' : '1';
+		const scaleY = vFlip ? '-1' : '1';
+		const flipPart = hFlip || vFlip ? `scale(${scaleX}, ${scaleY}) ` : '';
 
 		if (rotation === 0) {
 			imgEl.style.transform = flipPart ? flipPart.trimEnd() : '';
@@ -5611,18 +5610,21 @@ export class Shortcode {
 		if ('' === avpvhShortcodeLocalize.rest_nonce) {
 			return;
 		}
-		const bar = buildFilterBar(
-			avpvhShortcodeLocalize.ajax_url,
-			this.filter ?? this.draftConditions,
-			this.filterTotal,
-			{
+		const bar = buildFilterBar({
+			ajaxUrl: avpvhShortcodeLocalize.ajax_url,
+			conditions: this.filter ?? this.draftConditions,
+			total: this.filterTotal,
+			scope: {
 				selected: this.filterFolders,
 				load: async (path) => {
 					const listing = await this.fetchFolder(path);
 					return (listing?.directories ?? []).map((directory) => ({
 						id: directory.id,
 						name: directory.name,
-						path: `${path === '' ? '' : `${path}/`}${directory.id}`,
+						path:
+							'' === path
+								? directory.id
+								: `${path}/${directory.id}`,
 					}));
 				},
 				onChange: (folders) => {
@@ -5632,7 +5634,7 @@ export class Shortcode {
 					}
 				},
 			},
-			{
+			sort: {
 				order: this.sortOrder,
 				onChange: (order) => {
 					this.sortOrder = order;
@@ -5648,7 +5650,7 @@ export class Shortcode {
 					}
 				},
 			},
-			{
+			share: {
 				enabled: avpvhShortcodeLocalize.can_share === 'true',
 				captions: avpvhShortcodeLocalize.can_caption === 'true',
 				google:
@@ -5659,7 +5661,7 @@ export class Shortcode {
 				sort: this.sortOrder,
 				nonce: avpvhShortcodeLocalize.tag_nonce,
 			},
-			{
+			library: {
 				filters: this.savedFilters,
 				shared: avpvhShortcodeLocalize.shared_filters,
 				recipients: async () => this.filterRecipients(),
@@ -5673,7 +5675,7 @@ export class Shortcode {
 				onDelete: async (id) => this.deleteSavedFilter(id),
 				onSave: async (name, id) => this.saveNamedFilter(name, id),
 			},
-			(conditions) => {
+			onChange: (conditions) => {
 				if (isActiveFilter(conditions)) {
 					this.draftConditions = [];
 					this.getFiltered(conditions);
@@ -5681,8 +5683,8 @@ export class Shortcode {
 					this.draftConditions = conditions;
 					this.get();
 				}
-			}
-		);
+			},
+		});
 		this.container.prepend(bar);
 	}
 
@@ -6468,14 +6470,15 @@ export class Shortcode {
 	// household, see Like_Visibility on the PHP side) plus how many more.
 	private static likersText(names: Array<string>, count: number): string {
 		const others = count - names.length;
-		if (names.length === 0) {
-			return others > 0
-				? `${String(others)} ${others === 1 ? 'persoon' : 'personen'}`
-				: '';
+		if (others <= 0) {
+			return names.join(', ');
 		}
-		return others > 0
-			? `${names.join(', ')} en ${String(others)} ${others === 1 ? 'ander' : 'anderen'}`
-			: names.join(', ');
+		if (names.length === 0) {
+			const people = others === 1 ? 'persoon' : 'personen';
+			return `${String(others)} ${people}`;
+		}
+		const rest = others === 1 ? 'ander' : 'anderen';
+		return `${names.join(', ')} en ${String(others)} ${rest}`;
 	}
 
 	// The reaction group holding "like", which has its own top-bar button

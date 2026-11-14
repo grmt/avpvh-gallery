@@ -997,16 +997,23 @@ function savedFilterControls(
 // removable chips, a row to add one (how · what kind · which) with the
 // "only this folder" switch, and while filtering the number of photos
 // found and a button to clear the filter.
-export function buildFilterBar(
-	ajaxUrl: string,
-	conditions: Array<FilterCondition>,
-	total: number | null,
-	scope: FilterScope,
-	sort: FilterSort,
-	share: FilterShare,
-	library: FilterLibrary,
-	onChange: (conditions: Array<FilterCondition>) => void
-): HTMLElement {
+export interface FilterBarOptions {
+	ajaxUrl: string;
+	conditions: Array<FilterCondition>;
+	total: number | null;
+	scope: FilterScope;
+	sort: FilterSort;
+	share: FilterShare;
+	library: FilterLibrary;
+	onChange(conditions: Array<FilterCondition>): void;
+}
+
+export function buildFilterBar(barOptions: FilterBarOptions): HTMLElement {
+	const { ajaxUrl, conditions, total, scope, sort, share, library } =
+		barOptions;
+	const onChange = (next: Array<FilterCondition>): void => {
+		barOptions.onChange(next);
+	};
 	const bar = document.createElement('div');
 	bar.className = 'avpvh-filter-bar';
 

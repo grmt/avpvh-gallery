@@ -100,8 +100,8 @@ export class AvpvhEditorComponent extends Component<
 				);
 			}
 			for (const segment of path) {
-				pathElements.push(' > ');
 				pathElements.push(
+					' > ',
 					createElement(
 						'a',
 						{
