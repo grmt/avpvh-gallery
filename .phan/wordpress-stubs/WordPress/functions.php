@@ -574,6 +574,31 @@ function content_url( $path = '' ) {
 }
 
 /**
+ * @param string                      $hook_name
+ * @param callable|string|array|false $callback
+ *
+ * @return bool|int
+ */
+function has_action( $hook_name, $callback = false ) {
+}
+
+/**
+ * @param \WP_Screen|string $hook_name
+ *
+ * @return void
+ */
+function set_current_screen( $hook_name = '' ) {
+}
+
+/**
+ * @param string $tag
+ *
+ * @return bool
+ */
+function shortcode_exists( $tag ) {
+}
+
+/**
  * @param string $target
  * @return bool
  */
