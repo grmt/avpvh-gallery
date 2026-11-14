@@ -9,6 +9,19 @@ namespace PHPUnit\Framework;
 
 class Assert {
 
+	/** @param mixed $actual @param string $message @return void */
+	public static function assertTrue( $actual, $message = '' ) {}
+	/** @param mixed $actual @param string $message @return void */
+	public static function assertFalse( $actual, $message = '' ) {}
+	/** @param mixed $actual @param string $message @return void */
+	public static function assertNotNull( $actual, $message = '' ) {}
+	/** @param mixed $actual @param string $message @return void */
+	public static function assertIsArray( $actual, $message = '' ) {}
+	/** @param mixed $expected @param mixed $actual @param string $message @return void */
+	public static function assertEquals( $expected, $actual, $message = '' ) {}
+	/** @param string $needle @param string $haystack @param string $message @return void */
+	public static function assertStringNotContainsString( $needle, $haystack, $message = '' ) {}
+
 	/**
 	 * @param string $expected
 	 * @param mixed  $actual
@@ -36,6 +49,9 @@ class Assert {
 	public static function assertNull( $actual, $message = '' ) {}
 	/** @param int|string $key @param array<mixed> $array @param string $message @return void */
 	public static function assertArrayNotHasKey( $key, $array, $message = '' ) {}
-	/** @param string $message @return never */
+	/**
+	 * @param string $message
+	 * @return never
+	 */
 	public static function fail( $message = '' ) { throw new \RuntimeException( $message ); }
 }

@@ -2193,3 +2193,9 @@ function wp_schedule_event( $timestamp, $recurrence, $hook, $args = array(), $wp
  */
 function wp_schedule_single_event( $timestamp, $hook, $args = array(), $wp_error = false ) {
 }
+
+/**
+ * @param WP_REST_Request $request
+ * @return WP_REST_Response
+ */
+function rest_do_request( $request ) {}

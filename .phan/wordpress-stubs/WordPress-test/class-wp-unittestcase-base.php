@@ -14,3 +14,5 @@ class WP_UnitTestCase_Base extends TestCase {
 	 */
 	public function set_up() {}
 }
+
+class WPDieException extends Exception {}
