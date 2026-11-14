@@ -14,7 +14,7 @@
 	cursor: pointer;
 	font-size: 16px;
 	min-width: 32px;
-	transition: all 0.2s ease;
+	transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 	line-height: 1;
 }
 
@@ -172,7 +172,7 @@
 	align-items: center;
 	gap: 3px;
 	cursor: pointer;
-	transition: all 0.2s ease;
+	transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 	user-select: none;
 }
 
