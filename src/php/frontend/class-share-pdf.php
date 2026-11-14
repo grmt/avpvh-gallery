@@ -261,18 +261,18 @@ final class Share_Pdf {
 	 */
 	private static function jpeg_size( $jpeg ) {
 		$length = strlen( $jpeg );
-		$at     = 2;
+		$offset = 2;
 
-		while ( $at + 9 < $length ) {
-			$marker = ord( $jpeg[ $at + 1 ] );
+		while ( $offset + 9 < $length ) {
+			$marker = ord( $jpeg[ $offset + 1 ] );
 
 			if ( 0xC0 <= $marker && 0xCF >= $marker && ! in_array( $marker, array( 0xC4, 0xC8, 0xCC ), true ) ) {
-				$sizes = (array) unpack( 'nheight/nwidth/Ccomponents', substr( $jpeg, $at + 5, 5 ) );
+				$sizes = (array) unpack( 'nheight/nwidth/Ccomponents', substr( $jpeg, $offset + 5, 5 ) );
 
 				return array( (int) $sizes['width'], (int) $sizes['height'], (int) $sizes['components'] );
 			}
 
-			$at += 2 + (int) ( (array) unpack( 'n', substr( $jpeg, $at + 2, 2 ) ) )[1];
+			$offset += 2 + (int) ( (array) unpack( 'n', substr( $jpeg, $offset + 2, 2 ) ) )[1];
 		}
 
 		return null;

@@ -121,7 +121,11 @@ final class Photo_Shares_Removal implements Gallery_Component {
 		}
 
 		if ( ! in_array( $share->status, array( 'pending', 'ready' ), true ) ) {
-			wp_die( 'Deze deling is al verwijderd of verlopen.', esc_html( self::PAGE_TITLE ), array( 'response' => 200 ) );
+			wp_die(
+				'Deze deling is al verwijderd of verlopen.',
+				esc_html( self::PAGE_TITLE ),
+				array( 'response' => 200 )
+			);
 		}
 
 		if ( ! $sure ) {
