@@ -11,20 +11,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use Avpvh\Options;
 
 /**
  * Registers and renders the settings for sharing photo selections via
  * Google Drive (see Photo_Shares and Share_Drive).
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Sharing {
+final class Sharing implements Gallery_Component {
 
 	/**
 	 * Register all the hooks for the section.
 	 */
-	public function __construct() {
+	public function register(): void {
 		if ( ! is_admin() ) {
 			return;
 		}

@@ -11,21 +11,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
+
 /**
  * The "Tags" admin page: edit the subject-tag tree (sections, groups, tags)
  * used by the lightbox's tagging panel and the gallery filter — rename,
  * add, move, reorder, remove, and set a group to one tag per photo. The
  * editing itself happens in the browser (admin/js/tag-tree.min.js) against
  * Tag_Tree_REST.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Tag_Tree_Page {
+final class Tag_Tree_Page implements Gallery_Component {
 
 	/**
 	 * Registers the page and its script.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'admin_menu', array( self::class, 'register_page' ) );
 		add_action( 'admin_enqueue_scripts', array( self::class, 'enqueue_script' ) );
 	}

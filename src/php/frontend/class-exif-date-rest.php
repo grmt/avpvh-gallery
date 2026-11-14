@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -31,15 +32,13 @@ use WP_REST_Response;
  *
  * Given the photo's folder, its date correction applies (see
  * Folder_Date_Correction): an ignored date comes back as null.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Exif_Date_REST {
+final class Exif_Date_REST implements Gallery_Component {
 
 	/**
 	 * Registers the REST route.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 

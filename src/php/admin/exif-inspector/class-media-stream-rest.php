@@ -13,21 +13,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Avpvh\API_Client;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
+use Avpvh\Gallery_Component;
 use Exception;
 use WP_Error;
 use WP_REST_Request;
 
 /**
  * REST API controller that streams and proxies media bytes for the EXIF Inspector.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Media_Stream_REST {
+final class Media_Stream_REST implements Gallery_Component {
 
 	/**
 	 * Registers the REST routes.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 

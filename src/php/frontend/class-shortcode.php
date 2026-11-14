@@ -22,6 +22,7 @@ use Avpvh\Exceptions\Not_Found_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Exceptions\Root_Not_Found_Exception;
 use Avpvh\Frontend\Options_Proxy;
+use Avpvh\Gallery_Component;
 use Avpvh\Helpers;
 use Avpvh\Main;
 use Avpvh\Options;
@@ -34,16 +35,14 @@ use const DAY_IN_SECONDS;
 /**
  * Contains all the functions for the shortcode the plugin provides
  *
- * @phan-constructor-used-for-side-effects
- *
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
  */
-final class Shortcode {
+final class Shortcode implements Gallery_Component {
 
 	/**
 	 * Registers all the hooks for the shortcode.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'init', array( self::class, 'init' ) );
 	}
 

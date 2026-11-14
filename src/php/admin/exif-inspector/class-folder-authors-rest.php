@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Avpvh\API_Client;
 use Avpvh\API_Facade;
+use Avpvh\Gallery_Component;
 use Throwable;
 use WP_Error;
 use WP_REST_Request;
@@ -25,11 +26,9 @@ use WP_REST_Response;
  * the nearest ancestor that has one; a folder with rows is explicit and cascades to its own
  * descendants. member_id 0 is a reserved sentinel meaning "explicitly AVPvH, stop inheriting".
  *
- * @phan-constructor-used-for-side-effects
- *
  * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
-final class Folder_Authors_REST {
+final class Folder_Authors_REST implements Gallery_Component {
 
 	/**
 	 * Sentinel member_id representing the organisation itself rather than a specific member.
@@ -39,7 +38,7 @@ final class Folder_Authors_REST {
 	/**
 	 * Registers the REST routes.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 

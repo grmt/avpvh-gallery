@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use AVPVH_Directory;
 
 /**
@@ -19,10 +20,8 @@ use AVPVH_Directory;
  * whom it's shared with on the filter itself ("users", "groups"); everyone
  * it's shared with sees it under "Gedeeld met mij" and may apply it, but
  * only the owner can change or delete it.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Filter_Sharing {
+final class Filter_Sharing implements Gallery_Component {
 
 	/**
 	 * Where the directory's group names are cached.
@@ -32,7 +31,7 @@ final class Filter_Sharing {
 	/**
 	 * Registers the AJAX endpoints.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'wp_ajax_gallery_filter_share', array( self::class, 'handle_share' ) );
 		add_action( 'wp_ajax_gallery_filter_recipients', array( self::class, 'handle_recipients' ) );
 	}

@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use Avpvh\Tag_Log;
 use WP_Error;
 use WP_REST_Request;
@@ -25,15 +26,13 @@ use WP_REST_Response;
  * same folder. This stores a per-photo place that replaces the folder's.
  * Like tags: anyone logged in may set a place on a photo that has none;
  * changing or removing one is limited to admins and "boek" members.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Photo_Places {
+final class Photo_Places implements Gallery_Component {
 
 	/**
 	 * Registers the REST routes.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'rest_api_init', array( self::class, 'register_routes' ) );
 	}
 

@@ -12,6 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Avpvh\Admin\Settings_Pages\Basic\Root_Selection\List_Ajax_Endpoint;
+use Avpvh\Gallery_Component;
 use Avpvh\Options;
 use Avpvh\Script_And_Style_Helpers;
 
@@ -19,22 +20,20 @@ require_once __DIR__ . '/root-selection/class-list-ajax-endpoint.php';
 
 /**
  * Registers and renders the root selection settings section.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Root_Selection {
+final class Root_Selection implements Gallery_Component {
 
 	/**
 	 * Register all the hooks for this section.
 	 */
-	public function __construct() {
+	public function register(): void {
 		if ( ! is_admin() ) {
 			return;
 		}
 
 		add_action( 'admin_init', array( self::class, 'add_section' ) );
 		add_action( 'admin_enqueue_scripts', array( self::class, 'register_scripts_styles' ) );
-		new List_Ajax_Endpoint();
+		( new List_Ajax_Endpoint() )->register();
 	}
 
 	/**

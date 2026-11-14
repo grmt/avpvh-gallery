@@ -11,15 +11,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
+
 /**
  * Tidying the profile's share list (see Photo_Shares_Page): a share that
  * has ended (expired, removed, failed) can be taken off the list, one at a
  * time ("Uit lijst halen") or all at once ("Opruimen"). It's only hidden
  * (status "hidden"); its folder was already gone.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Photo_Shares_Cleanup {
+final class Photo_Shares_Cleanup implements Gallery_Component {
 
 	/**
 	 * Statuses of shares that have ended.
@@ -35,7 +35,7 @@ final class Photo_Shares_Cleanup {
 	/**
 	 * Registers the two form handlers.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'admin_post_avpvh_gallery_share_hide', array( self::class, 'handle_hide' ) );
 		add_action( 'admin_post_avpvh_gallery_share_tidy', array( self::class, 'handle_tidy' ) );
 	}

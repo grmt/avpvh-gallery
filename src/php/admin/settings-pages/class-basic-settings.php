@@ -35,10 +35,10 @@ final class Basic_Settings {
 		add_action( 'admin_menu', array( self::class, 'add_page' ) );
 
 		if ( false === get_option( 'avpvh_access_token', false ) ) {
-			new OAuth_Grant();
+			( new OAuth_Grant() )->register();
 		} else {
-			new OAuth_Revoke();
-			new Root_Selection();
+			( new OAuth_Revoke() )->register();
+			( new Root_Selection() )->register();
 		}
 	}
 

@@ -11,19 +11,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use Avpvh\Options;
 
 /**
  * EXIF inspector admin page.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Exif_Inspector {
+final class Exif_Inspector implements Gallery_Component {
 
 	/**
 	 * Registers the EXIF inspector page.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'register_page' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
 	}

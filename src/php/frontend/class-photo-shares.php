@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use stdClass;
 use Throwable;
 
@@ -25,10 +26,8 @@ use Throwable;
  * Copying runs in the background (WP-cron); the e-mail says when it's done.
  * The folders are made by the service account set in the plugin's settings
  * (see Share_Drive); without one, sharing isn't offered.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Photo_Shares {
+final class Photo_Shares implements Gallery_Component {
 
 	/**
 	 * At most this many photos per share.
@@ -63,9 +62,9 @@ final class Photo_Shares {
 	/**
 	 * Registers the AJAX endpoint, the cron jobs and the profile list.
 	 */
-	public function __construct() {
-		new Photo_Shares_Page();
-		new Photo_Shares_Removal();
+	public function register(): void {
+		( new Photo_Shares_Page() )->register();
+		( new Photo_Shares_Removal() )->register();
 		add_action( 'wp_ajax_gallery_share_create', array( self::class, 'ajax_create' ) );
 		add_action( 'wp_ajax_gallery_dig_captions', array( Share_Caption::class, 'ajax_folders' ) );
 		add_action( self::BUILD_HOOK, array( self::class, 'build' ) );

@@ -11,14 +11,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use Avpvh\Tag_Log;
 
 /**
  * Handles photo tagging, comments, and reactions via AJAX.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Photo_Tags {
+final class Photo_Tags implements Gallery_Component {
 
 	/**
 	 * The fixed set of reactions a photo can get, grouped by what they
@@ -65,7 +64,7 @@ final class Photo_Tags {
 	/**
 	 * Initializes AJAX handlers
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'wp_ajax_gallery_tag_add', array( $this, 'ajax_add_tag' ) );
 		add_action( 'wp_ajax_gallery_tag_list', array( $this, 'ajax_list_tags' ) );
 		add_action( 'wp_ajax_gallery_tag_delete', array( $this, 'ajax_delete_tag' ) );

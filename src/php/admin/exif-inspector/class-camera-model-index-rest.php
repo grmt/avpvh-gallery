@@ -16,6 +16,7 @@ use Avpvh\API_Facade;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Frontend\API_Fields;
 use Avpvh\Frontend\Paging_Pagination_Helper;
+use Avpvh\Gallery_Component;
 use Avpvh\Options;
 use Exception;
 use Throwable;
@@ -27,11 +28,9 @@ use WP_REST_Response;
 /**
  * REST API controller for the resumable, persistent camera-model index.
  *
- * @phan-constructor-used-for-side-effects
- *
  * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
-final class Camera_Model_Index_REST {
+final class Camera_Model_Index_REST implements Gallery_Component {
 
 	private const CAMERA_MODEL_INDEX_OPTION = 'avpvh_camera_model_index';
 	private const CAMERA_MODEL_SCAN_OPTION  = 'avpvh_camera_model_scan';
@@ -39,7 +38,7 @@ final class Camera_Model_Index_REST {
 	/**
 	 * Registers the REST routes.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 

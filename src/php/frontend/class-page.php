@@ -27,6 +27,7 @@ use Avpvh\Frontend\Page\Folder_Covers;
 use Avpvh\Frontend\Page\Images;
 use Avpvh\Frontend\Page\Videos;
 use Avpvh\Frontend\Paging_Pagination_Helper;
+use Avpvh\Gallery_Component;
 use Avpvh\Helpers;
 use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
 use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
@@ -35,15 +36,13 @@ use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
  * Contains all the functions used to handle the "page" AJAX endpoint.
  *
  * The "page" AJAX enpoint gets called each time the user needs to fetch items for a gallery.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Page {
+final class Page implements Gallery_Component {
 
 	/**
 	 * Registers the "page" AJAX endpoint
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'wp_ajax_page', array( self::class, 'handle_ajax' ) );
 		add_action( 'wp_ajax_nopriv_page', array( self::class, 'handle_ajax' ) );
 	}

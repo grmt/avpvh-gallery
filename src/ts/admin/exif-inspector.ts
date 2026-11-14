@@ -535,10 +535,6 @@ class ExifInspector {
 		this.rootId = avpvhExifInspector.root_id;
 		this.restUrl = avpvhExifInspector.rest_url;
 		this.nonce = avpvhExifInspector.nonce;
-		this.init();
-		window.addEventListener('beforeunload', () => {
-			this.flushPendingSaves();
-		});
 	}
 
 	// When the filter gives 0 results, fall back to all files so the user can still navigate.
@@ -1173,6 +1169,15 @@ class ExifInspector {
 			ExifInspector.EXIF_DESCRIPTIONS[shortKey]
 		);
 		return desc !== undefined ? `${shortKey}: ${desc}` : shortKey;
+	}
+
+	// Builds the page and hooks its events (kept out of the constructor, so
+	// creating the object has no side effects).
+	public start(): void {
+		this.init();
+		window.addEventListener('beforeunload', () => {
+			this.flushPendingSaves();
+		});
 	}
 
 	private init(): void {
@@ -6840,8 +6845,8 @@ class ExifInspector {
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
 	document.addEventListener('DOMContentLoaded', () => {
-		new ExifInspector();
+		new ExifInspector().start();
 	});
 } else {
-	new ExifInspector();
+	new ExifInspector().start();
 }
