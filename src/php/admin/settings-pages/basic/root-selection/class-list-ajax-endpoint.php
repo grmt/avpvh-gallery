@@ -138,7 +138,7 @@ final class List_Ajax_Endpoint implements Gallery_Component {
 	private static function path_ids_to_names( $path ) {
 		$promises = array();
 
-		if ( ! empty( $path ) ) {
+		if ( array() !== $path ) {
 			$promises[] = 'root' === $path[0]
 				? new FulfilledPromise(
 					esc_html__( 'My Drive', 'avpvh-gallery' )

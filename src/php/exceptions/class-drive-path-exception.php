@@ -16,4 +16,7 @@ use RuntimeException;
 /**
  * A Drive path that can't be resolved: invalid, not found or ambiguous.
  */
-final class Drive_Path_Exception extends RuntimeException {}
+final class Drive_Path_Exception extends RuntimeException {
+
+	// Only the type is new: it says where the failure came from.
+}

@@ -18,6 +18,13 @@
 	line-height: 1;
 }
 
+@media (prefers-reduced-motion: reduce) {
+
+	.avpvh-emoji-picker button {
+		transition: none;
+	}
+}
+
 /* Member selector overlay (when drawing annotation) */
 .avpvh-member-selector-overlay {
 	position: absolute;

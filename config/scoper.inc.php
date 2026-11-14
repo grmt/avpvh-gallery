@@ -28,8 +28,14 @@ function safe_replace( $pattern, $replacement, $value ) {
 	return $replacement;
 }
 
-// PHP files and licences: what the plugin ships from each vendor package.
-const AVPVH_VENDOR_FILES = array( '*.php', '/LICENSE(.txt)?/' );
+/**
+ * The files the plugin ships from each vendor package: PHP files and licences.
+ *
+ * @return array<string>
+ */
+function vendor_file_patterns() {
+	return array( '*.php', '/LICENSE(.txt)?/' );
+}
 
 /**
  * Constructs a finder for composer dependencies.
@@ -39,7 +45,7 @@ const AVPVH_VENDOR_FILES = array( '*.php', '/LICENSE(.txt)?/' );
 function dependency_finder() {
 	// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec
 	exec( 'composer show --no-dev --name-only', $dependencies );
-	$finder = Finder::create()->files()->name( AVPVH_VENDOR_FILES )->in( 'vendor' );
+	$finder = Finder::create()->files()->name( vendor_file_patterns() )->in( 'vendor' );
 
 	foreach ( $dependencies as $dependency ) {
 		$finder->path( '#^' . $dependency . '/#' );
@@ -64,11 +70,11 @@ return array(
 			->depth( 0 )
 			->in( 'vendor/google/apiclient-services/src' ),
 		Finder::create()->files()
-			->name( AVPVH_VENDOR_FILES )
+			->name( vendor_file_patterns() )
 			->path( '#^google/apiclient-services/src/Drive/#' )
 			->in( 'vendor' ),
 		Finder::create()->files()
-			->name( AVPVH_VENDOR_FILES )
+			->name( vendor_file_patterns() )
 			->depth( 0 )
 			->in( 'vendor/composer' ),
 		Finder::create()->files()

@@ -4341,10 +4341,8 @@ export class Shortcode {
 				: 0;
 		const hFlip =
 			slideEl.dataset['avpvhHflip'] === '1' ||
-			slideEl.dataset['avpvhHflip'] === '1' ||
 			slideEl.dataset['avpvhHFlip'] === '1';
 		const vFlip =
-			slideEl.dataset['avpvhVflip'] === '1' ||
 			slideEl.dataset['avpvhVflip'] === '1' ||
 			slideEl.dataset['avpvhVFlip'] === '1';
 		return {
@@ -4842,22 +4840,17 @@ export class Shortcode {
 			);
 			if (image.light_h_flip === true) {
 				el.dataset['avpvhHflip'] = '1';
-				el.dataset['avpvhHflip'] = '1';
 			}
 			if (image.light_v_flip === true) {
-				el.dataset['avpvhVflip'] = '1';
 				el.dataset['avpvhVflip'] = '1';
 			}
 			if (image.light_has_correction === true) {
 				el.dataset['avpvhHasCorrection'] = '1';
-				el.dataset['avpvhHasCorrection'] = '1';
 			}
 			if (image.thumb_h_flip === true) {
 				el.dataset['avpvhThumbHflip'] = '1';
-				el.dataset['avpvhThumbHflip'] = '1';
 			}
 			if (image.thumb_v_flip === true) {
-				el.dataset['avpvhThumbVflip'] = '1';
 				el.dataset['avpvhThumbVflip'] = '1';
 			}
 			el.href = image.image;

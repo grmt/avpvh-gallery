@@ -247,17 +247,6 @@ final class Options {
 	 * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
 	 */
 	public static function init() {
-		self::init_basic();
-		self::init_advanced();
-		self::init_lightbox();
-	}
-
-	/**
-	 * The basic settings: assets, Google authorization and the root folder.
-	 *
-	 * @return void
-	 */
-	private static function init_basic() {
 		self::$asset_set         = new Asset_Set_Option(
 			'asset_set',
 			'auto',
@@ -304,14 +293,7 @@ final class Options {
 		);
 
 		self::$root_path = new Root_Path_Option( 'root_path', array( 'root' ), 'basic', 'root_selection', '' );
-	}
 
-	/**
-	 * The advanced settings: grid, paging, marks, sharing and ordering.
-	 *
-	 * @return void
-	 */
-	private static function init_advanced() {
 		self::$grid_height           = new Bounded_Integer_Option(
 			'grid_height',
 			250,
@@ -409,14 +391,7 @@ final class Options {
 			'grid',
 			esc_html__( 'In folder names, hide everything before the first occurence of', 'avpvh-gallery' )
 		);
-	}
 
-	/**
-	 * The lightbox (preview) settings.
-	 *
-	 * @return void
-	 */
-	private static function init_lightbox() {
 		self::$preview_size               = new Bounded_Integer_Option(
 			'preview_size',
 			1920,

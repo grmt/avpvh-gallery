@@ -268,7 +268,7 @@ final class Directories {
 						'name'
 					)->then(
 						static function ( $images ) {
-							if ( empty( $images ) ) {
+							if ( array() === $images ) {
 								return false;
 							}
 

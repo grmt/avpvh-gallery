@@ -16,4 +16,7 @@ use RuntimeException;
 /**
  * A tag import row that can't be imported (unknown user or tag, failed insert).
  */
-final class Tag_Import_Exception extends RuntimeException {}
+final class Tag_Import_Exception extends RuntimeException {
+
+	// Only the type is new: it says where the failure came from.
+}

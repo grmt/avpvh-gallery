@@ -24,12 +24,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Like_Visibility {
 
 	/**
-	 * avpvh-members' roles class.
+	 * The roles class of avpvh-members.
 	 */
 	private const ROLES_CLASS = '\\AVPVH_Roles';
 
 	/**
-	 * avpvh-members' database class.
+	 * The database class of avpvh-members.
 	 */
 	private const DB_CLASS = '\\AVPVH_DB';
 

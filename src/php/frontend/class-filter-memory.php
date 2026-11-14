@@ -213,7 +213,11 @@ final class Filter_Memory {
 			'conditions' => $conditions,
 			'folders'    => $folders,
 			'here'       => true === ( $state['here'] ?? false ),
-			'sort'       => in_array( $state['sort'] ?? '', array( 'date', 'date_desc' ), true ) ? $state['sort'] : 'date',
+			'sort'       => in_array(
+				$state['sort'] ?? '',
+				array( 'date', 'date_desc' ),
+				true
+			) ? $state['sort'] : 'date',
 		);
 	}
 

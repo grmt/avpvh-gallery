@@ -112,7 +112,7 @@ final class Code_String_Option extends String_Option {
 				'(unchanged) Enter a new value to replace it',
 				'avpvh-gallery'
 			) . '" ' : '' ) .
-			$this->readonly_attribute( $is_masked ) .
+			esc_attr( $this->readonly_attribute( $is_masked ) ) .
 			'class="regular-text code">';
 	}
 

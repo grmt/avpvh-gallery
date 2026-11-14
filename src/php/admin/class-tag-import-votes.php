@@ -178,7 +178,9 @@ final class Tag_Import_Votes {
 		);
 
 		if ( 1 !== $inserted ) {
-			throw new Tag_Import_Exception( esc_html( 'insert failed for ' . $vote['path'] . ': ' . $wpdb->last_error ) );
+			throw new Tag_Import_Exception(
+				esc_html( 'insert failed for ' . $vote['path'] . ': ' . $wpdb->last_error )
+			);
 		}
 
 		wp_set_current_user( $user_id );

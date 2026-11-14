@@ -16,4 +16,7 @@ use RuntimeException;
 /**
  * Sharing photos failed: reading, uploading or writing a file, or an unclear Drive folder.
  */
-final class Share_Exception extends RuntimeException {}
+final class Share_Exception extends RuntimeException {
+
+	// Only the type is new: it says where the failure came from.
+}

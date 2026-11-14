@@ -117,17 +117,17 @@ final class Photo_Shares_Removal implements Gallery_Component {
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing
 
 		if ( ! $share instanceof stdClass || ! hash_equals( self::token( $share ), $token ) ) {
-			wp_die( 'Deze link is ongeldig.', self::PAGE_TITLE, array( 'response' => 403 ) );
+			wp_die( 'Deze link is ongeldig.', esc_html( self::PAGE_TITLE ), array( 'response' => 403 ) );
 		}
 
 		if ( ! in_array( $share->status, array( 'pending', 'ready' ), true ) ) {
-			wp_die( 'Deze deling is al verwijderd of verlopen.', self::PAGE_TITLE, array( 'response' => 200 ) );
+			wp_die( 'Deze deling is al verwijderd of verlopen.', esc_html( self::PAGE_TITLE ), array( 'response' => 200 ) );
 		}
 
 		if ( ! $sure ) {
 			wp_die(
 				wp_kses( self::confirmation( $share, $token ), self::FORM_HTML ),
-				self::PAGE_TITLE,
+				esc_html( self::PAGE_TITLE ),
 				array( 'response' => 200 )
 			);
 		}
