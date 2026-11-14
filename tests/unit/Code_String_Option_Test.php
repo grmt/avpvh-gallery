@@ -48,7 +48,7 @@ final class Code_String_Option_Test extends WP_UnitTestCase {
 	}
 
 	/**
-	 * A not-yet-configured secret stays editable in the locked settings view.
+	 * An empty locked secret is readonly rather than disabled.
 	 *
 	 * @return void
 	 */
@@ -66,7 +66,7 @@ final class Code_String_Option_Test extends WP_UnitTestCase {
 	 *
 	 * @return void
 	 */
-	public function test_blank_submission_preserves_secret_but_replacements_are_accepted() {
+	public function test_blank_secret_preserved_and_replacement_accepted() {
 		update_option( 'avpvh_fixture_code', 'original-secret' );
 		$option = self::option( true );
 		$this->assertSame( 'original-secret', $option->sanitize( '' ) );
