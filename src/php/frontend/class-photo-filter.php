@@ -243,7 +243,13 @@ final class Photo_Filter implements Gallery_Component {
 
 		list( $ids ) = self::matching_ids( $conditions, 0 );
 
-		$folder_ids = is_array( $folders ) ? $folders : ( '' === $folders ? array() : array( $folders ) );
+		if ( is_array( $folders ) ) {
+			$folder_ids = $folders;
+		} elseif ( '' === $folders ) {
+			$folder_ids = array();
+		} else {
+			$folder_ids = array( $folders );
+		}
 
 		return array() === $folder_ids ? $ids : Photo_Filter_Scope::within_many( $ids, $folder_ids );
 	}

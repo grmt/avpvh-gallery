@@ -553,12 +553,13 @@ final class Images {
 			return time();
 		}
 
-		$timestamp = array_key_exists( 'imageMediaMetadata', $image ) &&
-			array_key_exists( 'time', $image['imageMediaMetadata'] )
-			? DateTime::createFromFormat( 'Y:m:d H:i:s', $image['imageMediaMetadata']['time'] )
-			: ( array_key_exists( 'createdTime', $image )
-			? DateTime::createFromFormat( 'Y-m-d\TH:i:s.uP', $image['createdTime'] )
-			: false );
+		$timestamp = false;
+
+		if ( isset( $image['imageMediaMetadata']['time'] ) ) {
+			$timestamp = DateTime::createFromFormat( 'Y:m:d H:i:s', $image['imageMediaMetadata']['time'] );
+		} elseif ( array_key_exists( 'createdTime', $image ) ) {
+			$timestamp = DateTime::createFromFormat( 'Y-m-d\TH:i:s.uP', $image['createdTime'] );
+		}
 
 		return false !== $timestamp ? intval( $timestamp->format( 'U' ) ) : time();
 	}

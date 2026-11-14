@@ -11,12 +11,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Exceptions\Share_Exception;
 use Avpvh\Vendor\Google\Http\MediaFileUpload;
 use Avpvh\Vendor\Google\Service\Drive\DriveFile;
 use Avpvh\Vendor\Google\Service\Exception as Drive_Exception;
 use Avpvh\Vendor\Psr\Http\Message\RequestInterface;
 use Avpvh\Vendor\Psr\Http\Message\ResponseInterface;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -62,7 +62,7 @@ final class Share_Drive_Files {
 	 *
 	 * @return string
 	 *
-	 * @throws RuntimeException Drive didn't return the contents.
+	 * @throws Share_Exception Drive didn't return the contents.
 	 */
 	public static function download( $file_id ) {
 		$response = Share_Drive::drive()->files->get(
@@ -74,7 +74,7 @@ final class Share_Drive_Files {
 		);
 
 		if ( ! $response instanceof ResponseInterface ) {
-			throw new RuntimeException( 'No contents for ' . esc_html( $file_id ) );
+			throw new Share_Exception( 'No contents for ' . esc_html( $file_id ) );
 		}
 
 		return (string) $response->getBody();
@@ -139,14 +139,14 @@ final class Share_Drive_Files {
 	 *
 	 * @return void
 	 *
-	 * @throws RuntimeException The file can't be read.
+	 * @throws Share_Exception The file can't be read.
 	 */
 	public static function upload_file( $folder_id, $name, $mime, $path ) {
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- read in chunks: too big for memory.
 		$handle = fopen( $path, 'rb' );
 
 		if ( false === $handle ) {
-			throw new RuntimeException( 'Could not read ' . esc_html( $name ) );
+			throw new Share_Exception( 'Could not read ' . esc_html( $name ) );
 		}
 
 		try {
@@ -200,7 +200,7 @@ final class Share_Drive_Files {
 	 *
 	 * @return void
 	 *
-	 * @throws RuntimeException The upload couldn't be started.
+	 * @throws Share_Exception The upload couldn't be started.
 	 */
 	private static function send( $folder_id, array $file, callable $chunk ) {
 		list( $name, $mime, $size ) = $file;
@@ -227,7 +227,7 @@ final class Share_Drive_Files {
 		}
 
 		if ( ! $request instanceof RequestInterface ) {
-			throw new RuntimeException( 'Could not start the upload of ' . esc_html( $name ) );
+			throw new Share_Exception( 'Could not start the upload of ' . esc_html( $name ) );
 		}
 
 		$upload = new MediaFileUpload( $client, $request, $mime, '', true, self::CHUNK );

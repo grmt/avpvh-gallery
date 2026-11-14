@@ -112,7 +112,23 @@ final class Code_String_Option extends String_Option {
 				'(unchanged) Enter a new value to replace it',
 				'avpvh-gallery'
 			) . '" ' : '' ) .
-			( $this->is_readonly ? ( $is_masked ? 'disabled ' : 'readonly ' ) : '' ) .
+			$this->readonly_attribute( $is_masked ) .
 			'class="regular-text code">';
+	}
+
+	/**
+	 * The attribute for a read-only field: disabled when the value is masked
+	 * (so it isn't submitted), readonly otherwise.
+	 *
+	 * @param bool $is_masked Whether the stored value is hidden.
+	 *
+	 * @return string
+	 */
+	private function readonly_attribute( $is_masked ) {
+		if ( ! $this->is_readonly ) {
+			return '';
+		}
+
+		return $is_masked ? 'disabled ' : 'readonly ';
 	}
 }

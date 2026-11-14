@@ -11,12 +11,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Exceptions\Share_Exception;
 use Avpvh\Options;
 use Avpvh\Vendor\Google\Client;
 use Avpvh\Vendor\Google\Service\Drive;
 use Avpvh\Vendor\Google\Service\Drive\DriveFile;
 use Avpvh\Vendor\Google\Service\Drive\Permission;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -79,7 +79,7 @@ final class Share_Drive {
 	 *
 	 * @return void
 	 *
-	 * @throws RuntimeException A file couldn't be read or copied.
+	 * @throws Share_Exception A file couldn't be read or copied.
 	 */
 	public static function copy_into( array $ids, $folder_id ) {
 		$ids   = array_values( $ids );
@@ -120,7 +120,7 @@ final class Share_Drive {
 	 *
 	 * @return string
 	 *
-	 * @throws RuntimeException A name is ambiguous (more than one folder).
+	 * @throws Share_Exception A name is ambiguous (more than one folder).
 	 */
 	public static function folder_at( $parent_id, $path, $create ) {
 		foreach ( explode( '/', $path ) as $name ) {
@@ -142,7 +142,7 @@ final class Share_Drive {
 			);
 
 			if ( 1 < count( $exact ) ) {
-				throw new RuntimeException( esc_html( 'More than one folder named ' . $name ) );
+				throw new Share_Exception( esc_html( 'More than one folder named ' . $name ) );
 			}
 
 			if ( array() === $exact && ! $create ) {
@@ -162,7 +162,7 @@ final class Share_Drive {
 	 *
 	 * @return array<string, array<string>>
 	 *
-	 * @throws RuntimeException A file couldn't be read.
+	 * @throws Share_Exception A file couldn't be read.
 	 */
 	public static function parents( array $ids ) {
 		$parents = array();
@@ -197,7 +197,7 @@ final class Share_Drive {
 	 *
 	 * @return void
 	 *
-	 * @throws RuntimeException A file couldn't be moved (the batch it was in may be partly done).
+	 * @throws Share_Exception A file couldn't be moved (the batch it was in may be partly done).
 	 */
 	public static function move( array $moves ) {
 		foreach ( array_chunk( array_values( $moves ), self::BATCH_SIZE ) as $chunk ) {
@@ -273,7 +273,7 @@ final class Share_Drive {
 	 *
 	 * @return array<string, array{name: string, mime: string, size: int, thumb: string}>
 	 *
-	 * @throws RuntimeException A file couldn't be read.
+	 * @throws Share_Exception A file couldn't be read.
 	 */
 	public static function details( array $ids ) {
 		$details = array();
@@ -374,7 +374,7 @@ final class Share_Drive {
 	 *
 	 * @return array<string, string>
 	 *
-	 * @throws RuntimeException A file couldn't be read.
+	 * @throws Share_Exception A file couldn't be read.
 	 */
 	private static function names( array $ids ) {
 		return array_map(
@@ -394,7 +394,7 @@ final class Share_Drive {
 	 *
 	 * @return array<int, mixed> The responses, in order.
 	 *
-	 * @throws RuntimeException One of them failed.
+	 * @throws Share_Exception One of them failed.
 	 */
 	private static function batch( array $items, callable $make ) {
 		$client   = self::drive()->getClient();
@@ -422,7 +422,7 @@ final class Share_Drive {
 			if ( null === $response || $response instanceof Throwable ) {
 				$message = null === $response ? 'No response from Drive' : $response->getMessage();
 
-				throw new RuntimeException( esc_html( $message ) );
+				throw new Share_Exception( esc_html( $message ) );
 			}
 
 			$responses[] = $response;

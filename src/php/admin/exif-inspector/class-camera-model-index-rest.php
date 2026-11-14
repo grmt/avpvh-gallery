@@ -32,6 +32,11 @@ use WP_REST_Response;
  */
 final class Camera_Model_Index_REST implements Gallery_Component {
 
+	/**
+	 * The REST namespace of these routes.
+	 */
+	private const REST_NAMESPACE = 'avpvh-gallery/v1';
+
 	private const CAMERA_MODEL_INDEX_OPTION = 'avpvh_camera_model_index';
 	private const CAMERA_MODEL_SCAN_OPTION  = 'avpvh_camera_model_scan';
 
@@ -49,7 +54,7 @@ final class Camera_Model_Index_REST implements Gallery_Component {
 	 */
 	public function register_routes() {
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/model-index/status',
 			array(
 				'callback'            => array( $this, 'camera_model_index_status' ),
@@ -59,7 +64,7 @@ final class Camera_Model_Index_REST implements Gallery_Component {
 		);
 
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/model-index/start',
 			array(
 				'callback'            => array( $this, 'start_camera_model_index' ),
@@ -69,7 +74,7 @@ final class Camera_Model_Index_REST implements Gallery_Component {
 		);
 
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/model-index/step',
 			array(
 				'callback'            => array( $this, 'step_camera_model_index' ),
@@ -79,7 +84,7 @@ final class Camera_Model_Index_REST implements Gallery_Component {
 		);
 
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/model-index/models',
 			array(
 				'args'                => array(

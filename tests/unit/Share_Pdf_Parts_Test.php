@@ -5,6 +5,7 @@
  * @package avpvh-gallery
  */
 
+use Avpvh\Exceptions\Share_Exception;
 use Avpvh\Frontend\Share_Pdf_Parts;
 use PHPUnit\Framework\TestCase;
 
@@ -144,13 +145,13 @@ final class Share_Pdf_Parts_Test extends TestCase {
 			/**
 			 * Throws the expected synthetic upload error.
 			 *
-			 * @throws RuntimeException Synthetic upload failure.
+			 * @throws Share_Exception Synthetic upload failure.
 			 */
 			function ( $name, $file ) {
 				self::assertStringEndsWith( '.pdf', $name );
 				$this->path = $file;
 
-				throw new RuntimeException( 'Synthetic upload failure' );
+				throw new Share_Exception( 'Synthetic upload failure' );
 			}
 		);
 		$parts->add( self::jpeg() );
@@ -158,7 +159,7 @@ final class Share_Pdf_Parts_Test extends TestCase {
 		try {
 			$parts->finish();
 			self::fail( 'Expected an upload failure' );
-		} catch ( RuntimeException $error ) {
+		} catch ( Share_Exception $error ) {
 			self::assertSame( 'Synthetic upload failure', $error->getMessage() );
 		}
 

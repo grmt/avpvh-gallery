@@ -24,13 +24,23 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Like_Visibility {
 
 	/**
+	 * avpvh-members' roles class.
+	 */
+	private const ROLES_CLASS = '\\AVPVH_Roles';
+
+	/**
+	 * avpvh-members' database class.
+	 */
+	private const DB_CLASS = '\\AVPVH_DB';
+
+	/**
 	 * Whether the current user may see everyone's likes.
 	 *
 	 * @return bool
 	 */
 	public static function sees_all() {
-		if ( class_exists( '\\AVPVH_Roles' ) && method_exists( '\\AVPVH_Roles', 'current_user_is_it_admin' ) ) {
-			return (bool) call_user_func( array( '\\AVPVH_Roles', 'current_user_is_it_admin' ) );
+		if ( class_exists( self::ROLES_CLASS ) && method_exists( self::ROLES_CLASS, 'current_user_is_it_admin' ) ) {
+			return (bool) call_user_func( array( self::ROLES_CLASS, 'current_user_is_it_admin' ) );
 		}
 
 		return current_user_can( 'manage_options' );
@@ -82,20 +92,20 @@ final class Like_Visibility {
 	 * @return array<int>
 	 */
 	private static function household_user_ids( $user_id ) {
-		if ( ! class_exists( '\\AVPVH_DB' ) ) {
+		if ( ! class_exists( self::DB_CLASS ) ) {
 			return array();
 		}
 
-		$member = call_user_func( array( '\\AVPVH_DB', 'get_member_by_wp_user' ), $user_id );
+		$member = call_user_func( array( self::DB_CLASS, 'get_member_by_wp_user' ), $user_id );
 
 		if ( ! is_object( $member ) ) {
 			return array();
 		}
 
-		$lookup    = method_exists( '\\AVPVH_DB', 'get_extended_household' )
+		$lookup    = method_exists( self::DB_CLASS, 'get_extended_household' )
 			? 'get_extended_household'
 			: 'get_manageable_members';
-		$household = call_user_func( array( '\\AVPVH_DB', $lookup ), (int) $member->id );
+		$household = call_user_func( array( self::DB_CLASS, $lookup ), (int) $member->id );
 		$ids       = array();
 
 		foreach ( is_array( $household ) ? $household : array() as $relative ) {

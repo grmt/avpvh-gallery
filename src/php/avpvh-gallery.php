@@ -69,6 +69,9 @@ require_once __DIR__ . '/class-photo-corrections-db.php';
 require_once __DIR__ . '/class-folder-authors-db.php';
 
 require_once __DIR__ . '/exceptions/class-exception.php';
+require_once __DIR__ . '/exceptions/class-drive-path-exception.php';
+require_once __DIR__ . '/exceptions/class-share-exception.php';
+require_once __DIR__ . '/exceptions/class-tag-import-exception.php';
 require_once __DIR__ . '/exceptions/class-api-exception.php';
 require_once __DIR__ . '/exceptions/class-api-rate-limit-exception.php';
 require_once __DIR__ . '/exceptions/class-cant-edit-exception.php';

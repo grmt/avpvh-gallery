@@ -166,7 +166,7 @@ final class TinyMCE_Plugin implements Gallery_Component {
 	 * @throws Unsupported_Value_Exception A field that is not supported was passed in `$fields`.
 	 */
 	private static function list_directories_in_path( array $path, $root ) {
-		if ( 0 === count( $path ) ) {
+		if ( empty( $path ) ) {
 			return API_Facade::list_directories(
 				$root,
 				new API_Fields( array( 'name' ) ),

@@ -25,6 +25,16 @@ use WP_REST_Response;
 final class Corrections_REST implements Gallery_Component {
 
 	/**
+	 * The REST namespace of these routes.
+	 */
+	private const REST_NAMESPACE = 'avpvh-gallery/v1';
+
+	/**
+	 * Error when the request has no file_id.
+	 */
+	private const FILE_ID_REQUIRED = 'file_id is required';
+
+	/**
 	 * Registers the REST routes.
 	 */
 	public function register(): void {
@@ -38,7 +48,7 @@ final class Corrections_REST implements Gallery_Component {
 	 */
 	public function register_routes() {
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/corrections',
 			array(
 				array(
@@ -61,7 +71,7 @@ final class Corrections_REST implements Gallery_Component {
 		);
 
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/folder-corrections',
 			array(
 				array(
@@ -81,7 +91,7 @@ final class Corrections_REST implements Gallery_Component {
 		// admins only): also lets "boek" group members reach this one route from
 		// the frontend lightbox — see Exclusion_Permission's own docblock.
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/exclusion',
 			array(
 				array(
@@ -213,7 +223,7 @@ final class Corrections_REST implements Gallery_Component {
 		$c      = self::parse_correction_params( $params );
 
 		if ( '' === $c['file_id'] ) {
-			return new WP_Error( 'invalid_file', 'file_id is required', array( 'status' => 400 ) );
+			return new WP_Error( 'invalid_file', self::FILE_ID_REQUIRED, array( 'status' => 400 ) );
 		}
 
 		if ( '' === $c['size_key'] ) {
@@ -275,7 +285,7 @@ final class Corrections_REST implements Gallery_Component {
 		$file_id = sanitize_text_field( (string) $request->get_param( 'file_id' ) );
 
 		if ( '' === $file_id ) {
-			return new WP_Error( 'invalid_file', 'file_id is required', array( 'status' => 400 ) );
+			return new WP_Error( 'invalid_file', self::FILE_ID_REQUIRED, array( 'status' => 400 ) );
 		}
 
 		$table = $wpdb->prefix . 'agallery_photo_exclusions';
@@ -330,7 +340,7 @@ final class Corrections_REST implements Gallery_Component {
 		$p = self::parse_exclusion_params( $request->get_json_params() ?? array() );
 
 		if ( '' === $p['file_id'] ) {
-			return new WP_Error( 'invalid_file', 'file_id is required', array( 'status' => 400 ) );
+			return new WP_Error( 'invalid_file', self::FILE_ID_REQUIRED, array( 'status' => 400 ) );
 		}
 
 		if ( $p['excluded'] && array() === $p['reasons'] ) {

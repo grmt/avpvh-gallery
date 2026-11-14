@@ -13,9 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Avpvh\API_Client;
 use Avpvh\API_Facade;
+use Avpvh\Exceptions\Drive_Path_Exception;
 use Avpvh\Frontend\API_Fields;
 use Avpvh\Frontend\Paging_Pagination_Helper;
-use RuntimeException;
 
 /**
  * Finds photos by their path below a folder ("01-Opgravingen/1990
@@ -62,13 +62,13 @@ final class Drive_Path_Resolver {
 	 *
 	 * @return string
 	 *
-	 * @throws RuntimeException The path doesn't lead to exactly one photo.
+	 * @throws Drive_Path_Exception The path doesn't lead to exactly one photo.
 	 */
 	public function photo_id( $path ) {
 		$parts = explode( '/', $path );
 
 		if ( count( $parts ) < 2 || in_array( '', $parts, true ) ) {
-			throw new RuntimeException( 'invalid path' );
+			throw new Drive_Path_Exception( 'invalid path' );
 		}
 
 		$file_name = (string) array_pop( $parts );
@@ -83,7 +83,7 @@ final class Drive_Path_Resolver {
 	 *
 	 * @return string
 	 *
-	 * @throws RuntimeException A folder isn't there exactly once.
+	 * @throws Drive_Path_Exception A folder isn't there exactly once.
 	 */
 	private function folder_id( array $parts ) {
 		$folder_id = $this->root_id;
@@ -150,7 +150,7 @@ final class Drive_Path_Resolver {
 	 *
 	 * @return string
 	 *
-	 * @throws RuntimeException Not exactly one match.
+	 * @throws Drive_Path_Exception Not exactly one match.
 	 */
 	private static function only_match( array $by_name, $name, $what ) {
 		$ids = $by_name[ self::normalize( $name ) ] ?? array();
@@ -160,7 +160,7 @@ final class Drive_Path_Resolver {
 		}
 
 		if ( 1 < count( $ids ) ) {
-			throw new RuntimeException( esc_html( sprintf( 'ambiguous %s (%d matches)', $what, count( $ids ) ) ) );
+			throw new Drive_Path_Exception( esc_html( sprintf( 'ambiguous %s (%d matches)', $what, count( $ids ) ) ) );
 		}
 
 		$near = array_filter(
@@ -171,7 +171,7 @@ final class Drive_Path_Resolver {
 		);
 		$hint = array() === $near ? '' : ' (differs only in case/accents from: ' . implode( ', ', $near ) . ')';
 
-		throw new RuntimeException( esc_html( $what . ' not found' . $hint ) );
+		throw new Drive_Path_Exception( esc_html( $what . ' not found' . $hint ) );
 	}
 
 	/**

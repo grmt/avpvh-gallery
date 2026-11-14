@@ -128,6 +128,10 @@ final class Settings_Pages implements Gallery_Component {
 				OAuth_Helpers::grant_return();
 
 				break;
+
+			default:
+				// Not one of ours.
+				break;
 		}
 	}
 

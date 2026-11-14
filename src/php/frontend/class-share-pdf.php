@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
-use RuntimeException;
+use Avpvh\Exceptions\Share_Exception;
 
 /**
  * A PDF of a share's A4 photos for the print shop (see Share_Image): one
@@ -71,7 +71,7 @@ final class Share_Pdf {
 	 * Starts a PDF in a temporary file. Objects 1 and 2 (catalog, page
 	 * tree) are written last, when all pages are known.
 	 *
-	 * @throws RuntimeException The file can't be made.
+	 * @throws Share_Exception The file can't be made.
 	 */
 	public function __construct() {
 		$this->path = (string) tempnam( get_temp_dir(), 'avpvh-share-pdf' );
@@ -79,7 +79,7 @@ final class Share_Pdf {
 		$handle = fopen( $this->path, 'wb' );
 
 		if ( false === $handle ) {
-			throw new RuntimeException( 'Could not write the PDF' );
+			throw new Share_Exception( 'Could not write the PDF' );
 		}
 
 		$this->handle = $handle;
@@ -261,8 +261,9 @@ final class Share_Pdf {
 	 */
 	private static function jpeg_size( $jpeg ) {
 		$length = strlen( $jpeg );
+		$at     = 2;
 
-		for ( $at = 2; $at + 9 < $length; ) {
+		while ( $at + 9 < $length ) {
 			$marker = ord( $jpeg[ $at + 1 ] );
 
 			if ( 0xC0 <= $marker && 0xCF >= $marker && ! in_array( $marker, array( 0xC4, 0xC8, 0xCC ), true ) ) {

@@ -24,6 +24,26 @@ use WP_REST_Request;
 final class Media_Stream_REST implements Gallery_Component {
 
 	/**
+	 * The REST namespace of these routes.
+	 */
+	private const REST_NAMESPACE = 'avpvh-gallery/v1';
+
+	/**
+	 * Path of a file in the Drive API.
+	 */
+	private const DRIVE_FILES_PATH = 'drive/v3/files/';
+
+	/**
+	 * The Content-Type header.
+	 */
+	private const CONTENT_TYPE = 'Content-Type: ';
+
+	/**
+	 * The Content-Length header.
+	 */
+	private const CONTENT_LENGTH = 'Content-Length: ';
+
+	/**
 	 * Registers the REST routes.
 	 */
 	public function register(): void {
@@ -37,7 +57,7 @@ final class Media_Stream_REST implements Gallery_Component {
 	 */
 	public function register_routes() {
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/proxy-image',
 			array(
 				'args'                => array(
@@ -53,7 +73,7 @@ final class Media_Stream_REST implements Gallery_Component {
 		);
 
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/download-original',
 			array(
 				'args'                => array(
@@ -69,7 +89,7 @@ final class Media_Stream_REST implements Gallery_Component {
 		);
 
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/video-stream',
 			array(
 				'args'                => array(
@@ -164,7 +184,7 @@ final class Media_Stream_REST implements Gallery_Component {
 
 			$response = $http->request(
 				'GET',
-				'drive/v3/files/' . $file_id,
+				self::DRIVE_FILES_PATH . $file_id,
 				array(
 					'query'  => array(
 						'alt'               => 'media',
@@ -179,11 +199,11 @@ final class Media_Stream_REST implements Gallery_Component {
 				return new WP_Error( 'stream_error', 'Failed to open stream', array( 'status' => 500 ) );
 			}
 
-			header( 'Content-Type: ' . $meta['mime_type'] );
+			header( self::CONTENT_TYPE . $meta['mime_type'] );
 			header( 'Content-Disposition: attachment; filename="' . addslashes( $meta['filename'] ) . '"' );
 
 			if ( $meta['size'] > 0 ) {
-				header( 'Content-Length: ' . $meta['size'] );
+				header( self::CONTENT_LENGTH . $meta['size'] );
 			}
 
 			ob_end_clean();
@@ -251,8 +271,8 @@ final class Media_Stream_REST implements Gallery_Component {
 		}
 
 		// Stream the image bytes back with proper headers.
-		header( 'Content-Type: ' . ( '' !== $content_type ? $content_type : 'image/jpeg' ) );
-		header( 'Content-Length: ' . strlen( $body ) );
+		header( self::CONTENT_TYPE . ( '' !== $content_type ? $content_type : 'image/jpeg' ) );
+		header( self::CONTENT_LENGTH . strlen( $body ) );
 		header( 'Cache-Control: public, max-age=3600' );
 
 		// Note: same-origin response, so JS can read Content-Length natively.
@@ -274,7 +294,7 @@ final class Media_Stream_REST implements Gallery_Component {
 		$http     = API_Client::get_authorized_raw_client()->authorize();
 		$response = $http->request(
 			'GET',
-			'drive/v3/files/' . $file_id,
+			self::DRIVE_FILES_PATH . $file_id,
 			array(
 				'headers' => array( 'Range' => 'bytes=' . $start . '-' . $end ),
 				'query'   => array(
@@ -301,9 +321,9 @@ final class Media_Stream_REST implements Gallery_Component {
 	 */
 	private static function send_video_headers( $mime_type, $start, $end, $size, $is_partial ) {
 		header( 'Accept-Ranges: bytes' );
-		header( 'Content-Type: ' . $mime_type );
+		header( self::CONTENT_TYPE . $mime_type );
 		header( 'Content-Disposition: inline' );
-		header( 'Content-Length: ' . ( $end - $start + 1 ) );
+		header( self::CONTENT_LENGTH . ( $end - $start + 1 ) );
 
 		if ( $is_partial ) {
 			header( 'Content-Range: bytes ' . $start . '-' . $end . '/' . $size );
@@ -379,7 +399,7 @@ final class Media_Stream_REST implements Gallery_Component {
 	private static function fetch_file_meta( $http, $file_id ) {
 		$meta_response = $http->request(
 			'GET',
-			'drive/v3/files/' . $file_id,
+			self::DRIVE_FILES_PATH . $file_id,
 			array(
 				'query' => array(
 					'fields'            => 'name,mimeType,size',
