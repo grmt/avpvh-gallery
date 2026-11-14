@@ -13,10 +13,10 @@ set -euo pipefail
 # in deploy.local.env next to this script (ignored by Git).
 DEPLOY_HOST="${AVPVH_DEPLOY_HOST:-}"
 deploy_env="$(dirname "$0")/deploy.local.env"
-if [ -z "$DEPLOY_HOST" ] && [ -f "$deploy_env" ]; then
+if [[ -z "$DEPLOY_HOST" && -f "$deploy_env" ]]; then
     DEPLOY_HOST=$(sed -n 's/^AVPVH_DEPLOY_HOST=//p' "$deploy_env")
 fi
-if [ -z "$DEPLOY_HOST" ]; then
+if [[ -z "$DEPLOY_HOST" ]]; then
     echo "Set AVPVH_DEPLOY_HOST or put AVPVH_DEPLOY_HOST=<user>@<server> in deploy.local.env." >&2
     exit 1
 fi
@@ -60,6 +60,6 @@ echo "Deploying..."
 # on the server are expected and harmless — files themselves do transfer).
 rsync -av --omit-dir-times --exclude='vendor/' dist/ \
     "${DEPLOY_HOST}":/opt/docker/volumes/html/wp-content-pvh/plugins/avpvh-gallery/ || \
-    { code=$?; [ $code -eq 23 ] && echo "(rsync: ignoring dir-permission errors)" || exit $code; }
+    { code=$?; [[ $code -eq 23 ]] && echo "(rsync: ignoring dir-permission errors)" || exit $code; }
 
 echo "Done — ${new_version} deployed."

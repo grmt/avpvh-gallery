@@ -830,7 +830,7 @@ class ExifInspector {
 				continue;
 			}
 			const row = document.createElement('tr');
-			row.setAttribute('data-correction-row', '1');
+			row.dataset['correctionRow'] = '1';
 			row.style.cssText = 'background: #fff3cd;';
 			const th = document.createElement('td');
 			th.style.fontWeight = 'bold';
@@ -2513,7 +2513,7 @@ class ExifInspector {
 						`<span style="font-size:11px;color:#666">Laad media →</span>` +
 						`</div>${parentHint}`;
 					li.title = `Alle foto's en video's uit map "${f.name}" laden`;
-					li.setAttribute('data-folder-id', f.id);
+					li.dataset['folderId'] = f.id;
 					li.addEventListener('mousedown', (e) => {
 						e.preventDefault();
 						input.value = f.name;
@@ -2542,7 +2542,7 @@ class ExifInspector {
 								ExifInspector.driveFileUrl(f.id),
 								`"${f.name}" openen in Google Drive`
 							);
-						li.setAttribute('data-file-id', f.id);
+						li.dataset['fileId'] = f.id;
 						li.addEventListener('mousedown', (e) => {
 							e.preventDefault();
 							input.value = f.name;
@@ -4122,7 +4122,7 @@ class ExifInspector {
 			.querySelectorAll<HTMLInputElement>('.filter-orient-cb')
 			.forEach((cb) => {
 				cb.addEventListener('change', () => {
-					const val = parseInt(cb.value, 10);
+					const val = Number.parseInt(cb.value, 10);
 					if (cb.checked) {
 						this.filterOrientations.add(val);
 						this.doStartOrientationFetch();
@@ -4813,7 +4813,7 @@ class ExifInspector {
 			this.currentFile.size !== ''
 		) {
 			const sizeInMB = (
-				parseInt(this.currentFile.size, 10) /
+				Number.parseInt(this.currentFile.size, 10) /
 				(1024 * 1024)
 			).toFixed(2);
 			this.addTableRow(tbody, 'Bestandsgrootte', `${sizeInMB} MB`);
@@ -5229,7 +5229,7 @@ class ExifInspector {
 
 		// Format specific fields
 		if (key.includes('ExposureTime')) {
-			const num = parseFloat(value);
+			const num = Number.parseFloat(value);
 			if (num < 1) {
 				return `1/${String(Math.round(1 / num))}s`;
 			}
@@ -5245,7 +5245,7 @@ class ExifInspector {
 		}
 
 		if (key.endsWith(':Orientation') || key === 'Orientation') {
-			const orientation = parseInt(value, 10);
+			const orientation = Number.parseInt(value, 10);
 			const lightT = this.effectiveTransform('lightbox');
 			const lightRot = lightT.r;
 			const lightH = lightT.h;
@@ -5288,8 +5288,8 @@ class ExifInspector {
 		}
 
 		if (key.endsWith(':FileDateTime') || key === 'FileDateTime') {
-			const ts = parseInt(value, 10);
-			if (!isNaN(ts) && ts > 0) {
+			const ts = Number.parseInt(value, 10);
+			if (!Number.isNaN(ts) && ts > 0) {
 				const d = new Date(ts * 1000);
 				const fmt = d.toLocaleString('nl-NL', {
 					year: 'numeric',
@@ -5304,8 +5304,8 @@ class ExifInspector {
 		}
 
 		if (key.endsWith(':FileSize') || key === 'FileSize') {
-			const bytes = parseInt(value, 10);
-			if (!isNaN(bytes) && bytes > 0) {
+			const bytes = Number.parseInt(value, 10);
+			if (!Number.isNaN(bytes) && bytes > 0) {
 				const sizeInKB = bytes / 1024;
 				const sizeInMB = bytes / (1024 * 1024);
 				const human =
@@ -5436,7 +5436,7 @@ class ExifInspector {
 			this.currentFile.size !== undefined &&
 			this.currentFile.size !== ''
 		) {
-			const bytes = parseInt(this.currentFile.size, 10);
+			const bytes = Number.parseInt(this.currentFile.size, 10);
 			const sizeInMB = (bytes / (1024 * 1024)).toFixed(2);
 			const metadata = this.isVideo()
 				? this.currentFile.videoMediaMetadata
@@ -5759,7 +5759,7 @@ class ExifInspector {
 		} of ExifInspector.buildSortedPreviews(thumbLink)) {
 			const item = document.createElement('div');
 			item.className = 'preview-item';
-			item.setAttribute('data-size-key', sizeKey);
+			item.dataset['sizeKey'] = sizeKey;
 
 			item.innerHTML = `
 				<h4>${label}</h4>
@@ -5974,7 +5974,7 @@ class ExifInspector {
 		container
 			.querySelectorAll<HTMLElement>('.preview-item[data-size-key]')
 			.forEach((item) => {
-				const sizeKey = item.getAttribute('data-size-key') ?? '';
+				const sizeKey = item.dataset['sizeKey'] ?? '';
 				this.transformsBySize[sizeKey] = { ...src };
 				this.showingOriginalSizeKeys.delete(sizeKey);
 				ExifInspector.applyTransformToItem(item, src);
@@ -6032,7 +6032,7 @@ class ExifInspector {
 		const createdTime = this.currentFile?.createdTime;
 		if (createdTime !== undefined && createdTime !== '') {
 			const created = new Date(createdTime);
-			if (!isNaN(created.getTime())) {
+			if (!Number.isNaN(created.getTime())) {
 				lines.push({
 					text: `Geüpload naar Drive: ${created.toLocaleString(
 						'nl-NL',
@@ -6232,7 +6232,7 @@ class ExifInspector {
 					'#icons-container .preview-item[data-size-key]'
 			)
 			.forEach((item) => {
-				const sizeKey = item.getAttribute('data-size-key') ?? '';
+				const sizeKey = item.dataset['sizeKey'] ?? '';
 				const t = this.showingOriginalSizeKeys.has(sizeKey)
 					? { r: 0, h: false, v: false }
 					: this.effectiveTransform(sizeKey);
@@ -6353,7 +6353,7 @@ class ExifInspector {
 		for (const { url, label } of variants) {
 			const item = document.createElement('div');
 			item.className = 'preview-item';
-			item.setAttribute('data-size-key', 'grid');
+			item.dataset['sizeKey'] = 'grid';
 
 			item.innerHTML = `
 				<h4>${label}</h4>
@@ -6465,7 +6465,7 @@ class ExifInspector {
 		const startTime = performance.now();
 		// Use a numeric key for timing storage; derive from sizeKey or 0 for named keys
 		const numericSize = sizeKey.startsWith('s')
-			? parseInt(sizeKey.slice(1), 10)
+			? Number.parseInt(sizeKey.slice(1), 10)
 			: 0;
 
 		const proxyUrl =

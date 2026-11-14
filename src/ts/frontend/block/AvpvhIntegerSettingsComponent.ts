@@ -20,8 +20,8 @@ export class AvpvhIntegerSettingsComponent extends AvpvhSettingsComponent {
 	}
 
 	protected override getValue(element: EventTarget): number | undefined {
-		const value = parseInt((element as HTMLInputElement).value);
-		if (isNaN(value)) {
+		const value = Number.parseInt((element as HTMLInputElement).value);
+		if (Number.isNaN(value)) {
 			return undefined;
 		}
 		return value;

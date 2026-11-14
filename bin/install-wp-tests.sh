@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ $# -lt 3 ]; then
+if [[ $# -lt 3 ]]; then
 	echo "usage: $0 <db-name> <db-user> <db-pass> [db-host] [wp-version] [skip-database-creation]"
 	exit 1
 fi
@@ -18,11 +18,13 @@ WP_TESTS_DIR=${WP_TESTS_DIR-$TMPDIR/wordpress-tests-lib}
 WP_CORE_DIR=${WP_CORE_DIR-$TMPDIR/wordpress}
 
 download() {
-    if [ `which curl` ]; then
-        curl -s "$1" > "$2";
-    elif [ `which wget` ]; then
-        wget -nv -O "$2" "$1"
-    fi
+	local url="$1"
+	local target="$2"
+	if [[ -n $(which curl) ]]; then
+		curl -s "$url" > "$target";
+	elif [[ -n $(which wget) ]]; then
+		wget -nv -O "$target" "$url"
+	fi
 }
 
 if [[ $WP_VERSION =~ ^[0-9]+\.[0-9]+\-(beta|RC)[0-9]+$ ]]; then
@@ -54,7 +56,7 @@ set -ex
 
 install_wp() {
 
-	if [ -d $WP_CORE_DIR ]; then
+	if [[ -d $WP_CORE_DIR ]]; then
 		return;
 	fi
 
@@ -66,8 +68,8 @@ install_wp() {
 		svn export --quiet https://core.svn.wordpress.org/trunk $TMPDIR/wordpress-trunk/wordpress
 		mv $TMPDIR/wordpress-trunk/wordpress/* $WP_CORE_DIR
 	else
-		if [ $WP_VERSION == 'latest' ]; then
-			local ARCHIVE_NAME='latest'
+		if [[ $WP_VERSION == 'latest' ]]; then
+			local archive_name='latest'
 		elif [[ $WP_VERSION =~ [0-9]+\.[0-9]+ ]]; then
 			# https serves multiple offers, whereas http serves single.
 			download https://api.wordpress.org/core/version-check/1.7/ $TMPDIR/wp-latest.json
@@ -76,18 +78,18 @@ install_wp() {
 				LATEST_VERSION=${WP_VERSION%??}
 			else
 				# otherwise, scan the releases and get the most up to date minor version of the major release
-				local VERSION_ESCAPED=`echo $WP_VERSION | sed 's/\./\\\\./g'`
-				LATEST_VERSION=$(grep -o '"version":"'$VERSION_ESCAPED'[^"]*' $TMPDIR/wp-latest.json | sed 's/"version":"//' | head -1)
+				local version_escaped=$(echo $WP_VERSION | sed 's/\./\\\\./g')
+				LATEST_VERSION=$(grep -o '"version":"'$version_escaped'[^"]*' $TMPDIR/wp-latest.json | sed 's/"version":"//' | head -1)
 			fi
 			if [[ -z "$LATEST_VERSION" ]]; then
-				local ARCHIVE_NAME="wordpress-$WP_VERSION"
+				local archive_name="wordpress-$WP_VERSION"
 			else
-				local ARCHIVE_NAME="wordpress-$LATEST_VERSION"
+				local archive_name="wordpress-$LATEST_VERSION"
 			fi
 		else
-			local ARCHIVE_NAME="wordpress-$WP_VERSION"
+			local archive_name="wordpress-$WP_VERSION"
 		fi
-		download https://wordpress.org/${ARCHIVE_NAME}.tar.gz  $TMPDIR/wordpress.tar.gz
+		download https://wordpress.org/${archive_name}.tar.gz  $TMPDIR/wordpress.tar.gz
 		tar --strip-components=1 -zxmf $TMPDIR/wordpress.tar.gz -C $WP_CORE_DIR
 	fi
 
@@ -103,7 +105,7 @@ install_test_suite() {
 	fi
 
 	# set up testing suite if it doesn't yet exist
-	if [ ! -d $WP_TESTS_DIR ]; then
+	if [[ ! -d $WP_TESTS_DIR ]]; then
 		# set up testing suite
 		mkdir -p $WP_TESTS_DIR
 		rm -rf $WP_TESTS_DIR/{includes,data}
@@ -111,7 +113,7 @@ install_test_suite() {
 		svn export --quiet --ignore-externals https://develop.svn.wordpress.org/${WP_TESTS_TAG}/tests/phpunit/data/ $WP_TESTS_DIR/data
 	fi
 
-	if [ ! -f wp-tests-config.php ]; then
+	if [[ ! -f wp-tests-config.php ]]; then
 		download https://develop.svn.wordpress.org/${WP_TESTS_TAG}/wp-tests-config-sample.php "$WP_TESTS_DIR"/wp-tests-config.php
 		# remove all forward slashes in the end
 		WP_CORE_DIR=$(echo $WP_CORE_DIR | sed "s:/\+$::")
@@ -126,10 +128,11 @@ install_test_suite() {
 }
 
 recreate_db() {
+	local answer="$1"
 	shopt -s nocasematch
-	if [[ $1 =~ ^(y|yes)$ ]]
+	if [[ $answer =~ ^(y|yes)$ ]]
 	then
-		mysqladmin drop $DB_NAME -f --user="$DB_USER" --password="$DB_PASS"$EXTRA
+		mysqladmin drop $DB_NAME -f --user="$DB_USER" --password="$DB_PASS"$extra
 		create_db
 		echo "Recreated the database ($DB_NAME)."
 	else
@@ -139,33 +142,33 @@ recreate_db() {
 }
 
 create_db() {
-	mysqladmin create $DB_NAME --user="$DB_USER" --password="$DB_PASS"$EXTRA
+	mysqladmin create $DB_NAME --user="$DB_USER" --password="$DB_PASS"$extra
 }
 
 install_db() {
 
-	if [ ${SKIP_DB_CREATE} = "true" ]; then
+	if [[ ${SKIP_DB_CREATE} = "true" ]]; then
 		return 0
 	fi
 
 	# parse DB_HOST for port or socket references
-	local PARTS=(${DB_HOST//\:/ })
-	local DB_HOSTNAME=${PARTS[0]};
-	local DB_SOCK_OR_PORT=${PARTS[1]};
-	local EXTRA=""
+	local parts=(${DB_HOST//\:/ })
+	local db_hostname=${parts[0]};
+	local db_sock_or_port=${parts[1]};
+	local extra=""
 
-	if ! [ -z $DB_HOSTNAME ] ; then
-		if [ $(echo $DB_SOCK_OR_PORT | grep -e '^[0-9]\{1,\}$') ]; then
-			EXTRA=" --host=$DB_HOSTNAME --port=$DB_SOCK_OR_PORT --protocol=tcp"
-		elif ! [ -z $DB_SOCK_OR_PORT ] ; then
-			EXTRA=" --socket=$DB_SOCK_OR_PORT"
-		elif ! [ -z $DB_HOSTNAME ] ; then
-			EXTRA=" --host=$DB_HOSTNAME --protocol=tcp"
+	if [[ -n $db_hostname ]]; then
+		if [[ $db_sock_or_port =~ ^[0-9]+$ ]]; then
+			extra=" --host=$db_hostname --port=$db_sock_or_port --protocol=tcp"
+		elif [[ -n $db_sock_or_port ]]; then
+			extra=" --socket=$db_sock_or_port"
+		else
+			extra=" --host=$db_hostname --protocol=tcp"
 		fi
 	fi
 
 	# create database
-	if [ $(mysql --user="$DB_USER" --password="$DB_PASS"$EXTRA --execute='show databases;' | grep ^$DB_NAME$) ]
+	if [[ -n $(mysql --user="$DB_USER" --password="$DB_PASS"$extra --execute='show databases;' | grep ^$DB_NAME$) ]]
 	then
 		echo "Reinstalling will delete the existing test database ($DB_NAME)"
 		read -p 'Are you sure you want to proceed? [y/N]: ' DELETE_EXISTING_DB
