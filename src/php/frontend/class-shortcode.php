@@ -41,8 +41,6 @@ final class Shortcode implements Gallery_Component {
 
 	/**
 	 * Registers all the hooks for the shortcode.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'init', array( self::class, 'init' ) );

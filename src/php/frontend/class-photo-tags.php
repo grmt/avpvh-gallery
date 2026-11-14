@@ -63,8 +63,6 @@ final class Photo_Tags implements Gallery_Component {
 
 	/**
 	 * Initializes AJAX handlers
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'wp_ajax_gallery_tag_add', array( $this, 'ajax_add_tag' ) );

@@ -26,8 +26,6 @@ final class Corrections_REST implements Gallery_Component {
 
 	/**
 	 * Registers the REST routes.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );

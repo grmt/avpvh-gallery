@@ -26,8 +26,6 @@ final class Video_Proxy implements Gallery_Component {
 
 	/**
 	 * Registers the "video_proxy" AJAX endpoint
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'wp_ajax_video_proxy', array( self::class, 'handle_ajax' ) );

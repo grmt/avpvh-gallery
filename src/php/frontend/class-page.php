@@ -41,8 +41,6 @@ final class Page implements Gallery_Component {
 
 	/**
 	 * Registers the "page" AJAX endpoint
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'wp_ajax_page', array( self::class, 'handle_ajax' ) );

@@ -37,8 +37,6 @@ final class Photo_Shares_Page implements Gallery_Component {
 
 	/**
 	 * Registers the shortcode and the "Opnieuw maken" form handler.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		( new Photo_Shares_Cleanup() )->register();

@@ -34,8 +34,6 @@ final class Photo_Shares_Cleanup implements Gallery_Component {
 
 	/**
 	 * Registers the two form handlers.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'admin_post_avpvh_gallery_share_hide', array( self::class, 'handle_hide' ) );

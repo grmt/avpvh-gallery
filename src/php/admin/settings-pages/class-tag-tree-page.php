@@ -24,8 +24,6 @@ final class Tag_Tree_Page implements Gallery_Component {
 
 	/**
 	 * Registers the page and its script.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'admin_menu', array( self::class, 'register_page' ) );

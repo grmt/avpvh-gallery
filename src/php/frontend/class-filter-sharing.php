@@ -30,8 +30,6 @@ final class Filter_Sharing implements Gallery_Component {
 
 	/**
 	 * Registers the AJAX endpoints.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'wp_ajax_gallery_filter_share', array( self::class, 'handle_share' ) );

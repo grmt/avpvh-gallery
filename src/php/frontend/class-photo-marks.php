@@ -37,8 +37,6 @@ final class Photo_Marks implements Gallery_Component {
 
 	/**
 	 * Registers the AJAX endpoints.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'wp_ajax_gallery_marks', array( self::class, 'ajax_marks' ) );

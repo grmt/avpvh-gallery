@@ -33,14 +33,13 @@ use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
 
 /**
  * Handles the list_gdrive_dir ajax endpoint.
+ *
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
  */
 final class List_Ajax_Endpoint implements Gallery_Component {
 
 	/**
 	 * Register all the hooks for this section.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		if ( ! is_admin() ) {

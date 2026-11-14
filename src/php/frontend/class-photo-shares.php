@@ -61,8 +61,6 @@ final class Photo_Shares implements Gallery_Component {
 
 	/**
 	 * Registers the AJAX endpoint, the cron jobs and the profile list.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		( new Photo_Shares_Page() )->register();

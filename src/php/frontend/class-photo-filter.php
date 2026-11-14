@@ -27,6 +27,7 @@ use Avpvh\Helpers;
  *
  * Logged-in users only (wp_ajax_ hooks): who liked what is shown to them,
  * not to the public.
+ *
  * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
 final class Photo_Filter implements Gallery_Component {
@@ -76,8 +77,6 @@ final class Photo_Filter implements Gallery_Component {
 
 	/**
 	 * Registers the AJAX endpoints.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		// Sharing a filter's photos via Google Drive.

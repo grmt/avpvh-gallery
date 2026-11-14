@@ -33,8 +33,6 @@ final class Advanced_Settings implements Gallery_Component {
 
 	/**
 	 * Register all the hooks for the page.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		if ( ! is_admin() ) {

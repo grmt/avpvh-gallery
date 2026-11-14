@@ -37,8 +37,6 @@ final class Exif_Date_REST implements Gallery_Component {
 
 	/**
 	 * Registers the REST route.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );

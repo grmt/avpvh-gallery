@@ -58,8 +58,6 @@ final class Settings_Pages implements Gallery_Component {
 	 * Registers the administration pages of the plugin.
 	 *
 	 * Registers all the hooks all the pages, registers the plugin into the WordPress admin menu and register a handler for OAuth redirect.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		// Initialize REST routes globally (not just in admin).

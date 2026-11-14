@@ -32,14 +32,13 @@ use const PHP_URL_HOST;
 
 /**
  * Main plugin class.
+ *
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
  */
 final class Main implements Gallery_Component {
 
 	/**
 	 * Initializes the plugin
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		register_activation_hook( __FILE__, array( self::class, 'activate' ) );

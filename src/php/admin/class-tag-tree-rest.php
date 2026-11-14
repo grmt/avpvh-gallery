@@ -38,8 +38,6 @@ final class Tag_Tree_REST implements Gallery_Component {
 
 	/**
 	 * Registers the routes.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'rest_api_init', array( self::class, 'register_routes' ) );

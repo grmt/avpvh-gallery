@@ -37,8 +37,6 @@ final class TinyMCE_Plugin implements Gallery_Component {
 
 	/**
 	 * Registers all the hooks for the TinyMCE plugin and the "list_gallery_dir" AJAX endpoint
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		if ( ! is_admin() ) {

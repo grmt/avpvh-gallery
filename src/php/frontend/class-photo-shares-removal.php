@@ -54,8 +54,6 @@ final class Photo_Shares_Removal implements Gallery_Component {
 
 	/**
 	 * Registers the confirmation page and the removal.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'admin_post_' . self::ACTION, array( self::class, 'handle' ) );

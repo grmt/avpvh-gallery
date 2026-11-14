@@ -21,8 +21,6 @@ final class Appearance implements Gallery_Component {
 
 	/**
 	 * Registers the section hook.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		if ( is_admin() ) {

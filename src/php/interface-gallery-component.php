@@ -19,8 +19,6 @@ interface Gallery_Component {
 
 	/**
 	 * Adds the component's hooks.
-	 *
-	 * @return void
 	 */
 	public function register(): void;
 }

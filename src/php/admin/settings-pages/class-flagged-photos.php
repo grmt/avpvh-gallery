@@ -33,8 +33,6 @@ final class Flagged_Photos implements Gallery_Component {
 
 	/**
 	 * Registers the admin page and the exclude/dismiss action handlers.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'admin_menu', array( self::class, 'register_page' ) );

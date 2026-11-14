@@ -21,8 +21,6 @@ final class Exif_Inspector implements Gallery_Component {
 
 	/**
 	 * Registers the EXIF inspector page.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'register_page' ) );

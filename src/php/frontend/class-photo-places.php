@@ -31,8 +31,6 @@ final class Photo_Places implements Gallery_Component {
 
 	/**
 	 * Registers the REST routes.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'rest_api_init', array( self::class, 'register_routes' ) );

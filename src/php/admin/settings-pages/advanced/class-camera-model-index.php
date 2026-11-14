@@ -20,8 +20,6 @@ final class Camera_Model_Index implements Gallery_Component {
 
 	/**
 	 * Registers settings and script hooks.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		if ( ! is_admin() ) {

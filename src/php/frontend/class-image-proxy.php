@@ -81,8 +81,6 @@ final class Image_Proxy implements Gallery_Component {
 	/**
 	 * Registers the "nieuwsbrief_image" AJAX endpoint. Members-only: no
 	 * `wp_ajax_nopriv_*` counterpart is registered.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'wp_ajax_nieuwsbrief_image', array( self::class, 'handle_ajax' ) );

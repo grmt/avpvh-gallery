@@ -21,8 +21,6 @@ final class OAuth_Revoke implements Gallery_Component {
 
 	/**
 	 * Register all the hooks for this section.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		if ( ! is_admin() ) {

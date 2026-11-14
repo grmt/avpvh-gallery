@@ -22,8 +22,6 @@ final class Members_API implements Gallery_Component {
 
 	/**
 	 * Initializes REST routes
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );

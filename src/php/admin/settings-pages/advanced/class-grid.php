@@ -22,8 +22,6 @@ final class Grid implements Gallery_Component {
 
 	/**
 	 * Register all the hooks for the section.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		if ( ! is_admin() ) {

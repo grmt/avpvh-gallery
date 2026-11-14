@@ -26,8 +26,6 @@ final class Block implements Gallery_Component {
 
 	/**
 	 * Registers all the hooks for the block if the system supports blocks (WP >= 5)
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		if ( function_exists( 'register_block_type' ) ) {

@@ -75,8 +75,6 @@ final class PDF_Proxy implements Gallery_Component {
 	/**
 	 * Registers the "nieuwsbrief_pdf" AJAX endpoint. Members-only: no
 	 * `wp_ajax_nopriv_*` counterpart is registered.
-	 *
-	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'wp_ajax_nieuwsbrief_pdf', array( self::class, 'handle_ajax' ) );
