@@ -33,7 +33,7 @@ final class Photo_Folder_Context {
 	 * @return array{year: int|null, place: string, participants: array<array{id: int, name: string}>}
 	 */
 	public static function for_folder( $folder_id ) {
-		$cache_key = 'avpvh_folder_context_v2_' . md5( $folder_id );
+		$cache_key = 'avpvh_folder_context_v2_' . hash( 'sha256', $folder_id );
 		$cached    = get_transient( $cache_key );
 
 		if (

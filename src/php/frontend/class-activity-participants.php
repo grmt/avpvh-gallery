@@ -38,7 +38,7 @@ final class Activity_Participants {
 	 * @return array<array{id: int, name: string}>
 	 */
 	public static function for_folder_name( $folder_name ) {
-		$cache_key = 'avpvh_activity_participants_' . md5( $folder_name );
+		$cache_key = 'avpvh_activity_participants_' . hash( 'sha256', $folder_name );
 		$cached    = get_transient( $cache_key );
 
 		if ( is_array( $cached ) ) {
