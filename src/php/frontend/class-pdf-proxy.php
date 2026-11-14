@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use Avpvh\GET_Helpers;
 use Avpvh\Helpers;
 
@@ -23,10 +24,8 @@ use Avpvh\Helpers;
  * server instead. Restricted to logged-in members and to a fixed allow-list
  * of relative paths, so this can't become a generic "read any file under
  * uploads/private/" oracle.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class PDF_Proxy {
+final class PDF_Proxy implements Gallery_Component {
 
 	/**
 	 * Relative paths (under wp-content/uploads/private/) of the newsletter
@@ -77,7 +76,7 @@ final class PDF_Proxy {
 	 * Registers the "nieuwsbrief_pdf" AJAX endpoint. Members-only: no
 	 * `wp_ajax_nopriv_*` counterpart is registered.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'wp_ajax_nieuwsbrief_pdf', array( self::class, 'handle_ajax' ) );
 	}
 

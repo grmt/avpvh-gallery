@@ -7,6 +7,7 @@
 
 namespace Avpvh\Frontend;
 
+use Avpvh\Gallery_Component;
 use Exception;
 use WP_REST_Response;
 
@@ -16,15 +17,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * REST API endpoint for fetching members for tagging.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Members_API {
+final class Members_API implements Gallery_Component {
 
 	/**
 	 * Initializes REST routes
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 

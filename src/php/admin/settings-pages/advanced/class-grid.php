@@ -11,20 +11,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use Avpvh\Options;
 use Avpvh\Script_And_Style_Helpers;
 
 /**
  * Registers and renders the grid settings section.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Grid {
+final class Grid implements Gallery_Component {
 
 	/**
 	 * Register all the hooks for the section.
 	 */
-	public function __construct() {
+	public function register(): void {
 		if ( ! is_admin() ) {
 			return;
 		}

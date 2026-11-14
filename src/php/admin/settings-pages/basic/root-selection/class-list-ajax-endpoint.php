@@ -23,6 +23,7 @@ use Avpvh\Exceptions\Not_Found_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Frontend\API_Fields;
 use Avpvh\Frontend\Single_Page_Pagination_Helper;
+use Avpvh\Gallery_Component;
 use Avpvh\GET_Helpers;
 use Avpvh\Helpers;
 use Avpvh\Vendor\GuzzleHttp\Promise\FulfilledPromise;
@@ -33,15 +34,14 @@ use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
 /**
  * Handles the list_gdrive_dir ajax endpoint.
  *
- * @phan-constructor-used-for-side-effects
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
  */
-final class List_Ajax_Endpoint {
+final class List_Ajax_Endpoint implements Gallery_Component {
 
 	/**
 	 * Register all the hooks for this section.
 	 */
-	public function __construct() {
+	public function register(): void {
 		if ( ! is_admin() ) {
 			return;
 		}

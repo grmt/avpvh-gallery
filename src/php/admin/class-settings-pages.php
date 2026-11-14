@@ -23,6 +23,7 @@ use Avpvh\Admin\Settings_Pages\Basic_Settings;
 use Avpvh\Admin\Settings_Pages\Exif_Inspector;
 use Avpvh\Admin\Settings_Pages\Flagged_Photos;
 use Avpvh\Admin\Settings_Pages\Tag_Tree_Page;
+use Avpvh\Gallery_Component;
 use Avpvh\GET_Helpers;
 
 require_once __DIR__ . '/settings-pages/class-advanced-settings.php';
@@ -43,10 +44,8 @@ require_once __DIR__ . '/exif-inspector/class-folder-date-correction-rest.php';
 
 /**
  * Registers and renders the plugin settings pages.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Settings_Pages {
+final class Settings_Pages implements Gallery_Component {
 
 	/**
 	 * Basic settings page.
@@ -60,15 +59,15 @@ final class Settings_Pages {
 	 *
 	 * Registers all the hooks all the pages, registers the plugin into the WordPress admin menu and register a handler for OAuth redirect.
 	 */
-	public function __construct() {
+	public function register(): void {
 		// Initialize REST routes globally (not just in admin).
-		new Camera_Model_Index_REST();
-		new Media_Stream_REST();
-		new Browse_REST();
-		new Exif_Data_REST();
-		new Corrections_REST();
+		( new Camera_Model_Index_REST() )->register();
+		( new Media_Stream_REST() )->register();
+		( new Browse_REST() )->register();
+		( new Exif_Data_REST() )->register();
+		( new Corrections_REST() )->register();
 		Folder_Date_Correction_REST::init();
-		new Folder_Authors_REST();
+		( new Folder_Authors_REST() )->register();
 
 		if ( ! is_admin() ) {
 			return;
@@ -76,11 +75,11 @@ final class Settings_Pages {
 
 		add_action( 'admin_menu', array( $this, 'add' ) );
 		$this->basic = new Basic_Settings();
-		new Advanced_Settings();
-		new Exif_Inspector();
-		new Flagged_Photos();
-		new Tag_Tree_Page();
-		new Tag_Tree_REST();
+		( new Advanced_Settings() )->register();
+		( new Exif_Inspector() )->register();
+		( new Flagged_Photos() )->register();
+		( new Tag_Tree_Page() )->register();
+		( new Tag_Tree_REST() )->register();
 		add_action( 'admin_init', array( self::class, 'action_handler' ) );
 	}
 

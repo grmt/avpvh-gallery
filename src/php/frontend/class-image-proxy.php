@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Avpvh\API_Client;
 use Avpvh\API_Facade;
+use Avpvh\Gallery_Component;
 use Avpvh\GET_Helpers;
 use Avpvh\Helpers;
 
@@ -24,10 +25,8 @@ use Avpvh\Helpers;
  * website server so post_content never has to embed image bytes itself. Restricted
  * to logged-in members and to files inside a fixed allow-list of Nieuwsbrief edition
  * folders, so this can't be used as a general-purpose "fetch any Drive file" oracle.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Image_Proxy {
+final class Image_Proxy implements Gallery_Component {
 
 	/**
 	 * Drive folder IDs this endpoint will serve images from (the "06-Nieuwsbrief"
@@ -83,7 +82,7 @@ final class Image_Proxy {
 	 * Registers the "nieuwsbrief_image" AJAX endpoint. Members-only: no
 	 * `wp_ajax_nopriv_*` counterpart is registered.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'wp_ajax_nieuwsbrief_image', array( self::class, 'handle_ajax' ) );
 	}
 

@@ -26,6 +26,7 @@ use Avpvh\Frontend\Gallery_Context;
 use Avpvh\Frontend\Options_Proxy;
 use Avpvh\Frontend\Page;
 use Avpvh\Frontend\Paging_Pagination_Helper;
+use Avpvh\Gallery_Component;
 use Avpvh\GET_Helpers;
 use Avpvh\Helpers;
 use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
@@ -35,15 +36,13 @@ use Avpvh\Vendor\GuzzleHttp\Promise\Utils;
  * Contains all the functions used to handle the "gallery" AJAX endpoint.
  *
  * The "gallery" AJAX endpoint gets called when the gallery is initialized and the each time the user navigates the directories of the gallery. The endpoint returns the info about the currently viewed directory and the first page of the content.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Gallery {
+final class Gallery implements Gallery_Component {
 
 	/**
 	 * Registers the "gallery" AJAX endpoint
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'wp_ajax_gallery', array( self::class, 'handle_ajax' ) );
 		add_action( 'wp_ajax_nopriv_gallery', array( self::class, 'handle_ajax' ) );
 		// For the web server: "may this visitor use the gallery?" — 204, 401

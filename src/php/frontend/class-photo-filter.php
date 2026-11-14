@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use Avpvh\API_Client;
 use Avpvh\API_Facade;
 use Avpvh\Frontend\Page\Images;
+use Avpvh\Gallery_Component;
 use Avpvh\Helpers;
 
 /**
@@ -27,10 +28,9 @@ use Avpvh\Helpers;
  * Logged-in users only (wp_ajax_ hooks): who liked what is shown to them,
  * not to the public.
  *
- * @phan-constructor-used-for-side-effects
  * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
-final class Photo_Filter {
+final class Photo_Filter implements Gallery_Component {
 
 	/**
 	 * Photos per page of results.
@@ -78,15 +78,15 @@ final class Photo_Filter {
 	/**
 	 * Registers the AJAX endpoints.
 	 */
-	public function __construct() {
+	public function register(): void {
 		// Sharing a filter's photos via Google Drive.
-		new Photo_Shares();
+		( new Photo_Shares() )->register();
 		add_action( 'wp_ajax_gallery_filter', array( self::class, 'handle_filter' ) );
 		add_action( 'wp_ajax_gallery_filter_options', array( self::class, 'handle_options' ) );
 		add_action( 'wp_ajax_gallery_filter_save', array( Filter_Memory::class, 'handle_save' ) );
 		add_action( 'wp_ajax_gallery_filter_preset_save', array( Filter_Memory::class, 'handle_preset_save' ) );
 		add_action( 'wp_ajax_gallery_filter_preset_delete', array( Filter_Memory::class, 'handle_preset_delete' ) );
-		new Filter_Sharing();
+		( new Filter_Sharing() )->register();
 	}
 
 	/**

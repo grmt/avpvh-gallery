@@ -11,17 +11,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use Avpvh\Options;
 
 /**
  * Registers icon and branding settings.
  */
-final class Appearance {
+final class Appearance implements Gallery_Component {
 
 	/**
 	 * Registers the section hook.
 	 */
-	public function __construct() {
+	public function register(): void {
 		if ( is_admin() ) {
 			add_action( 'admin_init', array( self::class, 'add_section' ) );
 		}

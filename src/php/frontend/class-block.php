@@ -14,23 +14,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 use Avpvh\Exceptions\Exception as Avpvh_Exception;
 use Avpvh\Frontend\Options_Proxy;
 use Avpvh\Frontend\Shortcode;
+use Avpvh\Gallery_Component;
 use Avpvh\Helpers;
 use Avpvh\Script_And_Style_Helpers;
 use Exception as Base_Exception;
 
 /**
  * Adds a gallery block to the Gutenberg editor.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Block {
+final class Block implements Gallery_Component {
 
 	/**
 	 * Registers all the hooks for the block if the system supports blocks (WP >= 5)
-	 *
-	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		if ( function_exists( 'register_block_type' ) ) {
 			add_action( 'init', array( self::class, 'add' ) );
 		}

@@ -19,8 +19,6 @@ use WP_REST_Response;
 /**
  * REST API controller for a folder's EXIF date correction (see
  * Folder_Date_Correction), set in the EXIF Inspector.
- *
- * @phan-constructor-used-for-side-effects
  */
 final class Folder_Date_Correction_REST {
 

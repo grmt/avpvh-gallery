@@ -11,19 +11,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use Avpvh\Options;
 
 /**
  * Registers and renders the OAuth revocation settings section.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class OAuth_Revoke {
+final class OAuth_Revoke implements Gallery_Component {
 
 	/**
 	 * Register all the hooks for this section.
 	 */
-	public function __construct() {
+	public function register(): void {
 		if ( ! is_admin() ) {
 			return;
 		}

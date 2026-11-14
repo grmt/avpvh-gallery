@@ -19,6 +19,7 @@ use Avpvh\Exceptions\Not_Found_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Frontend\API_Fields;
 use Avpvh\Frontend\Single_Page_Pagination_Helper;
+use Avpvh\Gallery_Component;
 use Avpvh\Options;
 use Throwable;
 use WP_Error;
@@ -29,16 +30,14 @@ use WP_REST_Response;
 /**
  * REST API controller for folder/file browsing and search in the EXIF Inspector.
  *
- * @phan-constructor-used-for-side-effects
- *
  * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
-final class Browse_REST {
+final class Browse_REST implements Gallery_Component {
 
 	/**
 	 * Registers the REST routes.
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 
