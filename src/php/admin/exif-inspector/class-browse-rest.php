@@ -283,7 +283,7 @@ final class Browse_REST {
 		// Cache per (query, scope, folders_only) for 2 minutes — avoids repeated Drive API
 		// hits when the user types character by character or retries the same search.
 		$cache_key = 'avpvh_srch_media_v3_' .
-			md5( $query . "\x00" . $scope_id . "\x00" . ( $folders_only ? '1' : '0' ) );
+			hash( 'sha256', $query . "\x00" . $scope_id . "\x00" . ( $folders_only ? '1' : '0' ) );
 		$cached    = get_transient( $cache_key );
 
 		if ( false !== $cached && is_array( $cached ) ) {
