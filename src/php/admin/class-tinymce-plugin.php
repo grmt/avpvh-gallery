@@ -23,6 +23,7 @@ use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Exceptions\Unsupported_Value_Exception;
 use Avpvh\Frontend\API_Fields;
 use Avpvh\Frontend\Single_Page_Pagination_Helper;
+use Avpvh\Gallery_Component;
 use Avpvh\GET_Helpers;
 use Avpvh\Helpers;
 use Avpvh\Options;
@@ -31,15 +32,15 @@ use Avpvh\Vendor\GuzzleHttp\Promise\PromiseInterface;
 
 /**
  * Adds a gallery button to the TinyMCE editor.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class TinyMCE_Plugin {
+final class TinyMCE_Plugin implements Gallery_Component {
 
 	/**
 	 * Registers all the hooks for the TinyMCE plugin and the "list_gallery_dir" AJAX endpoint
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		if ( ! is_admin() ) {
 			return;
 		}

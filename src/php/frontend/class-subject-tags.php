@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use Avpvh\Tag_Log;
 use WP_Error;
 use WP_REST_Request;
@@ -32,15 +33,15 @@ use WP_REST_Response;
  * Tags are identified by slug alone — a slug is only ever listed in one
  * group — so tags saved under an older grouping (rows whose category is
  * the former 'graven'/'kamp') still count as the same tag.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Subject_Tags {
+final class Subject_Tags implements Gallery_Component {
 
 	/**
 	 * Registers the REST routes.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 

@@ -17,6 +17,7 @@ use Avpvh\Admin\Settings_Pages\Advanced\Folder_Authors;
 use Avpvh\Admin\Settings_Pages\Advanced\Grid;
 use Avpvh\Admin\Settings_Pages\Advanced\Lightbox;
 use Avpvh\Admin\Settings_Pages\Advanced\Sharing;
+use Avpvh\Gallery_Component;
 
 require_once __DIR__ . '/advanced/class-grid.php';
 require_once __DIR__ . '/advanced/class-lightbox.php';
@@ -27,26 +28,26 @@ require_once __DIR__ . '/advanced/class-sharing.php';
 
 /**
  * Registers and renders the advanced settings page.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Advanced_Settings {
+final class Advanced_Settings implements Gallery_Component {
 
 	/**
 	 * Register all the hooks for the page.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		if ( ! is_admin() ) {
 			return;
 		}
 
 		add_action( 'admin_menu', array( self::class, 'add_page' ) );
-		new Grid();
-		new Lightbox();
-		new Appearance();
-		new Camera_Model_Index();
-		new Folder_Authors();
-		new Sharing();
+		( new Grid() )->register();
+		( new Lightbox() )->register();
+		( new Appearance() )->register();
+		( new Camera_Model_Index() )->register();
+		( new Folder_Authors() )->register();
+		( new Sharing() )->register();
 	}
 
 	/**

@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use stdClass;
 use Throwable;
 
@@ -21,10 +22,8 @@ use Throwable;
  * programs and virus scanners may open links by themselves), and only the
  * button there removes the share: its folder is deleted (fine if it is
  * already gone in Drive) and it shows as "Verwijderd" on the profile.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Photo_Shares_Removal {
+final class Photo_Shares_Removal implements Gallery_Component {
 
 	/**
 	 * The admin-post action.
@@ -55,8 +54,10 @@ final class Photo_Shares_Removal {
 
 	/**
 	 * Registers the confirmation page and the removal.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'admin_post_' . self::ACTION, array( self::class, 'handle' ) );
 		add_action( 'admin_post_nopriv_' . self::ACTION, array( self::class, 'handle' ) );
 	}

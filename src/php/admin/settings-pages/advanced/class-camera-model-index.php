@@ -11,15 +11,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
+
 /**
  * Renders and wires the persistent Drive camera-model index controls.
  */
-final class Camera_Model_Index {
+final class Camera_Model_Index implements Gallery_Component {
 
 	/**
 	 * Registers settings and script hooks.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		if ( ! is_admin() ) {
 			return;
 		}

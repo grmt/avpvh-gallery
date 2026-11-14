@@ -32,16 +32,16 @@ use const PHP_URL_HOST;
 
 /**
  * Main plugin class.
- *
- * @phan-constructor-used-for-side-effects
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
  */
-final class Main {
+final class Main implements Gallery_Component {
 
 	/**
 	 * Initializes the plugin
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		register_activation_hook( __FILE__, array( self::class, 'activate' ) );
 		add_action( 'init', array( self::class, 'load_textdomain' ), 0 );
 		add_action( 'init', array( '\\Avpvh\\Options', 'init' ), 1 );
@@ -51,23 +51,23 @@ final class Main {
 		add_action( 'init', array( '\\Avpvh\\Photo_Tags_DB', 'maybe_migrate' ) );
 		add_filter( 'get_site_icon_url', array( self::class, 'filter_site_icon_url' ), 10, 3 );
 		add_filter( 'get_custom_logo', array( self::class, 'filter_custom_logo' ), 10, 2 );
-		new Shortcode();
-		new Block();
-		new Page();
-		new Gallery();
+		( new Shortcode() )->register();
+		( new Block() )->register();
+		( new Page() )->register();
+		( new Gallery() )->register();
 		Gallery_Access::register();
-		new Video_Proxy();
-		new Image_Proxy();
-		new PDF_Proxy();
-		new Photo_Tags();
-		new Members_API();
-		new Exif_Date_REST();
-		new Subject_Tags();
-		new Photo_Places();
-		new Photo_Filter();
-		new Photo_Marks();
-		new Settings_Pages();
-		new TinyMCE_Plugin();
+		( new Video_Proxy() )->register();
+		( new Image_Proxy() )->register();
+		( new PDF_Proxy() )->register();
+		( new Photo_Tags() )->register();
+		( new Members_API() )->register();
+		( new Exif_Date_REST() )->register();
+		( new Subject_Tags() )->register();
+		( new Photo_Places() )->register();
+		( new Photo_Filter() )->register();
+		( new Photo_Marks() )->register();
+		( new Settings_Pages() )->register();
+		( new TinyMCE_Plugin() )->register();
 	}
 
 	/**

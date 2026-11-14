@@ -11,19 +11,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use Avpvh\Options;
 
 /**
  * Registers and renders the OAuth granting settings section.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class OAuth_Grant {
+final class OAuth_Grant implements Gallery_Component {
 
 	/**
 	 * Register all the hooks for this section.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		if ( ! is_admin() ) {
 			return;
 		}

@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Avpvh\API_Client;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
+use Avpvh\Gallery_Component;
 use Avpvh\GET_Helpers;
 use Avpvh\Helpers;
 
@@ -20,15 +21,15 @@ use Avpvh\Helpers;
  * Contains all the functions used to handle the "video_proxy" AJAX endpoint.
  *
  * The "video_proxy" AJAX enpoint gets called for private videos over a certain size and serves the video through the webiste server.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Video_Proxy {
+final class Video_Proxy implements Gallery_Component {
 
 	/**
 	 * Registers the "video_proxy" AJAX endpoint
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'wp_ajax_video_proxy', array( self::class, 'handle_ajax' ) );
 		add_action( 'wp_ajax_nopriv_video_proxy', array( self::class, 'handle_ajax' ) );
 	}

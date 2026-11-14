@@ -11,15 +11,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
+
 /**
  * Renders and wires the folder → author(s) attribution table.
  */
-final class Folder_Authors {
+final class Folder_Authors implements Gallery_Component {
 
 	/**
 	 * Registers settings and script hooks.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		if ( ! is_admin() ) {
 			return;
 		}

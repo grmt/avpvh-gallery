@@ -12,15 +12,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Avpvh\Frontend\Photo_Tags;
+use Avpvh\Gallery_Component;
 
 /**
  * Admin overview of photos flagged via the "zorgen" reactions (privacy/AVG
  * concerns, requests to hide a photo) — see Photo_Tags::REACTIONS — with a
  * quick action to exclude the photo from the gallery, or dismiss the flag.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Flagged_Photos {
+final class Flagged_Photos implements Gallery_Component {
 
 	/**
 	 * Maps a "zorgen" reaction slug to the agallery_photo_exclusions reason
@@ -34,8 +33,10 @@ final class Flagged_Photos {
 
 	/**
 	 * Registers the admin page and the exclude/dismiss action handlers.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'admin_menu', array( self::class, 'register_page' ) );
 		add_action( 'admin_post_avpvh_flagged_exclude', array( self::class, 'handle_exclude' ) );
 		add_action( 'admin_post_avpvh_flagged_dismiss', array( self::class, 'handle_dismiss' ) );

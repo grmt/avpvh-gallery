@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Avpvh\Frontend\Subject_Tag_Editor;
 use Avpvh\Frontend\Subject_Tag_Tree;
+use Avpvh\Gallery_Component;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -20,10 +21,8 @@ use WP_REST_Response;
 /**
  * REST endpoints behind the "Tags" admin page (Tag_Tree_Page), admins only:
  * read the tree with how many photos have each tag, and change it.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Tag_Tree_REST {
+final class Tag_Tree_REST implements Gallery_Component {
 
 	/**
 	 * Route suffix => HTTP method and handler.
@@ -39,8 +38,10 @@ final class Tag_Tree_REST {
 
 	/**
 	 * Registers the routes.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'rest_api_init', array( self::class, 'register_routes' ) );
 	}
 

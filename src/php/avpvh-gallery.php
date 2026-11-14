@@ -59,6 +59,7 @@ use WP_CLI;
 
 require_once __DIR__ . '/vendor/scoper-autoload.php';
 
+require_once __DIR__ . '/interface-gallery-component.php';
 require_once __DIR__ . '/class-options.php';
 require_once __DIR__ . '/class-api-client.php';
 require_once __DIR__ . '/class-api-facade.php';
@@ -165,4 +166,4 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 
 require_once __DIR__ . '/class-main.php';
 
-new Main();
+( new Main() )->register();

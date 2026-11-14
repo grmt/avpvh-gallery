@@ -12,6 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Avpvh\Frontend\Exclusion_Permission;
+use Avpvh\Gallery_Component;
 use Avpvh\Helpers;
 use WP_Error;
 use WP_REST_Request;
@@ -20,15 +21,15 @@ use WP_REST_Response;
 // phpcs:disable SlevomatCodingStandard.Classes.ClassLength.ClassTooLong -- see FileTooLong suppression above.
 /**
  * REST API controller for photo/folder orientation corrections and private exclusions.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Corrections_REST {
+final class Corrections_REST implements Gallery_Component {
 
 	/**
 	 * Registers the REST routes.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 

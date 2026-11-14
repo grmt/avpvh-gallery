@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use Avpvh\Options;
 use Avpvh\Tag_Log;
 
@@ -26,10 +27,8 @@ use Avpvh\Tag_Log;
  *
  * Logged-in users only (wp_ajax_ hooks); changes need the tag nonce and are
  * recorded in the tag log.
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Photo_Marks {
+final class Photo_Marks implements Gallery_Component {
 
 	/**
 	 * The circle column's value for every vote.
@@ -38,8 +37,10 @@ final class Photo_Marks {
 
 	/**
 	 * Registers the AJAX endpoints.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'wp_ajax_gallery_marks', array( self::class, 'ajax_marks' ) );
 		add_action( 'wp_ajax_gallery_mark', array( self::class, 'ajax_mark' ) );
 	}

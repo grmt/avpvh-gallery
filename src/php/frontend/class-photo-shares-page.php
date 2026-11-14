@@ -11,16 +11,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Gallery_Component;
 use stdClass;
 
 /**
  * The user's shared photo selections on their profile ([avpvh_gallery_shares]):
  * each with its link and expiry, and "Opnieuw maken" for expired or failed
  * ones (see Photo_Shares).
- *
- * @phan-constructor-used-for-side-effects
  */
-final class Photo_Shares_Page {
+final class Photo_Shares_Page implements Gallery_Component {
 
 	/**
 	 * The gallery URL parameter that opens a share's filter.
@@ -38,9 +37,11 @@ final class Photo_Shares_Page {
 
 	/**
 	 * Registers the shortcode and the "Opnieuw maken" form handler.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
-		new Photo_Shares_Cleanup();
+	public function register(): void {
+		( new Photo_Shares_Cleanup() )->register();
 		add_shortcode( 'avpvh_gallery_shares', array( self::class, 'shortcode' ) );
 		add_action( 'admin_post_avpvh_gallery_share_recreate', array( self::class, 'handle_recreate' ) );
 		add_action( 'admin_post_avpvh_gallery_share_delete', array( self::class, 'handle_delete' ) );

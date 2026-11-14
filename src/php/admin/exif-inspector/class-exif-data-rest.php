@@ -17,6 +17,7 @@ use Avpvh\Exceptions\API_Exception;
 use Avpvh\Exceptions\Not_Found_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Frontend\API_Fields;
+use Avpvh\Gallery_Component;
 use DateTime;
 use Requests_Utility_CaseInsensitiveDictionary;
 use Throwable;
@@ -30,16 +31,16 @@ use WP_REST_Response;
 /**
  * REST API controller that extracts and formats EXIF data for the inspector.
  *
- * @phan-constructor-used-for-side-effects
- *
  * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
-final class Exif_Data_REST {
+final class Exif_Data_REST implements Gallery_Component {
 
 	/**
 	 * Registers the REST routes.
+	 *
+	 * @return void
 	 */
-	public function __construct() {
+	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 
