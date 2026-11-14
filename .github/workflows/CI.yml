@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: "Setup PHP"
-        uses: shivammathur/setup-php@2.40.0
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ env.php-version }}
           coverage: none
@@ -58,8 +58,11 @@ jobs:
           npm install -g npm@${{ env.npm-version }}
 
       - name: "Install NPM dependencies"
+        # No install scripts: none is needed to build, lint or test (they
+        # download Chrome for puppeteer and native helpers for wp-env), and
+        # a compromised package can't run code here.
         run: |
-          npm ci
+          npm ci --ignore-scripts
 
       - name: "Build"
         run: |
@@ -83,7 +86,7 @@ jobs:
 
       - name: "Setup PHP extension caching"
         id: extcache
-        uses: shivammathur/cache-extensions@1.15.11
+        uses: shivammathur/cache-extensions@695b1b465eba861efe67cbbc31252c27f5ed253d # 1.15.11
         with:
           php-version: ${{ env.php-version }}
           extensions: ${{ env.php-extensions }}
@@ -97,7 +100,7 @@ jobs:
           restore-keys: ${{ steps.extcache.outputs.key }}
 
       - name: "Setup PHP"
-        uses: shivammathur/setup-php@2.40.0
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ env.php-version }}
           extensions: ${{ env.php-extensions }}
@@ -135,8 +138,11 @@ jobs:
           npm install -g npm@${{ env.npm-version }}
 
       - name: "Install NPM dependencies"
+        # No install scripts: none is needed to build, lint or test (they
+        # download Chrome for puppeteer and native helpers for wp-env), and
+        # a compromised package can't run code here.
         run: |
-          npm ci
+          npm ci --ignore-scripts
 
       - name: "Download build artifact"
         uses: actions/download-artifact@v8
@@ -170,13 +176,13 @@ jobs:
         uses: actions/checkout@v7
 
       - name: "Install SVN"
-        uses: awalsh128/cache-apt-pkgs-action@v1.6.3
+        uses: awalsh128/cache-apt-pkgs-action@553a35bb8ebd9fcabcb1c9451aa4c98e1b4ca8a9 # v1.6.3
         with:
           packages: subversion
           version: ${{ env.cache-version }}
 
       - name: "Setup PHP"
-        uses: shivammathur/setup-php@2.40.0
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ matrix.versions.php }}
           coverage: pcov
@@ -201,6 +207,9 @@ jobs:
           composer remove --dev --no-update $(composer show -s | sed -n '/requires (dev)$/,/^$/p' | grep -v 'requires (dev)' | cut -d ' ' -f1 | tr '\n' ' ')
 
       - name: "Install Composer dependencies"
+        # update, not install: the two steps above changed composer.json, so
+        # the lock no longer matches. Only phpunit and the runtime packages
+        # remain, and those are tested against the lock in the build job.
         run: |
           composer update -n --prefer-dist
 
@@ -223,8 +232,11 @@ jobs:
           npm install -g npm@${{ env.npm-version }}
 
       - name: "Install NPM dependencies"
+        # No install scripts: none is needed to build, lint or test (they
+        # download Chrome for puppeteer and native helpers for wp-env), and
+        # a compromised package can't run code here.
         run: |
-          npm ci
+          npm ci --ignore-scripts
 
       - name: "Download build artifact"
         uses: actions/download-artifact@v8
@@ -241,7 +253,7 @@ jobs:
           npm run test
 
       - name: "Upload coverage results"
-        uses: codecov/codecov-action@v7.1.1
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           use_oidc: true
           fail_ci_if_error: false
