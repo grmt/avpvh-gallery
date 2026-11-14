@@ -4330,9 +4330,7 @@ export class Shortcode {
 			return { rotation: 0, hFlip: false, vFlip: false };
 		}
 		const rawRotation = Number.parseInt(
-			slideEl.dataset['avpvhRotation'] ??
-				slideEl.dataset['avpvhRotation'] ??
-				'0',
+			slideEl.dataset['avpvhRotation'] ?? '0',
 			10
 		);
 		const rotation: 0 | 90 | 180 | 270 =
