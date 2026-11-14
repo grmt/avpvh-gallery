@@ -23,10 +23,10 @@ final class Component_Registration_Test extends WP_UnitTestCase {
 	public function test_main_registers_front_end_components() {
 		( new Main() )->register();
 
-		self::assert_hooked( 'wp_ajax_gallery_marks' );
-		self::assert_hooked( 'wp_ajax_gallery_filter' );
-		self::assert_hooked( 'rest_api_init' );
-		self::assertSame( true, shortcode_exists( 'avpvh' ) );
+		$this->assert_hooked( 'wp_ajax_gallery_marks' );
+		$this->assert_hooked( 'wp_ajax_gallery_filter' );
+		$this->assert_hooked( 'rest_api_init' );
+		$this->assertSame( true, shortcode_exists( 'avpvh' ) );
 	}
 
 	/**
@@ -35,7 +35,6 @@ final class Component_Registration_Test extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_settings_pages_register_admin_pages() {
-		require_once ABSPATH . 'wp-admin/includes/admin.php';
 		set_current_screen( 'dashboard' );
 
 		try {
@@ -45,8 +44,8 @@ final class Component_Registration_Test extends WP_UnitTestCase {
 			set_current_screen( 'front' );
 		}
 
-		self::assert_hooked( 'admin_menu' );
-		self::assert_hooked( 'admin_init' );
+		$this->assert_hooked( 'admin_menu' );
+		$this->assert_hooked( 'admin_init' );
 	}
 
 	/**
@@ -55,7 +54,7 @@ final class Component_Registration_Test extends WP_UnitTestCase {
 	 * @param string $hook_name The action.
 	 * @return void
 	 */
-	private static function assert_hooked( $hook_name ) {
-		self::assertSame( true, false !== has_action( $hook_name ), $hook_name . ' has no callback' );
+	private function assert_hooked( $hook_name ) {
+		$this->assertSame( true, false !== has_action( $hook_name ), $hook_name . ' has no callback' );
 	}
 }
