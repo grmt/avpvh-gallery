@@ -14,6 +14,17 @@ updates:
 - package-ecosystem: npm
   directory: "/"
   groups:
+    # stylelint and its configs only work in step (a major of one needs the
+    # others), so all their updates, majors too, come as one PR. It turns
+    # green once every config, @wordpress/stylelint-config included,
+    # accepts the new stylelint. Listed first: a package goes to the first
+    # group it matches.
+    stylelint:
+      patterns:
+        - "stylelint"
+        - "stylelint-*"
+        - "@wordpress/stylelint-config"
+      update-types: [major, minor, patch]
     npm:
       update-types: [minor, patch]
   # eslint-plugin-react 7.37.5 supports ESLint through 9 only.
