@@ -110,5 +110,9 @@
   },
   "browserslist": [
     "extends @wordpress/browserslist-config"
-  ]
+  ],
+  "overrides": {
+    "isomorphic-git": "^1.38.6",
+    "qs": "^6.16.1"
+  }
 }
