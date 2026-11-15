@@ -183,11 +183,12 @@ final class Tag_Import_Votes {
 			);
 		}
 
+		$vote_id = (int) $wpdb->insert_id;
 		wp_set_current_user( $user_id );
 		Tag_Log::record( $vote['image_id'], 'subject', $vote['tag_key'], $vote['tag_label'], 'add' );
 
 		return array(
-			'id'       => (int) $wpdb->insert_id,
+			'id'       => $vote_id,
 			'image_id' => $vote['image_id'],
 			'tag_key'  => $vote['tag_key'],
 			'user_id'  => $user_id,
