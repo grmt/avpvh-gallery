@@ -18,6 +18,7 @@ use Avpvh\Exceptions\Not_Found_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Frontend\API_Fields;
 use Avpvh\Gallery_Component;
+use Avpvh\Helpers;
 use DateTime;
 use Requests_Utility_CaseInsensitiveDictionary;
 use Throwable;
@@ -254,7 +255,7 @@ final class Exif_Data_REST implements Gallery_Component {
 			return new WP_Error( 'invalid_url', 'url is required', array( 'status' => 400 ) );
 		}
 
-		if ( false === strpos( $url, 'googleusercontent.com' ) && false === strpos( $url, 'drive.google.com' ) ) {
+		if ( ! Helpers::is_google_media_url( $url ) ) {
 			return new WP_Error( 'invalid_url', 'URL must be from Google', array( 'status' => 400 ) );
 		}
 
@@ -264,7 +265,7 @@ final class Exif_Data_REST implements Gallery_Component {
 			return new WP_Error( 'temp_file_error', 'Unable to create temporary file', array( 'status' => 500 ) );
 		}
 
-		$response = wp_remote_get(
+		$response = wp_safe_remote_get(
 			$url,
 			array(
 				'filename'  => $temp_file,

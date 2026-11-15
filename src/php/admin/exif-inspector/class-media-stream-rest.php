@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use Avpvh\API_Client;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Gallery_Component;
+use Avpvh\Helpers;
 use Exception;
 use WP_Error;
 use WP_REST_Request;
@@ -235,11 +236,11 @@ final class Media_Stream_REST implements Gallery_Component {
 		}
 
 		// Validate URL is from Google.
-		if ( false === strpos( $url, 'googleusercontent.com' ) && false === strpos( $url, 'drive.google.com' ) ) {
+		if ( ! Helpers::is_google_media_url( $url ) ) {
 			return new WP_Error( 'invalid_url', 'Invalid URL', array( 'status' => 400 ) );
 		}
 
-		$response = wp_remote_get(
+		$response = wp_safe_remote_get(
 			$url,
 			array(
 				'redirection' => 5,

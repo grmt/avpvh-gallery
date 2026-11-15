@@ -2199,3 +2199,10 @@ function wp_schedule_single_event( $timestamp, $hook, $args = array(), $wp_error
  * @return WP_REST_Response
  */
 function rest_do_request( $request ) {}
+
+/**
+ * @param string $url
+ * @param array<string, mixed> $args
+ * @return array{body: string, response: array{code: int|false, message: string|false}}|WP_Error
+ */
+function wp_safe_remote_get( $url, $args = array() ) {}

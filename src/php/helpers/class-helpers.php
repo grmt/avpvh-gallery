@@ -24,6 +24,30 @@ use const WP_DEBUG_DISPLAY;
 final class Helpers {
 
 	/**
+	 * Whether a media URL points to a supported Google HTTPS host.
+	 *
+	 * @param mixed $url A URL supplied by an inspector request.
+	 * @return bool
+	 */
+	public static function is_google_media_url( $url ) {
+		$parts = is_string( $url ) ? wp_parse_url( $url ) : false;
+
+		if (
+			! is_array( $parts ) ||
+			'https' !== strtolower( (string) ( $parts['scheme'] ?? '' ) ) ||
+			isset( $parts['user'] ) || isset( $parts['pass'] ) ||
+			( isset( $parts['port'] ) && 443 !== $parts['port'] )
+		) {
+			return false;
+		}
+
+		$host = strtolower( (string) ( $parts['host'] ?? '' ) );
+
+		return 'drive.google.com' === $host || 'googleusercontent.com' === $host ||
+			str_ends_with( $host, '.googleusercontent.com' );
+	}
+
+	/**
 	 * Checks whether debug info should be displayed
 	 *
 	 * @return bool True to display debug info.
