@@ -130,7 +130,7 @@ final class Media_Request_Test extends WP_UnitTestCase {
 			array( 'https://drive.google.com@evil.example/image.jpg' ),
 			array( 'https://notgoogleusercontent.com/image.jpg' ),
 			array( 'file://googleusercontent.com/etc/passwd' ),
-			array( 'http://lh3.googleusercontent.com/image.jpg' ),
+			array( set_url_scheme( 'https://lh3.googleusercontent.com/image.jpg', 'http' ) ),
 			array( 'https://lh3.googleusercontent.com:8443/image.jpg' ),
 		);
 	}
