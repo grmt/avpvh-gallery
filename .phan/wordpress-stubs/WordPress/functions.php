@@ -2206,3 +2206,13 @@ function rest_do_request( $request ) {}
  * @return array{body: string, response: array{code: int|false, message: string|false}}|WP_Error
  */
 function wp_safe_remote_get( $url, $args = array() ) {}
+
+/**
+ * @param string $url
+ * @param string|null $scheme
+ * @return string
+ */
+function set_url_scheme( $url, $scheme = null ) {}
+
+/** @var array<array<string, mixed>> */
+$EZSQL_ERROR = array();

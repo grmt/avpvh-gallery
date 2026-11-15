@@ -65,7 +65,7 @@ final class Photo_Tags_DB {
 
 		$table_tags = $wpdb->prefix . 'agallery_photo_tags';
 		$sql_tags   = "CREATE TABLE {$table_tags} (
-			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 			image_id VARCHAR(255) NOT NULL,
 			category VARCHAR(20) NOT NULL DEFAULT 'personen',
 			tag_key VARCHAR(255) NOT NULL DEFAULT '',
@@ -75,6 +75,7 @@ final class Photo_Tags_DB {
 			created_by BIGINT UNSIGNED,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
 			UNIQUE KEY image_category_key_user (image_id, category, tag_key, created_by),
 			INDEX idx_image_id (image_id),
 			INDEX idx_member_id (member_id)
@@ -84,23 +85,25 @@ final class Photo_Tags_DB {
 
 		$table_comments = $wpdb->prefix . 'agallery_photo_comments';
 		$sql_comments   = "CREATE TABLE {$table_comments} (
-			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 			image_id VARCHAR(255) NOT NULL,
 			user_id BIGINT UNSIGNED,
 			comment_text LONGTEXT,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
 			INDEX idx_image_id (image_id)
 		) {$charset_collate};";
 		dbDelta( $sql_comments );
 
 		$table_reactions = $wpdb->prefix . 'agallery_photo_reactions';
 		$sql_reactions   = "CREATE TABLE {$table_reactions} (
-			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 			image_id VARCHAR(255) NOT NULL,
 			user_id BIGINT UNSIGNED NOT NULL,
 			emoji VARCHAR(10),
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
 			UNIQUE KEY unique_reaction (image_id, user_id, emoji),
 			INDEX idx_image_id (image_id)
 		) {$charset_collate};";
@@ -110,7 +113,7 @@ final class Photo_Tags_DB {
 		// removed (see Tag_Log). tag_label is the name/label at the time.
 		$table_log = $wpdb->prefix . 'agallery_tag_log';
 		$sql_log   = "CREATE TABLE {$table_log} (
-			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 			image_id VARCHAR(255) NOT NULL,
 			category VARCHAR(20) NOT NULL,
 			tag_key VARCHAR(255) NOT NULL,
@@ -118,6 +121,7 @@ final class Photo_Tags_DB {
 			action VARCHAR(10) NOT NULL,
 			user_id BIGINT UNSIGNED,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
 			INDEX idx_image_id (image_id),
 			INDEX idx_user_id (user_id)
 		) {$charset_collate};";
@@ -294,7 +298,7 @@ final class Photo_Tags_DB {
 		global $wpdb;
 		$table_nodes = $wpdb->prefix . 'agallery_tag_nodes';
 		$sql_nodes   = "CREATE TABLE {$table_nodes} (
-			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 			parent_id BIGINT UNSIGNED NULL,
 			type VARCHAR(10) NOT NULL,
 			label VARCHAR(100) NOT NULL,
@@ -302,6 +306,7 @@ final class Photo_Tags_DB {
 			taggable TINYINT(1) NOT NULL DEFAULT 0,
 			sort_order INT NOT NULL DEFAULT 0,
 			legacy_key VARCHAR(64) NULL,
+			PRIMARY KEY  (id),
 			INDEX idx_parent (parent_id),
 			INDEX idx_legacy (legacy_key)
 		) {$charset_collate};";

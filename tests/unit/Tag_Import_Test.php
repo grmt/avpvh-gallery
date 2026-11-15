@@ -111,6 +111,8 @@ final class Tag_Import_Test extends WP_UnitTestCase {
 			$wpdb->delete( $wpdb->prefix . 'agallery_tag_log', array( 'image_id' => 'fixture-import-log' ) );
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			delete_option( Tag_Import_Votes::RECEIPT_PREFIX . $batch );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write() commits its insert, so commit fixture cleanup rather than letting the test framework roll it back.
+			$wpdb->query( 'COMMIT' );
 		}
 	}
 
