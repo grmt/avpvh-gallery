@@ -1,5 +1,5 @@
 # Minor and patch updates come as one PR per ecosystem a week; majors stay
-# separate PRs.
+# separate PRs. Security updates also come as one PR per ecosystem.
 version: 2
 updates:
 - package-ecosystem: github-actions
@@ -7,6 +7,10 @@ updates:
   groups:
     actions:
       update-types: [minor, patch]
+    # Security updates bundled into one PR, majors included.
+    actions-security:
+      applies-to: security-updates
+      patterns: ["*"]
   schedule:
     interval: weekly
   assignees:
@@ -27,6 +31,10 @@ updates:
       update-types: [major, minor, patch]
     npm:
       update-types: [minor, patch]
+    # Security updates bundled into one PR, majors included.
+    npm-security:
+      applies-to: security-updates
+      patterns: ["*"]
   # eslint-plugin-react 7.37.5 supports ESLint through 9 only.
   # Revisit when its peer dependency includes ESLint 10.
   ignore:
@@ -41,6 +49,10 @@ updates:
   groups:
     composer:
       update-types: [minor, patch]
+    # Security updates bundled into one PR, majors included.
+    composer-security:
+      applies-to: security-updates
+      patterns: ["*"]
   schedule:
     interval: weekly
   assignees:
