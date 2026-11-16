@@ -25,7 +25,12 @@ final class Admin_Path_Test extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_subfolder_previews_handle_empty_and_populated_folders() {
-		foreach ( array( array(), array( array( 'thumbnailLink' => 'https://lh3.googleusercontent.com/fixture=s220' ) ) ) as $files ) {
+		$cases = array(
+			array(),
+			array( array( 'thumbnailLink' => 'https://lh3.googleusercontent.com/fixture=s220' ) ),
+		);
+
+		foreach ( $cases as $files ) {
 			Google_Transport::run(
 				static function ( RequestInterface $request ) use ( $files ) {
 					return Google_Transport::batch( $request, 200, array( 'files' => $files ) );
