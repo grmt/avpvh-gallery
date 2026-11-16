@@ -9,11 +9,13 @@ use Avpvh\Exceptions\Share_Exception;
 use Avpvh\Frontend\Share_Drive;
 use Avpvh\Frontend\Share_Drive_Files;
 use Avpvh\Tests\Google_Transport;
+use Avpvh\Tests\Missing_Upload_Request;
 use Avpvh\Vendor\Google\Client;
 use Avpvh\Vendor\GuzzleHttp\Psr7\Response;
 use Avpvh\Vendor\Psr\Http\Message\RequestInterface;
 
 require_once dirname( __DIR__ ) . '/fixtures/class-google-transport.php';
+require_once dirname( __DIR__ ) . '/fixtures/class-missing-upload-request.php';
 
 /** Uses the real service client with synthetic responses. */
 final class Share_Drive_Test extends WP_UnitTestCase {
@@ -110,6 +112,32 @@ final class Share_Drive_Test extends WP_UnitTestCase {
 				$this->expectException( Share_Exception::class );
 				$this->expectExceptionMessage( 'No contents for fixture-photo' );
 				Share_Drive_Files::download( 'fixture-photo' );
+			}
+		);
+	}
+
+	/**
+	 * Unexpected SDK metadata must not be accepted as a deferred upload request.
+	 *
+	 * @return void
+	 */
+	public function test_upload_requires_a_request_and_restores_client_mode() {
+		Google_Transport::run(
+			static function (): Response {
+				self::fail( 'An invalid upload request must not reach the transport.' );
+			},
+			function ( Client $client ) {
+				$drive        = Share_Drive::drive();
+				$drive->files = new Missing_Upload_Request( $drive, 'drive', 'files', array() );
+
+				try {
+					Share_Drive_Files::upload( 'fixture-folder', 'Photo.jpg', 'image/jpeg', 'fixture' );
+					$this->fail( 'Expected the missing-upload-request error.' );
+				} catch ( Share_Exception $error ) {
+					$this->assertSame( 'Could not start the upload of Photo.jpg', $error->getMessage() );
+				}
+
+				$this->assertFalse( $client->shouldDefer() );
 			}
 		);
 	}

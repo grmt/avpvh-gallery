@@ -6,8 +6,13 @@
  */
 
 use Avpvh\Exceptions\Share_Exception;
+use Avpvh\Frontend\Share_Pdf;
 use Avpvh\Frontend\Share_Pdf_Parts;
+use Avpvh\Tests\Share_File_IO;
 use PHPUnit\Framework\TestCase;
+
+require_once dirname( __DIR__ ) . '/fixtures/class-share-file-io.php';
+require_once dirname( __DIR__ ) . '/fixtures/share-file-functions.php';
 
 /** Tests the completed PDF files, not just their JPEG payloads. */
 final class Share_Pdf_Parts_Test extends TestCase {
@@ -218,6 +223,30 @@ final class Share_Pdf_Parts_Test extends TestCase {
 
 		$this->assertFileDoesNotExist( $path );
 		$parts->finish();
+	}
+
+	/**
+	 * A failed fopen must not leave the empty file already created by tempnam.
+	 *
+	 * @return void
+	 */
+	public function test_failed_open_removes_the_created_temporary_file() {
+		Share_File_IO::enable( true );
+
+		try {
+			( new Share_Pdf() )->finish();
+			$this->fail( 'Expected the simulated filesystem failure.' );
+		} catch ( Share_Exception $error ) {
+			$this->assertSame( 'Could not write the PDF', $error->getMessage() );
+			$this->assertFileDoesNotExist( (string) Share_File_IO::path() );
+		} finally {
+			$path = Share_File_IO::path();
+			Share_File_IO::enable( false );
+
+			if ( null !== $path ) {
+				wp_delete_file( $path );
+			}
+		}
 	}
 
 	/**

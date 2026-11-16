@@ -6,6 +6,7 @@
  */
 
 use Avpvh\Admin\OAuth_Helpers;
+use Avpvh\Admin\Settings_Pages;
 use Avpvh\Tests\Google_Transport;
 use Avpvh\Vendor\Google\Client;
 use Avpvh\Vendor\GuzzleHttp\Psr7\Response;
@@ -14,6 +15,24 @@ require_once dirname( __DIR__ ) . '/fixtures/class-google-transport.php';
 
 /** Verifies the redirect destination and persistent settings notices. */
 final class OAuth_Helpers_Test extends WP_UnitTestCase {
+
+	/**
+	 * Actions belonging to another settings handler leave the OAuth credential untouched.
+	 *
+	 * @return void
+	 */
+	public function test_unrelated_settings_action_leaves_token_unchanged() {
+		update_option( 'avpvh_access_token', 'fixture-token' );
+		$_GET['page']   = 'avpvh_basic';
+		$_GET['action'] = 'fixture-unrelated';
+
+		try {
+			Settings_Pages::action_handler();
+			$this->assertSame( 'fixture-token', get_option( 'avpvh_access_token' ) );
+		} finally {
+			unset( $_GET['page'], $_GET['action'] );
+		}
+	}
 
 	/**
 	 * A missing authorization code is reported after redirecting back to settings.

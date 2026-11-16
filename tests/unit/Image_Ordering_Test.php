@@ -60,20 +60,20 @@ final class Image_Ordering_Test extends WP_UnitTestCase {
 	/**
 	 * A synthetic Drive record sufficient to render a gallery image.
 	 *
-	 * @param string              $id Image ID.
+	 * @param string              $image_id Image ID.
 	 * @param array<string,mixed> $metadata Capture metadata.
 	 * @param string              $created Creation timestamp.
 	 * @return array<string,mixed>
 	 */
-	private static function image( $id, array $metadata, $created ) {
+	private static function image( $image_id, array $metadata, $created ) {
 		return array(
 			'createdTime'        => $created,
-			'id'                 => $id,
+			'id'                 => $image_id,
 			'imageMediaMetadata' => $metadata + array(
 				'height' => 30,
 				'width'  => 20,
 			),
-			'name'               => $id . '.jpg',
+			'name'               => $image_id . '.jpg',
 			'thumbnailLink'      => 'https://lh3.googleusercontent.com/fixture=s220',
 		);
 	}

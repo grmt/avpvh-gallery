@@ -9,6 +9,7 @@ use Avpvh\Admin\Exif_Dates_CLI;
 use Avpvh\Admin\Settings_Pages\Basic\Root_Selection\List_Ajax_Endpoint;
 use Avpvh\Admin\TinyMCE_Plugin;
 use Avpvh\API_Client;
+use Avpvh\Frontend\Page\Directories;
 use Avpvh\Tests\Google_Transport;
 use Avpvh\Vendor\Psr\Http\Message\RequestInterface;
 
@@ -17,6 +18,29 @@ require_once dirname( __DIR__ ) . '/fixtures/class-google-transport.php';
 
 /** Verifies the results used by the editor, folder picker and EXIF walker. */
 final class Admin_Path_Test extends WP_UnitTestCase {
+
+	/**
+	 * Empty folders have no subfolder preview; populated folders use a small thumbnail.
+	 *
+	 * @return void
+	 */
+	public function test_subfolder_previews_handle_empty_and_populated_folders() {
+		foreach ( array( array(), array( array( 'thumbnailLink' => 'https://lh3.googleusercontent.com/fixture=s220' ) ) ) as $files ) {
+			Google_Transport::run(
+				static function ( RequestInterface $request ) use ( $files ) {
+					return Google_Transport::batch( $request, 200, array( 'files' => $files ) );
+				},
+				function () use ( $files ) {
+					$method  = new ReflectionMethod( Directories::class, 'subdir_thumbnail_images' );
+					$promise = $method->invoke( null, array( 'fixture-folder' ) );
+					$this->assertSame(
+						array( array( array() === $files ? false : 'https://lh3.googleusercontent.com/fixture=h48' ) ),
+						API_Client::execute( array( $promise ) )
+					);
+				}
+			);
+		}
+	}
 
 	/**
 	 * Shortcut IDs must resolve to their target; incomplete records are ignored.

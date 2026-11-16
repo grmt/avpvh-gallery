@@ -79,6 +79,8 @@ final class Share_Pdf {
 		$handle = fopen( $this->path, 'wb' );
 
 		if ( false === $handle ) {
+			wp_delete_file( $this->path );
+
 			throw new Share_Exception( 'Could not write the PDF' );
 		}
 
