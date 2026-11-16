@@ -8,6 +8,7 @@
 namespace Avpvh\Frontend;
 
 use Avpvh\Tests\Share_File_IO;
+// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- this test double must delegate to the native stream opener used by the PDF writer.
 use function fopen as php_fopen;
 
 /**
