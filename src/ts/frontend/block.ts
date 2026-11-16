@@ -14,7 +14,17 @@ function extractFromShortcode(
 	if (path === undefined || path === '') {
 		return [];
 	}
-	return path.replace(/^\/+|\/+$/g, '').split('/');
+	// Strip leading and trailing slashes (a loop instead of a backtracking
+	// regex), then split.
+	let start = 0;
+	let end = path.length;
+	while (start < end && '/' === path[start]) {
+		start++;
+	}
+	while (end > start && '/' === path[end - 1]) {
+		end--;
+	}
+	return path.slice(start, end).split('/');
 }
 
 registerBlockType('avpvh-gallery/gallery', {

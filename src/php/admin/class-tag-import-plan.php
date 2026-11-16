@@ -11,8 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Exceptions\Tag_Import_Exception;
 use Avpvh\Frontend\Subject_Tag_Tree;
-use RuntimeException;
 use Throwable;
 use WP_CLI;
 
@@ -184,17 +184,17 @@ final class Tag_Import_Plan {
 	 *
 	 * @return array<string, string>
 	 *
-	 * @throws RuntimeException The row doesn't resolve.
+	 * @throws Tag_Import_Exception The row doesn't resolve.
 	 */
 	private static function resolve_row( array $row, Drive_Path_Resolver $paths ) {
 		if ( 1 !== preg_match( '/^[1-9]\d*$/', $row['user_id'] ) || false === get_userdata( (int) $row['user_id'] ) ) {
-			throw new RuntimeException( 'unknown user ' . esc_html( $row['user_id'] ) );
+			throw new Tag_Import_Exception( 'unknown user ' . esc_html( $row['user_id'] ) );
 		}
 
 		$tag = Subject_Tag_Tree::tag( $row['tag_key'] );
 
 		if ( null === $tag ) {
-			throw new RuntimeException( 'unknown or untaggable tag ' . esc_html( $row['tag_key'] ) );
+			throw new Tag_Import_Exception( 'unknown or untaggable tag ' . esc_html( $row['tag_key'] ) );
 		}
 
 		$row['tag_label'] = (string) $tag['label'];
@@ -248,8 +248,9 @@ final class Tag_Import_Plan {
 		foreach ( $votes as $key => $vote ) {
 			$conflict                   = self::single_conflict( $vote, $all );
 			$votes[ $key ]['tag_label'] = (string) ( Subject_Tag_Tree::tag( $vote['tag_key'] )['label'] ?? '' );
+			$new_status                 = isset( $existing[ $key ] ) ? 'exists' : 'new';
 			$votes[ $key ]['status']    = null === $conflict
-				? ( isset( $existing[ $key ] ) ? 'exists' : 'new' )
+				? $new_status
 				: 'error: one-per-photo group already has ' . $conflict;
 
 			if ( null !== $conflict ) {

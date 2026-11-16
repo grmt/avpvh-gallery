@@ -18,6 +18,7 @@ use Avpvh\Exceptions\Not_Found_Exception;
 use Avpvh\Exceptions\Plugin_Not_Authorized_Exception;
 use Avpvh\Frontend\API_Fields;
 use Avpvh\Gallery_Component;
+use Avpvh\Helpers;
 use DateTime;
 use Requests_Utility_CaseInsensitiveDictionary;
 use Throwable;
@@ -36,6 +37,16 @@ use WP_REST_Response;
 final class Exif_Data_REST implements Gallery_Component {
 
 	/**
+	 * The REST namespace of these routes.
+	 */
+	private const REST_NAMESPACE = 'avpvh-gallery/v1';
+
+	/**
+	 * Error when the request has no file ID.
+	 */
+	private const FILE_ID_REQUIRED = 'File ID is required';
+
+	/**
 	 * Registers the REST routes.
 	 */
 	public function register(): void {
@@ -49,7 +60,7 @@ final class Exif_Data_REST implements Gallery_Component {
 	 */
 	public function register_routes() {
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/orientation',
 			array(
 				'callback'            => array( $this, 'get_file_orientation' ),
@@ -59,7 +70,7 @@ final class Exif_Data_REST implements Gallery_Component {
 		);
 
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/file-data',
 			array(
 				'callback'            => array( $this, 'file_data' ),
@@ -69,7 +80,7 @@ final class Exif_Data_REST implements Gallery_Component {
 		);
 
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/full-exif',
 			array(
 				'callback'            => array( $this, 'get_full_exif' ),
@@ -79,7 +90,7 @@ final class Exif_Data_REST implements Gallery_Component {
 		);
 
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/preview-exif',
 			array(
 				'callback'            => array( $this, 'get_preview_exif' ),
@@ -105,7 +116,7 @@ final class Exif_Data_REST implements Gallery_Component {
 			$file_id = isset( $params['file_id'] ) ? $params['file_id'] : '';
 
 			if ( '' === $file_id ) {
-				return new WP_Error( 'invalid_file', 'File ID is required', array( 'status' => 400 ) );
+				return new WP_Error( 'invalid_file', self::FILE_ID_REQUIRED, array( 'status' => 400 ) );
 			}
 
 			return new WP_REST_Response( self::read_orientation_tag( $file_id ), 200 );
@@ -133,7 +144,7 @@ final class Exif_Data_REST implements Gallery_Component {
 			$file_id = isset( $params['file_id'] ) ? $params['file_id'] : '';
 
 			if ( '' === $file_id ) {
-				return new WP_Error( 'invalid_file', 'File ID is required', array( 'status' => 400 ) );
+				return new WP_Error( 'invalid_file', self::FILE_ID_REQUIRED, array( 'status' => 400 ) );
 			}
 
 			$results         = API_Client::execute(
@@ -182,7 +193,7 @@ final class Exif_Data_REST implements Gallery_Component {
 			$file_id = isset( $params['file_id'] ) ? $params['file_id'] : '';
 
 			if ( '' === $file_id ) {
-				return new WP_Error( 'invalid_file', 'File ID is required', array( 'status' => 400 ) );
+				return new WP_Error( 'invalid_file', self::FILE_ID_REQUIRED, array( 'status' => 400 ) );
 			}
 
 			$temp_file = self::download_exif_header( $file_id );
@@ -244,7 +255,7 @@ final class Exif_Data_REST implements Gallery_Component {
 			return new WP_Error( 'invalid_url', 'url is required', array( 'status' => 400 ) );
 		}
 
-		if ( false === strpos( $url, 'googleusercontent.com' ) && false === strpos( $url, 'drive.google.com' ) ) {
+		if ( ! Helpers::is_google_media_url( $url ) ) {
 			return new WP_Error( 'invalid_url', 'URL must be from Google', array( 'status' => 400 ) );
 		}
 
@@ -254,7 +265,7 @@ final class Exif_Data_REST implements Gallery_Component {
 			return new WP_Error( 'temp_file_error', 'Unable to create temporary file', array( 'status' => 500 ) );
 		}
 
-		$response = wp_remote_get(
+		$response = wp_safe_remote_get(
 			$url,
 			array(
 				'filename'  => $temp_file,

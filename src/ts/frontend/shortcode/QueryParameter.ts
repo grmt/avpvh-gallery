@@ -20,7 +20,7 @@ export class QueryParameter {
 	public remove(): string {
 		let newQuery = window.location.search;
 		const keyRegex1 = new RegExp(
-			'\\?avpvh-' + this.name + '-' + this.hash + '=[^&]*'
+			String.raw`\?avpvh-` + this.name + '-' + this.hash + '=[^&]*'
 		);
 		const keyRegex2 = new RegExp(
 			'&avpvh-' + this.name + '-' + this.hash + '=[^&]*'

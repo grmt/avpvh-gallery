@@ -183,9 +183,7 @@ final class Exif_Dates_CLI {
 		$ids = array();
 
 		foreach ( $directories as $directory ) {
-			$folder_id = isset( $directory['shortcutDetails']['targetId'] )
-				? (string) $directory['shortcutDetails']['targetId']
-				: ( isset( $directory['id'] ) ? (string) $directory['id'] : '' );
+			$folder_id = (string) ( $directory['shortcutDetails']['targetId'] ?? $directory['id'] ?? '' );
 
 			if ( '' !== $folder_id ) {
 				$ids[] = $folder_id;

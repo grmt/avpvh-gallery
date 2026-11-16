@@ -266,11 +266,11 @@ export class Shortcode {
 			pswpModule: PhotoSwipe,
 			showHideAnimationType: 'fade',
 			loop: false,
-			showAnimationDuration: parseInt(
+			showAnimationDuration: Number.parseInt(
 				avpvhShortcodeLocalize.preview_speed,
 				10
 			),
-			hideAnimationDuration: parseInt(
+			hideAnimationDuration: Number.parseInt(
 				avpvhShortcodeLocalize.preview_speed,
 				10
 			),
@@ -529,7 +529,10 @@ export class Shortcode {
 					return String(m) + ':' + String(sec).padStart(2, '0');
 				};
 				const updateBar = (): void => {
-					if (!isFinite(videoEl.duration) || 0 === videoEl.duration) {
+					if (
+						!Number.isFinite(videoEl.duration) ||
+						0 === videoEl.duration
+					) {
 						return;
 					}
 					playedEl.style.width =
@@ -594,7 +597,10 @@ export class Shortcode {
 				// Seek by clicking on the progress bar
 				bar.addEventListener('click', (ev) => {
 					ev.stopPropagation();
-					if (!isFinite(videoEl.duration) || 0 === videoEl.duration) {
+					if (
+						!Number.isFinite(videoEl.duration) ||
+						0 === videoEl.duration
+					) {
 						return;
 					}
 					const rect = bar.getBoundingClientRect();
@@ -2561,11 +2567,11 @@ export class Shortcode {
 						let displayedHeight = 0;
 						// Always append pixel dimensions when known and non-zero.
 						if (slideEl instanceof HTMLElement) {
-							const loadedWidth = parseInt(
+							const loadedWidth = Number.parseInt(
 								slideEl.dataset['avpvhLoadedWidth'] ?? '0',
 								10
 							);
-							const loadedHeight = parseInt(
+							const loadedHeight = Number.parseInt(
 								slideEl.dataset['avpvhLoadedHeight'] ?? '0',
 								10
 							);
@@ -2573,13 +2579,13 @@ export class Shortcode {
 								loadedWidth > 0 && loadedHeight > 0;
 							const w = hasLoadedDimensions
 								? loadedWidth
-								: parseInt(
+								: Number.parseInt(
 										slideEl.dataset['pswpWidth'] ?? '0',
 										10
 									);
 							const h = hasLoadedDimensions
 								? loadedHeight
-								: parseInt(
+								: Number.parseInt(
 										slideEl.dataset['pswpHeight'] ?? '0',
 										10
 									);
@@ -2987,7 +2993,8 @@ export class Shortcode {
 				});
 
 				const speed =
-					parseInt(avpvhShortcodeLocalize.preview_speed, 10) || 300;
+					Number.parseInt(avpvhShortcodeLocalize.preview_speed, 10) ||
+					300;
 				setTimeout(forceUpdateSize, speed + 100);
 
 				void pswpEl
@@ -3189,7 +3196,7 @@ export class Shortcode {
 			!this.lightbox.pswp.isOpen ||
 			this.screenWakeLock?.released === false
 		) {
-			return Promise.resolve();
+			return;
 		}
 		if (this.screenWakeLockRequest !== null) {
 			return this.screenWakeLockRequest;
@@ -3198,7 +3205,7 @@ export class Shortcode {
 		// browsers genuinely lack it at runtime — hence the `in` check rather
 		// than a (statically "impossible") undefined comparison.
 		if (!('wakeLock' in navigator)) {
-			return Promise.resolve();
+			return;
 		}
 		const wakeLock = navigator.wakeLock;
 
@@ -3679,9 +3686,7 @@ export class Shortcode {
 		const links = this.container
 			.find('a.avpvh-grid-a[data-pswp-width]')
 			.get();
-		const index = links.findIndex(
-			(el) => el.getAttribute('data-avpvh-id') === fileId
-		);
+		const index = links.findIndex((el) => el.dataset['avpvhId'] === fileId);
 		if (0 <= index) {
 			this.lightbox.loadAndOpen(index);
 			window.focus();
@@ -4211,7 +4216,8 @@ export class Shortcode {
 	// How many pages a folder's photos and videos take: loading that many
 	// shows its last one.
 	private static pagesFor(directory: Directory): number {
-		const pageSize = parseInt(avpvhShortcodeLocalize.page_size, 10) || 1;
+		const pageSize =
+			Number.parseInt(avpvhShortcodeLocalize.page_size, 10) || 1;
 		const total =
 			directory.mediacount ??
 			(directory.imagecount ?? 0) + (directory.videocount ?? 0);
@@ -4323,10 +4329,8 @@ export class Shortcode {
 		if (!(slideEl instanceof HTMLElement)) {
 			return { rotation: 0, hFlip: false, vFlip: false };
 		}
-		const rawRotation = parseInt(
-			slideEl.getAttribute('data-avpvh-rotation') ??
-				slideEl.dataset['avpvhRotation'] ??
-				'0',
+		const rawRotation = Number.parseInt(
+			slideEl.dataset['avpvhRotation'] ?? '0',
 			10
 		);
 		const rotation: 0 | 90 | 180 | 270 =
@@ -4334,11 +4338,9 @@ export class Shortcode {
 				? rawRotation
 				: 0;
 		const hFlip =
-			slideEl.getAttribute('data-avpvh-hflip') === '1' ||
 			slideEl.dataset['avpvhHflip'] === '1' ||
 			slideEl.dataset['avpvhHFlip'] === '1';
 		const vFlip =
-			slideEl.getAttribute('data-avpvh-vflip') === '1' ||
 			slideEl.dataset['avpvhVflip'] === '1' ||
 			slideEl.dataset['avpvhVFlip'] === '1';
 		return {
@@ -4359,7 +4361,7 @@ export class Shortcode {
 			avpvhShortcodeLocalize.exif_orientation_url === '' ||
 			avpvhShortcodeLocalize.rest_nonce === ''
 		) {
-			return Promise.resolve(null);
+			return null;
 		}
 
 		const request = fetch(avpvhShortcodeLocalize.exif_orientation_url, {
@@ -4500,10 +4502,9 @@ export class Shortcode {
 			return;
 		}
 
-		const flipPart =
-			hFlip || vFlip
-				? `scale(${hFlip ? '-1' : '1'}, ${vFlip ? '-1' : '1'}) `
-				: '';
+		const scaleX = hFlip ? '-1' : '1';
+		const scaleY = vFlip ? '-1' : '1';
+		const flipPart = hFlip || vFlip ? `scale(${scaleX}, ${scaleY}) ` : '';
 
 		if (rotation === 0) {
 			imgEl.style.transform = flipPart ? flipPart.trimEnd() : '';
@@ -4837,23 +4838,18 @@ export class Shortcode {
 			);
 			if (image.light_h_flip === true) {
 				el.dataset['avpvhHflip'] = '1';
-				el.setAttribute('data-avpvh-hflip', '1');
 			}
 			if (image.light_v_flip === true) {
 				el.dataset['avpvhVflip'] = '1';
-				el.setAttribute('data-avpvh-vflip', '1');
 			}
 			if (image.light_has_correction === true) {
 				el.dataset['avpvhHasCorrection'] = '1';
-				el.setAttribute('data-avpvh-has-correction', '1');
 			}
 			if (image.thumb_h_flip === true) {
 				el.dataset['avpvhThumbHflip'] = '1';
-				el.setAttribute('data-avpvh-thumb-hflip', '1');
 			}
 			if (image.thumb_v_flip === true) {
 				el.dataset['avpvhThumbVflip'] = '1';
-				el.setAttribute('data-avpvh-thumb-vflip', '1');
 			}
 			el.href = image.image;
 			if (avpvhShortcodeLocalize.is_admin === 'true') {
@@ -5151,10 +5147,10 @@ export class Shortcode {
 			.children()
 			.each((i, child) => {
 				$(child).css('display', 'inline-block');
-				let ratio = NaN;
+				let ratio = Number.NaN;
 				const gridImage = child.querySelector('.avpvh-grid-img');
-				const thumbRotation = parseInt(
-					child.getAttribute('data-avpvh-thumb-rotation') ?? '0',
+				const thumbRotation = Number.parseInt(
+					child.dataset['avpvhThumbRotation'] ?? '0',
 					10
 				);
 				const pswpWidth = $(child).attr('data-pswp-width');
@@ -5163,7 +5159,7 @@ export class Shortcode {
 					gridImage instanceof HTMLImageElement &&
 					gridImage.naturalWidth > 0 &&
 					gridImage.naturalHeight > 0 &&
-					child.hasAttribute('data-avpvh-thumb-rotation')
+					child.dataset['avpvhThumbRotation'] !== undefined
 				) {
 					ratio = gridImage.naturalWidth / gridImage.naturalHeight;
 					if (thumbRotation === 90 || thumbRotation === 270) {
@@ -5173,7 +5169,9 @@ export class Shortcode {
 					pswpWidth !== undefined &&
 					pswpHeight !== undefined
 				) {
-					ratio = parseFloat(pswpWidth) / parseFloat(pswpHeight);
+					ratio =
+						Number.parseFloat(pswpWidth) /
+						Number.parseFloat(pswpHeight);
 				} else {
 					const image = child.firstChild as HTMLImageElement;
 					if (
@@ -5193,7 +5191,7 @@ export class Shortcode {
 				if ($(child).hasClass('avpvh-grid-square')) {
 					ratio = 1;
 				}
-				if (isNaN(ratio)) {
+				if (Number.isNaN(ratio)) {
 					loaded[i] = false;
 				} else {
 					loaded[i] = true;
@@ -5204,8 +5202,14 @@ export class Shortcode {
 		if (0 < ratios.length) {
 			this.container.find('.avpvh-loading').remove();
 		}
-		const baseHeight = parseInt(avpvhShortcodeLocalize.grid_height, 10);
-		const boxSpacing = parseInt(avpvhShortcodeLocalize.grid_spacing, 10);
+		const baseHeight = Number.parseInt(
+			avpvhShortcodeLocalize.grid_height,
+			10
+		);
+		const boxSpacing = Number.parseInt(
+			avpvhShortcodeLocalize.grid_spacing,
+			10
+		);
 		const galleryEl = this.container.find('.avpvh-gallery');
 		const containerWidth = galleryEl.width() ?? 800;
 
@@ -5237,8 +5241,8 @@ export class Shortcode {
 				$(child).height(box.height);
 				const gridImage = child.querySelector('.avpvh-grid-img');
 				if (gridImage instanceof HTMLImageElement) {
-					const thumbRotation = parseInt(
-						child.getAttribute('data-avpvh-thumb-rotation') ?? '0',
+					const thumbRotation = Number.parseInt(
+						child.dataset['avpvhThumbRotation'] ?? '0',
 						10
 					);
 					const quarterTurn =
@@ -5438,7 +5442,7 @@ export class Shortcode {
 		this.filterTotal = null;
 		this.rememberFilter();
 		this.path = this.pathQueryParameter.get();
-		this.lastPage = parseInt(this.pageQueryParameter.get()) || 1;
+		this.lastPage = Number.parseInt(this.pageQueryParameter.get()) || 1;
 		this.container
 			.find('.avpvh-gallery')
 			.replaceWith('<div class="avpvh-loading"><div></div></div>');
@@ -5597,18 +5601,21 @@ export class Shortcode {
 		if ('' === avpvhShortcodeLocalize.rest_nonce) {
 			return;
 		}
-		const bar = buildFilterBar(
-			avpvhShortcodeLocalize.ajax_url,
-			this.filter ?? this.draftConditions,
-			this.filterTotal,
-			{
+		const bar = buildFilterBar({
+			ajaxUrl: avpvhShortcodeLocalize.ajax_url,
+			conditions: this.filter ?? this.draftConditions,
+			total: this.filterTotal,
+			scope: {
 				selected: this.filterFolders,
 				load: async (path) => {
 					const listing = await this.fetchFolder(path);
 					return (listing?.directories ?? []).map((directory) => ({
 						id: directory.id,
 						name: directory.name,
-						path: `${path === '' ? '' : `${path}/`}${directory.id}`,
+						path:
+							'' === path
+								? directory.id
+								: `${path}/${directory.id}`,
 					}));
 				},
 				onChange: (folders) => {
@@ -5618,7 +5625,7 @@ export class Shortcode {
 					}
 				},
 			},
-			{
+			sort: {
 				order: this.sortOrder,
 				onChange: (order) => {
 					this.sortOrder = order;
@@ -5634,7 +5641,7 @@ export class Shortcode {
 					}
 				},
 			},
-			{
+			share: {
 				enabled: avpvhShortcodeLocalize.can_share === 'true',
 				captions: avpvhShortcodeLocalize.can_caption === 'true',
 				google:
@@ -5645,7 +5652,7 @@ export class Shortcode {
 				sort: this.sortOrder,
 				nonce: avpvhShortcodeLocalize.tag_nonce,
 			},
-			{
+			library: {
 				filters: this.savedFilters,
 				shared: avpvhShortcodeLocalize.shared_filters,
 				recipients: async () => this.filterRecipients(),
@@ -5659,7 +5666,7 @@ export class Shortcode {
 				onDelete: async (id) => this.deleteSavedFilter(id),
 				onSave: async (name, id) => this.saveNamedFilter(name, id),
 			},
-			(conditions) => {
+			onChange: (conditions) => {
 				if (isActiveFilter(conditions)) {
 					this.draftConditions = [];
 					this.getFiltered(conditions);
@@ -5667,8 +5674,8 @@ export class Shortcode {
 					this.draftConditions = conditions;
 					this.get();
 				}
-			}
-		);
+			},
+		});
 		this.container.prepend(bar);
 	}
 
@@ -5867,9 +5874,7 @@ export class Shortcode {
 		const links = this.container
 			.find('a.avpvh-grid-a[data-pswp-width]')
 			.get();
-		const index = links.findIndex(
-			(el) => el.getAttribute('data-avpvh-id') === hash
-		);
+		const index = links.findIndex((el) => el.dataset['avpvhId'] === hash);
 		if (0 <= index) {
 			this.hashSeekPages = 0;
 			this.lightbox.loadAndOpen(index);
@@ -5975,7 +5980,7 @@ export class Shortcode {
 			if (sizeMatch === null) {
 				return;
 			}
-			const size = parseInt(sizeMatch[1], 10);
+			const size = Number.parseInt(sizeMatch[1], 10);
 			// Use the thumbnail's natural dimensions to determine the true display aspect ratio.
 			// Google Drive serves =h{n} thumbnails in display orientation (Drive's own EXIF
 			// rotation applied), so naturalWidth/naturalHeight reflects the correct
@@ -5984,12 +5989,12 @@ export class Shortcode {
 			// overrides Drive's own) — if that differs from Drive's rotation by a 90°
 			// step, the thumbnail's orientation no longer matches what the lightbox will
 			// actually show, so transpose the ratio to compensate.
-			const driveRotation = parseInt(
-				el.getAttribute('data-avpvh-drive-rotation') ?? '0',
+			const driveRotation = Number.parseInt(
+				el.dataset['avpvhDriveRotation'] ?? '0',
 				10
 			);
-			const effectiveRotation = parseInt(
-				el.getAttribute('data-avpvh-rotation') ?? '0',
+			const effectiveRotation = Number.parseInt(
+				el.dataset['avpvhRotation'] ?? '0',
 				10
 			);
 			const driveSwapped = [90, 270].includes(driveRotation);
@@ -6009,8 +6014,8 @@ export class Shortcode {
 				newH = size;
 				newW = Math.round(size * ratio);
 			}
-			el.setAttribute('data-pswp-width', String(newW));
-			el.setAttribute('data-pswp-height', String(newH));
+			el.dataset['pswpWidth'] = String(newW);
+			el.dataset['pswpHeight'] = String(newH);
 		});
 	}
 
@@ -6456,14 +6461,15 @@ export class Shortcode {
 	// household, see Like_Visibility on the PHP side) plus how many more.
 	private static likersText(names: Array<string>, count: number): string {
 		const others = count - names.length;
-		if (names.length === 0) {
-			return others > 0
-				? `${String(others)} ${others === 1 ? 'persoon' : 'personen'}`
-				: '';
+		if (others <= 0) {
+			return names.join(', ');
 		}
-		return others > 0
-			? `${names.join(', ')} en ${String(others)} ${others === 1 ? 'ander' : 'anderen'}`
-			: names.join(', ');
+		if (names.length === 0) {
+			const people = others === 1 ? 'persoon' : 'personen';
+			return `${String(others)} ${people}`;
+		}
+		const rest = others === 1 ? 'ander' : 'anderen';
+		return `${names.join(', ')} en ${String(others)} ${rest}`;
 	}
 
 	// The reaction group holding "like", which has its own top-bar button

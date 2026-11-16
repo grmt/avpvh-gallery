@@ -1844,6 +1844,16 @@ function wp_safe_redirect( $location, $status = 0, $x_redirect_by = '' ) {
 }
 
 /**
+ * @param string $location
+ * @param int    $status
+ * @param string $x_redirect_by
+ *
+ * @return bool
+ */
+function wp_redirect( $location, $status = 302, $x_redirect_by = 'WordPress' ) {
+}
+
+/**
  * @param mixed $response
  * @param int   $status_code
  *
@@ -2193,3 +2203,26 @@ function wp_schedule_event( $timestamp, $recurrence, $hook, $args = array(), $wp
  */
 function wp_schedule_single_event( $timestamp, $hook, $args = array(), $wp_error = false ) {
 }
+
+/**
+ * @param WP_REST_Request $request
+ * @return WP_REST_Response
+ */
+function rest_do_request( $request ) {}
+
+/**
+ * @param string $url
+ * @param array<string, mixed> $args
+ * @return array{body: string, response: array{code: int|false, message: string|false}}|WP_Error
+ */
+function wp_safe_remote_get( $url, $args = array() ) {}
+
+/**
+ * @param string $url
+ * @param string|null $scheme
+ * @return string
+ */
+function set_url_scheme( $url, $scheme = null ) {}
+
+/** @var array<array<string, mixed>> */
+$EZSQL_ERROR = array();

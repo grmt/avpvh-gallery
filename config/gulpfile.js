@@ -68,12 +68,12 @@ gulp.task(
 								} else if (mode === 'classMap') {
 									line = line.replace(
 										/^(\s*)'([^']*)' =>/,
-										"$1'Avpvh\\\\Vendor\\\\$2' =>"
+										String.raw`$1'Avpvh\\Vendor\\$2' =>`
 									);
 								} else {
 									line = line.replace(
-										'namespace Composer\\Autoload;',
-										'namespace Avpvh\\Vendor\\Composer\\Autoload;'
+										String.raw`namespace Composer\Autoload;`,
+										String.raw`namespace Avpvh\Vendor\Composer\Autoload;`
 									);
 								}
 								return line;

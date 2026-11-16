@@ -830,7 +830,7 @@ class ExifInspector {
 				continue;
 			}
 			const row = document.createElement('tr');
-			row.setAttribute('data-correction-row', '1');
+			row.dataset['correctionRow'] = '1';
 			row.style.cssText = 'background: #fff3cd;';
 			const th = document.createElement('td');
 			th.style.fontWeight = 'bold';
@@ -1178,6 +1178,21 @@ class ExifInspector {
 		window.addEventListener('beforeunload', () => {
 			this.flushPendingSaves();
 		});
+	}
+
+	private shownStatus(): string {
+		return this.isVideo()
+			? 'Deze video wordt getoond.'
+			: 'Deze foto wordt getoond.';
+	}
+
+	// "12 bestanden", or "12 van 40 bestanden" while a filter hides some.
+	private fileCountLabel(): string {
+		const shown = String(this.displayFiles.length);
+		if (this.displayFiles.length === this.allFiles.length) {
+			return `${shown} bestanden`;
+		}
+		return `${shown} van ${String(this.allFiles.length)} bestanden`;
 	}
 
 	private init(): void {
@@ -2513,7 +2528,7 @@ class ExifInspector {
 						`<span style="font-size:11px;color:#666">Laad media →</span>` +
 						`</div>${parentHint}`;
 					li.title = `Alle foto's en video's uit map "${f.name}" laden`;
-					li.setAttribute('data-folder-id', f.id);
+					li.dataset['folderId'] = f.id;
 					li.addEventListener('mousedown', (e) => {
 						e.preventDefault();
 						input.value = f.name;
@@ -2542,7 +2557,7 @@ class ExifInspector {
 								ExifInspector.driveFileUrl(f.id),
 								`"${f.name}" openen in Google Drive`
 							);
-						li.setAttribute('data-file-id', f.id);
+						li.dataset['fileId'] = f.id;
 						li.addEventListener('mousedown', (e) => {
 							e.preventDefault();
 							input.value = f.name;
@@ -2731,7 +2746,7 @@ class ExifInspector {
 			const parts = path
 				.split('/')
 				.map((p) => p.trim())
-				.filter((p) => p);
+				.filter(Boolean);
 
 			if (parts.length === 0) {
 				ExifInspector.showError('Voer een geldig bestandspad in');
@@ -3084,10 +3099,14 @@ class ExifInspector {
 			} else if (driveRot !== 0) {
 				driveRotLabel = `${String(driveRot)}°`;
 			}
+			const driveIcon = ExifInspector.driveLinkIconHtml(
+				ExifInspector.driveFileUrl(file.id),
+				'"' + file.name + '" openen in Google Drive'
+			);
 			html +=
 				`<tr class="file-table-row${isSel ? ' file-table-selected' : ''}${this.excludedPhotoIds.has(file.id) ? ' photo-excluded' : ''}" data-file-id="${ExifInspector.escapeHtml(file.id)}">` +
 				`<td style="color:#aaa;text-align:right;width:2.5em;">${String(overallIdx)}</td>` +
-				`<td title="${ExifInspector.escapeHtml(file.name)}" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.excludedPhotoIds.has(file.id) ? '<span style="color:#d63638;font-weight:700;" aria-label="Uitgesloten">✕</span> ' : ''}${ExifInspector.escapeHtml(file.name)}${ExifInspector.driveLinkIconHtml(ExifInspector.driveFileUrl(file.id), `"${file.name}" openen in Google Drive`)}</td>` +
+				`<td title="${ExifInspector.escapeHtml(file.name)}" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.excludedPhotoIds.has(file.id) ? '<span style="color:#d63638;font-weight:700;" aria-label="Uitgesloten">✕</span> ' : ''}${ExifInspector.escapeHtml(file.name)}${driveIcon}</td>` +
 				`<td>${isVideo ? '▶ Video' : '▧ Foto'}</td>` +
 				`<td>${ExifInspector.escapeHtml(cam)}</td>` +
 				`<td${!isVideo && orient !== 1 ? ' style="color:#b04000;font-weight:500;"' : ''}>${isVideo ? 'n.v.t.' : ExifInspector.orientLabel(orient)}</td>` +
@@ -3571,9 +3590,7 @@ class ExifInspector {
 			}
 			this.startOrientationFetch();
 			this.applyFilter();
-			this.renderBreadcrumb(
-				`${String(this.displayFiles.length)}${this.displayFiles.length !== this.allFiles.length ? ` van ${String(this.allFiles.length)}` : ''} bestanden`
-			);
+			this.renderBreadcrumb(this.fileCountLabel());
 			this.currentFileIndex = 0;
 			this.renderFilesView();
 			this.displayCurrentFile();
@@ -3608,10 +3625,8 @@ class ExifInspector {
 			const idx = this.displayFiles.findIndex(
 				(f) => f.id === selectFileId
 			);
-			this.currentFileIndex = idx >= 0 ? idx : 0;
-			this.renderBreadcrumb(
-				`${String(this.displayFiles.length)}${this.displayFiles.length !== this.allFiles.length ? ` van ${String(this.allFiles.length)}` : ''} bestanden`
-			);
+			this.currentFileIndex = Math.max(idx, 0);
+			this.renderBreadcrumb(this.fileCountLabel());
 			this.renderFilesView();
 			this.displayCurrentFile();
 		} catch (error) {
@@ -4092,9 +4107,7 @@ class ExifInspector {
 
 		const rerender = (): void => {
 			this.applyFilter();
-			this.renderBreadcrumb(
-				`${String(this.displayFiles.length)}${this.displayFiles.length !== this.allFiles.length ? ` van ${String(this.allFiles.length)}` : ''} bestanden`
-			);
+			this.renderBreadcrumb(this.fileCountLabel());
 			this.currentFileIndex = 0;
 			this.renderFilesView();
 			if (this.displayFiles.length > 0) {
@@ -4122,7 +4135,7 @@ class ExifInspector {
 			.querySelectorAll<HTMLInputElement>('.filter-orient-cb')
 			.forEach((cb) => {
 				cb.addEventListener('change', () => {
-					const val = parseInt(cb.value, 10);
+					const val = Number.parseInt(cb.value, 10);
 					if (cb.checked) {
 						this.filterOrientations.add(val);
 						this.doStartOrientationFetch();
@@ -4557,7 +4570,7 @@ class ExifInspector {
 				status ||
 				(excluded
 					? 'Uitgesloten van gallery, lightbox en diavoorstelling.'
-					: `${this.isVideo() ? 'Deze video' : 'Deze foto'} wordt getoond.`);
+					: this.shownStatus());
 			statusElement.style.color = excluded ? '#b32d2e' : '#50575e';
 		}
 		ExifInspector.setExclusionDetailsVisible(excluded);
@@ -4813,7 +4826,7 @@ class ExifInspector {
 			this.currentFile.size !== ''
 		) {
 			const sizeInMB = (
-				parseInt(this.currentFile.size, 10) /
+				Number.parseInt(this.currentFile.size, 10) /
 				(1024 * 1024)
 			).toFixed(2);
 			this.addTableRow(tbody, 'Bestandsgrootte', `${sizeInMB} MB`);
@@ -5097,7 +5110,9 @@ class ExifInspector {
 			const ia = sectionOrder.indexOf(sa);
 			const ib = sectionOrder.indexOf(sb);
 			if (ia !== ib) {
-				return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+				const rankA = ia === -1 ? 99 : ia;
+				const rankB = ib === -1 ? 99 : ib;
+				return rankA - rankB;
 			}
 			return a.localeCompare(b);
 		});
@@ -5229,7 +5244,7 @@ class ExifInspector {
 
 		// Format specific fields
 		if (key.includes('ExposureTime')) {
-			const num = parseFloat(value);
+			const num = Number.parseFloat(value);
 			if (num < 1) {
 				return `1/${String(Math.round(1 / num))}s`;
 			}
@@ -5245,7 +5260,7 @@ class ExifInspector {
 		}
 
 		if (key.endsWith(':Orientation') || key === 'Orientation') {
-			const orientation = parseInt(value, 10);
+			const orientation = Number.parseInt(value, 10);
 			const lightT = this.effectiveTransform('lightbox');
 			const lightRot = lightT.r;
 			const lightH = lightT.h;
@@ -5288,8 +5303,8 @@ class ExifInspector {
 		}
 
 		if (key.endsWith(':FileDateTime') || key === 'FileDateTime') {
-			const ts = parseInt(value, 10);
-			if (!isNaN(ts) && ts > 0) {
+			const ts = Number.parseInt(value, 10);
+			if (!Number.isNaN(ts) && ts > 0) {
 				const d = new Date(ts * 1000);
 				const fmt = d.toLocaleString('nl-NL', {
 					year: 'numeric',
@@ -5304,8 +5319,8 @@ class ExifInspector {
 		}
 
 		if (key.endsWith(':FileSize') || key === 'FileSize') {
-			const bytes = parseInt(value, 10);
-			if (!isNaN(bytes) && bytes > 0) {
+			const bytes = Number.parseInt(value, 10);
+			if (!Number.isNaN(bytes) && bytes > 0) {
 				const sizeInKB = bytes / 1024;
 				const sizeInMB = bytes / (1024 * 1024);
 				const human =
@@ -5436,7 +5451,7 @@ class ExifInspector {
 			this.currentFile.size !== undefined &&
 			this.currentFile.size !== ''
 		) {
-			const bytes = parseInt(this.currentFile.size, 10);
+			const bytes = Number.parseInt(this.currentFile.size, 10);
 			const sizeInMB = (bytes / (1024 * 1024)).toFixed(2);
 			const metadata = this.isVideo()
 				? this.currentFile.videoMediaMetadata
@@ -5759,7 +5774,7 @@ class ExifInspector {
 		} of ExifInspector.buildSortedPreviews(thumbLink)) {
 			const item = document.createElement('div');
 			item.className = 'preview-item';
-			item.setAttribute('data-size-key', sizeKey);
+			item.dataset['sizeKey'] = sizeKey;
 
 			item.innerHTML = `
 				<h4>${label}</h4>
@@ -5884,10 +5899,13 @@ class ExifInspector {
 			encodeURIComponent(this.currentFile.size ?? '0') +
 			'&_wpnonce=' +
 			encodeURIComponent(this.nonce);
+		const posterAttr = thumbLink
+			? ' poster="' + ExifInspector.escapeHtml(thumbLink) + '"'
+			: '';
 		player.innerHTML = `
 			<h4>Video afspelen</h4>
 			<div class="correction-scope">Originele video, beveiligd gestreamd via de website</div>
-			<video class="inspector-video-player" controls playsinline preload="metadata"${thumbLink ? ` poster="${ExifInspector.escapeHtml(thumbLink)}"` : ''}>
+			<video class="inspector-video-player" controls playsinline preload="metadata"${posterAttr}>
 				<source src="${ExifInspector.escapeHtml(streamUrl)}" type="${ExifInspector.escapeHtml(this.currentFile.mimeType ?? 'video/mp4')}" />
 				Deze browser kan deze video niet afspelen.
 			</video>`;
@@ -5974,7 +5992,7 @@ class ExifInspector {
 		container
 			.querySelectorAll<HTMLElement>('.preview-item[data-size-key]')
 			.forEach((item) => {
-				const sizeKey = item.getAttribute('data-size-key') ?? '';
+				const sizeKey = item.dataset['sizeKey'] ?? '';
 				this.transformsBySize[sizeKey] = { ...src };
 				this.showingOriginalSizeKeys.delete(sizeKey);
 				ExifInspector.applyTransformToItem(item, src);
@@ -6032,7 +6050,7 @@ class ExifInspector {
 		const createdTime = this.currentFile?.createdTime;
 		if (createdTime !== undefined && createdTime !== '') {
 			const created = new Date(createdTime);
-			if (!isNaN(created.getTime())) {
+			if (!Number.isNaN(created.getTime())) {
 				lines.push({
 					text: `Geüpload naar Drive: ${created.toLocaleString(
 						'nl-NL',
@@ -6107,10 +6125,13 @@ class ExifInspector {
 			});
 		}
 		summary.innerHTML = lines
-			.map(
-				({ text, color }) =>
-					`<div${color !== undefined ? ` style="color:${color};font-weight:600"` : ''}>${ExifInspector.escapeHtml(text)}</div>`
-			)
+			.map(({ text, color }) => {
+				const style =
+					color === undefined
+						? ''
+						: ' style="color:' + color + ';font-weight:600"';
+				return `<div${style}>${ExifInspector.escapeHtml(text)}</div>`;
+			})
 			.join('');
 		if (resetAll) {
 			resetAll.style.display = ownKeys.length > 0 ? '' : 'none';
@@ -6232,7 +6253,7 @@ class ExifInspector {
 					'#icons-container .preview-item[data-size-key]'
 			)
 			.forEach((item) => {
-				const sizeKey = item.getAttribute('data-size-key') ?? '';
+				const sizeKey = item.dataset['sizeKey'] ?? '';
 				const t = this.showingOriginalSizeKeys.has(sizeKey)
 					? { r: 0, h: false, v: false }
 					: this.effectiveTransform(sizeKey);
@@ -6353,7 +6374,7 @@ class ExifInspector {
 		for (const { url, label } of variants) {
 			const item = document.createElement('div');
 			item.className = 'preview-item';
-			item.setAttribute('data-size-key', 'grid');
+			item.dataset['sizeKey'] = 'grid';
 
 			item.innerHTML = `
 				<h4>${label}</h4>
@@ -6465,7 +6486,7 @@ class ExifInspector {
 		const startTime = performance.now();
 		// Use a numeric key for timing storage; derive from sizeKey or 0 for named keys
 		const numericSize = sizeKey.startsWith('s')
-			? parseInt(sizeKey.slice(1), 10)
+			? Number.parseInt(sizeKey.slice(1), 10)
 			: 0;
 
 		const proxyUrl =

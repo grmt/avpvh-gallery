@@ -26,6 +26,11 @@ use Throwable;
 final class Photo_Shares_Removal implements Gallery_Component {
 
 	/**
+	 * Title of the removal page.
+	 */
+	private const PAGE_TITLE = 'Deling verwijderen';
+
+	/**
 	 * The admin-post action.
 	 */
 	private const ACTION = 'avpvh_gallery_share_remove';
@@ -112,17 +117,21 @@ final class Photo_Shares_Removal implements Gallery_Component {
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing
 
 		if ( ! $share instanceof stdClass || ! hash_equals( self::token( $share ), $token ) ) {
-			wp_die( 'Deze link is ongeldig.', 'Deling verwijderen', array( 'response' => 403 ) );
+			wp_die( 'Deze link is ongeldig.', esc_html( self::PAGE_TITLE ), array( 'response' => 403 ) );
 		}
 
 		if ( ! in_array( $share->status, array( 'pending', 'ready' ), true ) ) {
-			wp_die( 'Deze deling is al verwijderd of verlopen.', 'Deling verwijderen', array( 'response' => 200 ) );
+			wp_die(
+				'Deze deling is al verwijderd of verlopen.',
+				esc_html( self::PAGE_TITLE ),
+				array( 'response' => 200 )
+			);
 		}
 
 		if ( ! $sure ) {
 			wp_die(
 				wp_kses( self::confirmation( $share, $token ), self::FORM_HTML ),
-				'Deling verwijderen',
+				esc_html( self::PAGE_TITLE ),
 				array( 'response' => 200 )
 			);
 		}

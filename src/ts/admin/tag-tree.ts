@@ -270,13 +270,15 @@ function moveForm(node: TagNode, after: HTMLElement): void {
 function deleteForm(node: TagNode, after: HTMLElement): void {
 	const photos = photosWith(node);
 	const below = node.type === 'tag' ? '' : ' en alles eronder';
+	const fotos = photos === 1 ? 'foto' : "foto's";
+	const tags = node.type === 'tag' ? 'tag' : 'tags';
+	const loss =
+		photos > 0
+			? ` ${String(photos)} ${fotos} verliezen deze ${tags}.`
+			: " Geen foto's hebben deze tag.";
 	const form = element(
 		'div',
-		`"${node.label}"${below} verwijderen?` +
-			(photos > 0
-				? ` ${String(photos)} foto${photos === 1 ? '' : "'s"} verliezen deze tag${node.type === 'tag' ? '' : 's'}.`
-				: " Geen foto's hebben deze tag.") +
-			' ',
+		`"${node.label}"${below} verwijderen?${loss} `,
 		'avpvh-tag-tree-add'
 	);
 	form.append(

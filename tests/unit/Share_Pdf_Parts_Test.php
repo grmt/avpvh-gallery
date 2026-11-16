@@ -5,8 +5,14 @@
  * @package avpvh-gallery
  */
 
+use Avpvh\Exceptions\Share_Exception;
+use Avpvh\Frontend\Share_Pdf;
 use Avpvh\Frontend\Share_Pdf_Parts;
+use Avpvh\Tests\Share_File_IO;
 use PHPUnit\Framework\TestCase;
+
+require_once dirname( __DIR__ ) . '/fixtures/class-share-file-io.php';
+require_once dirname( __DIR__ ) . '/fixtures/share-file-functions.php';
 
 /** Tests the completed PDF files, not just their JPEG payloads. */
 final class Share_Pdf_Parts_Test extends TestCase {
@@ -144,13 +150,13 @@ final class Share_Pdf_Parts_Test extends TestCase {
 			/**
 			 * Throws the expected synthetic upload error.
 			 *
-			 * @throws RuntimeException Synthetic upload failure.
+			 * @throws Share_Exception Synthetic upload failure.
 			 */
 			function ( $name, $file ) {
 				self::assertStringEndsWith( '.pdf', $name );
 				$this->path = $file;
 
-				throw new RuntimeException( 'Synthetic upload failure' );
+				throw new Share_Exception( 'Synthetic upload failure' );
 			}
 		);
 		$parts->add( self::jpeg() );
@@ -158,11 +164,89 @@ final class Share_Pdf_Parts_Test extends TestCase {
 		try {
 			$parts->finish();
 			self::fail( 'Expected an upload failure' );
-		} catch ( RuntimeException $error ) {
+		} catch ( Share_Exception $error ) {
 			self::assertSame( 'Synthetic upload failure', $error->getMessage() );
 		}
 
 		self::assertFileDoesNotExist( $this->path );
+	}
+
+	/**
+	 * A photo larger than an empty part fails before any upload and removes its temporary PDF.
+	 *
+	 * @return void
+	 */
+	public function test_oversized_photo_is_rejected_and_cleaned_up() {
+		$parts = new Share_Pdf_Parts(
+			static function () {
+				self::fail( 'An oversized photo must not be uploaded.' );
+			},
+			1000
+		);
+
+		try {
+			$parts->add( self::jpeg() . str_repeat( 'x', 2000 ) );
+			self::fail( 'Expected an oversized-photo error.' );
+		} catch ( Share_Exception $error ) {
+			self::assertStringContainsString( 'Een foto is te groot', $error->getMessage() );
+		}
+
+		$pdf  = ( new ReflectionProperty( Share_Pdf_Parts::class, 'pdf' ) )->getValue( $parts );
+		$path = ( new ReflectionProperty( $pdf, 'path' ) )->getValue( $pdf );
+		unset( $pdf, $parts );
+		$this->assertFileDoesNotExist( $path );
+	}
+
+	/**
+	 * The final size guard rejects a file that grew after estimation and still cleans it up.
+	 *
+	 * @return void
+	 */
+	public function test_oversized_finished_pdf_is_never_uploaded() {
+		$parts = new Share_Pdf_Parts(
+			static function () {
+				self::fail( 'An oversized PDF must not be uploaded.' );
+			}
+		);
+		$parts->add( self::jpeg() );
+		$pdf  = ( new ReflectionProperty( Share_Pdf_Parts::class, 'pdf' ) )->getValue( $parts );
+		$path = ( new ReflectionProperty( $pdf, 'path' ) )->getValue( $pdf );
+		// Lower the limit after admission to exercise the independent final-file guard.
+		( new ReflectionProperty( Share_Pdf_Parts::class, 'limit' ) )->setValue( $parts, 1 );
+
+		try {
+			$parts->finish();
+			self::fail( 'Expected a final-size error.' );
+		} catch ( Share_Exception $error ) {
+			self::assertStringContainsString( 'Het PDF-deel overschrijdt', $error->getMessage() );
+		}
+
+		$this->assertFileDoesNotExist( $path );
+		$parts->finish();
+	}
+
+	/**
+	 * A failed fopen must not leave the empty file already created by tempnam.
+	 *
+	 * @return void
+	 */
+	public function test_failed_open_removes_the_created_temporary_file() {
+		Share_File_IO::enable( true );
+
+		try {
+			( new Share_Pdf() )->finish();
+			$this->fail( 'Expected the simulated filesystem failure.' );
+		} catch ( Share_Exception $error ) {
+			$this->assertSame( 'Could not write the PDF', $error->getMessage() );
+			$this->assertFileDoesNotExist( (string) Share_File_IO::path() );
+		} finally {
+			$path = Share_File_IO::path();
+			Share_File_IO::enable( false );
+
+			if ( null !== $path ) {
+				wp_delete_file( $path );
+			}
+		}
 	}
 
 	/**

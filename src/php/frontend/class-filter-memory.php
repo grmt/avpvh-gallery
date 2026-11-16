@@ -205,7 +205,11 @@ final class Filter_Memory {
 		$conditions = self::conditions( $state['conditions'] );
 		$folders    = self::folders( $state['folders'] ?? array() );
 
-		return array() === $conditions ? null : array(
+		if ( array() === $conditions ) {
+			return null;
+		}
+
+		return array(
 			'conditions' => $conditions,
 			'folders'    => $folders,
 			'here'       => true === ( $state['here'] ?? false ),

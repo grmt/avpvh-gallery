@@ -11,9 +11,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
+use Avpvh\Exceptions\Tag_Import_Exception;
 use Avpvh\Frontend\Subject_Tag_Tree;
 use Avpvh\Tag_Log;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -158,7 +158,7 @@ final class Tag_Import_Votes {
 	 *
 	 * @return array<string, int|string> Receipt row.
 	 *
-	 * @throws RuntimeException The insert failed.
+	 * @throws Tag_Import_Exception The insert failed.
 	 */
 	private static function insert( array $vote ) {
 		global $wpdb;
@@ -178,14 +178,17 @@ final class Tag_Import_Votes {
 		);
 
 		if ( 1 !== $inserted ) {
-			throw new RuntimeException( esc_html( 'insert failed for ' . $vote['path'] . ': ' . $wpdb->last_error ) );
+			throw new Tag_Import_Exception(
+				esc_html( 'insert failed for ' . $vote['path'] . ': ' . $wpdb->last_error )
+			);
 		}
 
+		$vote_id = (int) $wpdb->insert_id;
 		wp_set_current_user( $user_id );
 		Tag_Log::record( $vote['image_id'], 'subject', $vote['tag_key'], $vote['tag_label'], 'add' );
 
 		return array(
-			'id'       => (int) $wpdb->insert_id,
+			'id'       => $vote_id,
 			'image_id' => $vote['image_id'],
 			'tag_key'  => $vote['tag_key'],
 			'user_id'  => $user_id,

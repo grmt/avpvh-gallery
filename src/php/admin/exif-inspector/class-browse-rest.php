@@ -35,6 +35,21 @@ use WP_REST_Response;
 final class Browse_REST implements Gallery_Component {
 
 	/**
+	 * The REST namespace of these routes.
+	 */
+	private const REST_NAMESPACE = 'avpvh-gallery/v1';
+
+	/**
+	 * Error when the plugin has no Google authorization.
+	 */
+	private const NOT_AUTHORIZED = 'Plugin not authorized';
+
+	/**
+	 * Prefix for errors from the Drive API.
+	 */
+	private const API_ERROR = 'API error: ';
+
+	/**
 	 * Registers the REST routes.
 	 */
 	public function register(): void {
@@ -50,7 +65,7 @@ final class Browse_REST implements Gallery_Component {
 	 */
 	public function register_routes() {
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/search',
 			array(
 				'args'                => array(
@@ -80,7 +95,7 @@ final class Browse_REST implements Gallery_Component {
 		);
 
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/list-folders',
 			array(
 				'callback'            => array( $this, 'list_folders' ),
@@ -90,7 +105,7 @@ final class Browse_REST implements Gallery_Component {
 		);
 
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/list-files',
 			array(
 				'callback'            => array( $this, 'list_files' ),
@@ -100,7 +115,7 @@ final class Browse_REST implements Gallery_Component {
 		);
 
 		register_rest_route(
-			'avpvh-gallery/v1',
+			self::REST_NAMESPACE,
 			'exif-inspector/list-subfolders',
 			array(
 				'callback'            => array( $this, 'list_subfolders' ),
@@ -148,9 +163,9 @@ final class Browse_REST implements Gallery_Component {
 				array( 'status' => 404 )
 			);
 		} catch ( Plugin_Not_Authorized_Exception $e ) {
-			return new WP_Error( 'not_authorized', 'Plugin not authorized', array( 'status' => 403 ) );
+			return new WP_Error( 'not_authorized', self::NOT_AUTHORIZED, array( 'status' => 403 ) );
 		} catch ( API_Exception $e ) {
-			return new WP_Error( 'api_error', 'API error: ' . $e->getMessage(), array( 'status' => 500 ) );
+			return new WP_Error( 'api_error', self::API_ERROR . $e->getMessage(), array( 'status' => 500 ) );
 		}
 	}
 
@@ -204,9 +219,9 @@ final class Browse_REST implements Gallery_Component {
 				200
 			);
 		} catch ( Plugin_Not_Authorized_Exception $e ) {
-			return new WP_Error( 'not_authorized', 'Plugin not authorized', array( 'status' => 403 ) );
+			return new WP_Error( 'not_authorized', self::NOT_AUTHORIZED, array( 'status' => 403 ) );
 		} catch ( API_Exception $e ) {
-			return new WP_Error( 'api_error', 'API error: ' . $e->getMessage(), array( 'status' => 500 ) );
+			return new WP_Error( 'api_error', self::API_ERROR . $e->getMessage(), array( 'status' => 500 ) );
 		}
 	}
 
@@ -258,9 +273,9 @@ final class Browse_REST implements Gallery_Component {
 
 			return new WP_REST_Response( array( 'folders' => $results[0] ), 200 );
 		} catch ( Plugin_Not_Authorized_Exception $e ) {
-			return new WP_Error( 'not_authorized', 'Plugin not authorized', array( 'status' => 403 ) );
+			return new WP_Error( 'not_authorized', self::NOT_AUTHORIZED, array( 'status' => 403 ) );
 		} catch ( API_Exception $e ) {
-			return new WP_Error( 'api_error', 'API error: ' . $e->getMessage(), array( 'status' => 500 ) );
+			return new WP_Error( 'api_error', self::API_ERROR . $e->getMessage(), array( 'status' => 500 ) );
 		}
 	}
 
@@ -295,7 +310,7 @@ final class Browse_REST implements Gallery_Component {
 
 			return new WP_REST_Response( $data, 200 );
 		} catch ( Plugin_Not_Authorized_Exception $e ) {
-			return new WP_Error( 'not_authorized', 'Plugin not authorized', array( 'status' => 403 ) );
+			return new WP_Error( 'not_authorized', self::NOT_AUTHORIZED, array( 'status' => 403 ) );
 		} catch ( Throwable $e ) {
 			// Return empty results rather than 500 — Drive rate limits are transient
 			// and a hard error breaks the autocomplete UX unnecessarily.

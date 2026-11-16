@@ -121,14 +121,14 @@ final class Main implements Gallery_Component {
 			return $html;
 		}
 
-		$filtered_html = preg_replace( '/\\s+(?:srcset|sizes)=(\"|\\\').*?\\1/i', '', $html );
+		$filtered_html = preg_replace( '/\\s+(?:srcset|sizes)=(["\']).*?\\1/i', '', $html );
 
 		if ( null === $filtered_html ) {
 			return $html;
 		}
 
 		$filtered_html = preg_replace(
-			'/\\s+src=(\"|\\\').*?\\1/i',
+			'/\\s+src=(["\']).*?\\1/i',
 			' src="' . esc_url( self::trowel_png_url( 150 ) ) . '"',
 			$filtered_html,
 			1

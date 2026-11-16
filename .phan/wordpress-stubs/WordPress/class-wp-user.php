@@ -7,6 +7,9 @@ declare(strict_types = 1);
 
 class WP_User {
 
+	/** @param string $role @return void */
+	public function set_role( $role ) {}
+
 	/**
 	 * @var stdClass
 	 */

@@ -187,7 +187,7 @@ function selectedMemberIds(select: HTMLSelectElement): Array<number> {
 
 	select.querySelectorAll<HTMLOptionElement>('option').forEach((option) => {
 		if (option.selected) {
-			ids.push(parseInt(option.value, 10));
+			ids.push(Number.parseInt(option.value, 10));
 		}
 	});
 

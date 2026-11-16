@@ -62,7 +62,7 @@ html.pswp-is-open body {
 	font-size: 12px;
 	line-height: 1.4;
 	padding: 3px 8px;
-	transition: all 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+	transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 	user-select: none; /* stylelint-disable-line plugin/no-unsupported-browser-features */
 }
 
@@ -89,6 +89,14 @@ html.pswp-is-open body {
 .avpvh-breadcrumb-up img,
 .avpvh-breadcrumb-sibling img {
 	transition: transform 0.2s ease; /* stylelint-disable-line plugin/no-unsupported-browser-features */
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+	.avpvh-breadcrumb-up img,
+	.avpvh-breadcrumb-sibling img {
+		transition: none;
+	}
 }
 
 .avpvh-breadcrumb-up:hover img {
@@ -1552,7 +1560,6 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 	background: #fff;
 	border: 1px solid #8c8f94;
 	border-radius: 3px;
-	color: #fff;
 	cursor: pointer;
 	display: inline-flex;
 	font-size: 12px;
@@ -1568,11 +1575,13 @@ a[data-avpvh-thumb-rotation="270"][data-avpvh-thumb-vflip="1"] .avpvh-grid-img {
 .avpvh-filter-folder-box[data-state="in"] {
 	background: #2271b1;
 	border-color: #2271b1;
+	color: #fff;
 }
 
 .avpvh-filter-folder-box[data-state="out"] {
 	background: #d63638;
 	border-color: #d63638;
+	color: #fff;
 }
 
 /* Nothing chosen here, but something further down: a small blue dash. */

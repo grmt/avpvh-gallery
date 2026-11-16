@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Die, die, die!' );
 }
 
-use RuntimeException;
+use Avpvh\Exceptions\Share_Exception;
 
 /**
  * Streams A4 pages into numbered PDFs, uploading each completed part
@@ -69,7 +69,7 @@ final class Share_Pdf_Parts {
 	 * @param string $jpeg JPEG contents, already cropped and captioned.
 	 *
 	 * @return void
-	 * @throws RuntimeException A single photo cannot fit in an empty part.
+	 * @throws Share_Exception A single photo cannot fit in an empty part.
 	 */
 	public function add( $jpeg ) {
 		$this->pdf ??= new Share_Pdf();
@@ -80,7 +80,7 @@ final class Share_Pdf_Parts {
 		}
 
 		if ( ! $this->pdf->can_add( $jpeg, $this->limit ) ) {
-			throw new RuntimeException( 'Een foto is te groot voor een PDF-deel van maximaal 80 MB.' );
+			throw new Share_Exception( 'Een foto is te groot voor een PDF-deel van maximaal 80 MB.' );
 		}
 
 		$this->pdf->add( $jpeg );
@@ -91,7 +91,7 @@ final class Share_Pdf_Parts {
 	 * Empty selections never produce an empty PDF.
 	 *
 	 * @return void
-	 * @throws RuntimeException The actual file exceeds the maximum size.
+	 * @throws Share_Exception The actual file exceeds the maximum size.
 	 */
 	public function finish() {
 		if ( null === $this->pdf ) {
@@ -107,7 +107,7 @@ final class Share_Pdf_Parts {
 			$bytes = filesize( $path );
 
 			if ( false === $bytes || $bytes > $this->limit ) {
-				throw new RuntimeException( 'Het PDF-deel overschrijdt de limiet van 80 MB.' );
+				throw new Share_Exception( 'Het PDF-deel overschrijdt de limiet van 80 MB.' );
 			}
 
 			if ( 0 < $pages ) {

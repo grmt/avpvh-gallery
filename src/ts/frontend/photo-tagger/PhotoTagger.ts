@@ -381,7 +381,7 @@ export class PhotoTagger {
 		btn.type = 'button';
 		btn.textContent = 'Taggen';
 		btn.onclick = (): void => {
-			const memberId = parseInt(select.value, 10);
+			const memberId = Number.parseInt(select.value, 10);
 			if (memberId > 0) {
 				callback(memberId);
 				overlay.remove();
@@ -495,10 +495,10 @@ export class PhotoTagger {
 			return;
 		}
 
-		const newImageId = imageLink.getAttribute('data-avpvh-id');
+		const newImageId = imageLink.dataset['avpvhId'];
 
 		if (
-			null !== newImageId &&
+			undefined !== newImageId &&
 			'' !== newImageId &&
 			newImageId !== this.currentImageId
 		) {
