@@ -7,6 +7,7 @@
 
 use Avpvh\Admin\Tag_Import_Plan;
 use Avpvh\Admin\Tag_Import_Votes;
+use Avpvh\Exceptions\Tag_Import_Exception;
 use Avpvh\Frontend\Subject_Tag_Tree;
 use Avpvh\Photo_Tags_DB;
 use Avpvh\Tag_Log;
@@ -114,6 +115,51 @@ final class Tag_Import_Test extends WP_UnitTestCase {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write() commits its insert, so commit fixture cleanup rather than letting the test framework roll it back.
 			$wpdb->query( 'COMMIT' );
 		}
+	}
+
+	/**
+	 * A duplicate insert rolls back preceding votes and their audit rows, without an undo receipt.
+	 *
+	 * @return void
+	 */
+	public function test_failed_import_rolls_back_the_entire_batch() {
+		global $wpdb;
+		$vote              = self::row( 'fixture-rollback', '1' );
+		$vote['image_id']  = 'fixture-rollback-' . wp_generate_password( 12, false );
+		$vote['status']    = 'new';
+		$vote['tag_label'] = 'Synthetic tag';
+		$before            = Tag_Import_Votes::batches();
+		$suppressed        = $wpdb->suppress_errors();
+
+		try {
+			Tag_Import_Votes::write(
+				array(
+					'duplicate' => $vote,
+					'first'     => $vote,
+				)
+			);
+			$this->fail( 'A duplicate-key insert must fail the whole import.' );
+		} catch ( Tag_Import_Exception $error ) {
+			$this->assertStringContainsString( 'insert failed for Album/Photo.jpg:', $error->getMessage() );
+			$this->assertStringContainsString( 'Duplicate entry', $error->getMessage() );
+		} finally {
+			$wpdb->suppress_errors( $suppressed );
+		}
+
+		$this->assertSame( array(), Tag_Import_Votes::existing( array( $vote['image_id'] ) ) );
+		$this->assertSame( $before, Tag_Import_Votes::batches() );
+		$this->assertSame( 0, get_current_user_id() );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- inspect the transaction's synthetic audit rows.
+		$this->assertSame(
+			'0',
+			$wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}agallery_tag_log WHERE image_id = %s",
+					$vote['image_id']
+				)
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**

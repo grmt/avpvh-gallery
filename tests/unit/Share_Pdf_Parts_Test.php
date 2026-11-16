@@ -167,6 +167,60 @@ final class Share_Pdf_Parts_Test extends TestCase {
 	}
 
 	/**
+	 * A photo larger than an empty part fails before any upload and removes its temporary PDF.
+	 *
+	 * @return void
+	 */
+	public function test_oversized_photo_is_rejected_and_cleaned_up() {
+		$parts = new Share_Pdf_Parts(
+			static function () {
+				self::fail( 'An oversized photo must not be uploaded.' );
+			},
+			1000
+		);
+
+		try {
+			$parts->add( self::jpeg() . str_repeat( 'x', 2000 ) );
+			self::fail( 'Expected an oversized-photo error.' );
+		} catch ( Share_Exception $error ) {
+			self::assertStringContainsString( 'Een foto is te groot', $error->getMessage() );
+		}
+
+		$pdf  = ( new ReflectionProperty( Share_Pdf_Parts::class, 'pdf' ) )->getValue( $parts );
+		$path = ( new ReflectionProperty( $pdf, 'path' ) )->getValue( $pdf );
+		unset( $pdf, $parts );
+		$this->assertFileDoesNotExist( $path );
+	}
+
+	/**
+	 * The final size guard rejects a file that grew after estimation and still cleans it up.
+	 *
+	 * @return void
+	 */
+	public function test_oversized_finished_pdf_is_never_uploaded() {
+		$parts = new Share_Pdf_Parts(
+			static function () {
+				self::fail( 'An oversized PDF must not be uploaded.' );
+			}
+		);
+		$parts->add( self::jpeg() );
+		$pdf  = ( new ReflectionProperty( Share_Pdf_Parts::class, 'pdf' ) )->getValue( $parts );
+		$path = ( new ReflectionProperty( $pdf, 'path' ) )->getValue( $pdf );
+		// Lower the limit after admission to exercise the independent final-file guard.
+		( new ReflectionProperty( Share_Pdf_Parts::class, 'limit' ) )->setValue( $parts, 1 );
+
+		try {
+			$parts->finish();
+			self::fail( 'Expected a final-size error.' );
+		} catch ( Share_Exception $error ) {
+			self::assertStringContainsString( 'Het PDF-deel overschrijdt', $error->getMessage() );
+		}
+
+		$this->assertFileDoesNotExist( $path );
+		$parts->finish();
+	}
+
+	/**
 	 * A real, generated JPEG for the PDF streams.
 	 *
 	 * @return string

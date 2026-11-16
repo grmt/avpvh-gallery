@@ -17,6 +17,9 @@ class WP_REST_Request implements ArrayAccess {
 	/** @param array<string, mixed> $params */
 	public function set_query_params( $params ) {}
 
+	/** @param string $key @param mixed $value @return void */
+	public function set_param( $key, $value ) {}
+
 	/** @param string $body */
 	public function set_body( $body ) {}
 

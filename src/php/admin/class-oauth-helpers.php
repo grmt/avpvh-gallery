@@ -25,11 +25,6 @@ use Avpvh\Vendor\GuzzleHttp\Exception\TransferException;
 final class OAuth_Helpers {
 
 	/**
-	 * The redirect header.
-	 */
-	private const LOCATION = 'Location: ';
-
-	/**
 	 * Redirects to the OAuth granting URL
 	 *
 	 * @return void
@@ -41,7 +36,8 @@ final class OAuth_Helpers {
 
 		$client   = API_Client::get_unauthorized_raw_client();
 		$auth_url = $client->createAuthUrl();
-		header( self::LOCATION . esc_url_raw( $auth_url ) );
+		// phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- the Google client supplies the external authorization URL; a local-only redirect would prevent OAuth consent.
+		wp_redirect( esc_url_raw( $auth_url ) );
 	}
 
 	/**
@@ -81,7 +77,7 @@ final class OAuth_Helpers {
 		}
 
 		set_transient( 'settings_errors', get_settings_errors(), 30 );
-		header( self::LOCATION . esc_url_raw( admin_url( 'admin.php?page=avpvh_basic&settings-updated=true' ) ) );
+		wp_safe_redirect( admin_url( 'admin.php?page=avpvh_basic&settings-updated=true' ) );
 	}
 
 	/**
@@ -120,7 +116,7 @@ final class OAuth_Helpers {
 		}
 
 		set_transient( 'settings_errors', get_settings_errors(), 30 );
-		header( self::LOCATION . esc_url_raw( admin_url( 'admin.php?page=avpvh_basic&settings-updated=true' ) ) );
+		wp_safe_redirect( admin_url( 'admin.php?page=avpvh_basic&settings-updated=true' ) );
 	}
 
 	/**

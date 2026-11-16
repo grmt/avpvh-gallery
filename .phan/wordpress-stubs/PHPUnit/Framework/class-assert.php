@@ -8,6 +8,8 @@ declare(strict_types = 1);
 namespace PHPUnit\Framework;
 
 class Assert {
+	/** @param mixed $needle @param iterable<mixed> $haystack @param string $message @return void */
+	public static function assertContains( $needle, $haystack, $message = '' ) {}
 
 	/** @param mixed $actual @param string $message @return void */
 	public static function assertTrue( $actual, $message = '' ) {}

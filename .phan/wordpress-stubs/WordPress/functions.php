@@ -1844,6 +1844,16 @@ function wp_safe_redirect( $location, $status = 0, $x_redirect_by = '' ) {
 }
 
 /**
+ * @param string $location
+ * @param int    $status
+ * @param string $x_redirect_by
+ *
+ * @return bool
+ */
+function wp_redirect( $location, $status = 302, $x_redirect_by = 'WordPress' ) {
+}
+
+/**
  * @param mixed $response
  * @param int   $status_code
  *
