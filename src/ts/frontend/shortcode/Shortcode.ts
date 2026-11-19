@@ -5018,16 +5018,23 @@ export class Shortcode {
 				rowHeight = targetHeight;
 			}
 
-			let currentLeft = 0;
+			// Round each tile's edges, not its width: rounding the widths one
+			// by one added up, so rows ended a pixel or two before or past
+			// the container's edge. A full row ends exactly at the edge.
+			const fullRow = rowHeight === availableWidth / rowSumRatio;
+			const lastIdx = rowIndices[rowIndices.length - 1];
+			const top = Math.round(currentTop);
+			const height = Math.round(currentTop + rowHeight) - top;
+			let exactLeft = 0;
 			for (const idx of rowIndices) {
-				const itemWidth = Math.round(ratios[idx] * rowHeight);
-				boxes[idx] = {
-					top: Math.round(currentTop),
-					left: Math.round(currentLeft),
-					width: itemWidth,
-					height: Math.round(rowHeight),
-				};
-				currentLeft += itemWidth + boxSpacing;
+				const left = Math.round(exactLeft);
+				exactLeft += ratios[idx] * rowHeight;
+				const right =
+					fullRow && idx === lastIdx
+						? containerWidth
+						: Math.round(exactLeft);
+				boxes[idx] = { top, left, width: right - left, height };
+				exactLeft += boxSpacing;
 			}
 
 			currentTop += rowHeight + boxSpacing;
