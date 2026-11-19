@@ -5218,7 +5218,8 @@ export class Shortcode {
 			10
 		);
 		const galleryEl = this.container.find('.avpvh-gallery');
-		const containerWidth = galleryEl.width() ?? 800;
+		// Whole pixels: a full row ends exactly here (see computeJustifiedLayout).
+		const containerWidth = Math.floor(galleryEl.width() ?? 800);
 
 		const positions = Shortcode.computeJustifiedLayout(
 			ratios,
@@ -5242,8 +5243,17 @@ export class Shortcode {
 				const containerPosition = this.container
 					.find('.avpvh-gallery')
 					.position();
-				$(child).css('top', box.top + containerPosition.top);
-				$(child).css('left', box.left + containerPosition.left);
+				// The gallery itself can sit on a fractional position (a
+				// centred column); round, so tiles land on whole pixels
+				// instead of half ones (soft edges, 1 px seams).
+				$(child).css(
+					'top',
+					Math.round(box.top + containerPosition.top)
+				);
+				$(child).css(
+					'left',
+					Math.round(box.left + containerPosition.left)
+				);
 				$(child).width(box.width);
 				$(child).height(box.height);
 				const gridImage = child.querySelector('.avpvh-grid-img');
