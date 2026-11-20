@@ -271,3 +271,17 @@ jobs:
         missing_composer_json_file
         PluginCheck.CodeAnalysis.Offloading.OffloadedContent
         plugin_updater_detected
+
+  # SonarQube Cloud through the shared workflow (instead of Automatic Analysis,
+  # which must be off for this project). PHPUnit stays in the "unit" job above:
+  # the tests need the WordPress test suite and the built dist/, which the
+  # shared PHPUnit job doesn't set up.
+  quality:
+    name: "Quality"
+    uses: grmt/wp-plugin-ci/.github/workflows/quality.yml@main
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
+    with:
+      phpunit: false
